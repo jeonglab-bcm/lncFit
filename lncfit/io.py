@@ -1,4 +1,4 @@
-def read_fasta(path: str) -> list:
+def read_fasta(path: str) -> list[str]:
     sequences = []
     current_seq = []
     with open(path) as f:
