@@ -1,6 +1,6 @@
 import re
 
 
-def parse_log2fc(text: str):
-    match = re.search(r"(?<![A-Za-z\d])[-+]?\d+\.?\d*", text)
+def parse_log2fc(text: str) -> float | None:
+    match = re.search(r"(?<![A-Za-z\d])[-+]?\d+\.?\d*(?:[eE][-+]?\d+)?", text)
     return float(match.group()) if match else None

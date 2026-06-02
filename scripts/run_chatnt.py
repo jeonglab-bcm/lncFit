@@ -7,6 +7,7 @@ exploratory estimates and require experimental validation before use.
 """
 
 import argparse
+import logging
 import sys
 
 from lncfit.prompts import build_essentiality_prompt
@@ -53,11 +54,15 @@ def main():
         print(f"  Sequence {i}   : length {len(seq)}")
     print()
 
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     if args.dry_run:
         print("[dry-run] Model not loaded. Exiting.")
         return
 
-    run_chatnt_inference(prompt, dna_sequences)
+    value = run_chatnt_inference(prompt, dna_sequences)
+    if value is None:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
