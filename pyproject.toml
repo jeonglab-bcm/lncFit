@@ -1,0 +1,19 @@
+[project]
+name = "lncfit"
+version = "0.1.0"
+description = "lncRNA fitness predictor using ChatNT"
+requires-python = ">=3.10"
+dependencies = [
+    # ChatNT model uses PreTrainedModel.all_tied_weights_keys which was removed in
+    # transformers 5.0; pin to 4.x to keep the API compatible.
+    "transformers>=4.36,<5.0",
+    "torch",
+    # Required by the ChatNT tokenizer (SentencePiece model file / protobuf format).
+    "protobuf",
+    "sentencepiece",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
