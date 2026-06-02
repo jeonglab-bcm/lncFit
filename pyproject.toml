@@ -1,0 +1,14 @@
+[project]
+name = "lncfit"
+version = "0.1.0"
+description = "lncRNA fitness predictor using ChatNT"
+requires-python = ">=3.10"
+dependencies = [
+    "transformers",
+    "torch",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
