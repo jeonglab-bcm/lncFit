@@ -1,6 +1,3 @@
-# Generated processed data (too large for GitHub; regenerate with scripts/build_processed.py)
-data/processed/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
