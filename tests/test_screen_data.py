@@ -6,7 +6,10 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from lncfit.screen_data import ScreenRecord, load_targets, load_annotations, load_screen, to_dataframe
+from lncfit.screen_data import (
+    ScreenRecord, load_targets, load_annotations, load_screen, to_dataframe,
+    save_jsonl, load_jsonl, SCHEMA_VERSION,
+)
 
 
 _FC_HEADERS = [
@@ -160,3 +163,47 @@ def test_to_dataframe_schema(tmp_path):
         "chrom", "strand", "closest_pc_gene", "distance_to_closest_pc_gene",
     }
     assert len(df) == 40
+
+
+def test_save_load_jsonl_round_trip(tmp_path):
+    mmc2 = _make_mmc2(tmp_path)
+    targets = load_targets(mmc2)
+    annots = load_annotations(mmc2)
+    records = load_screen(_make_mmc3(tmp_path), targets, annotations=annots)
+    path = tmp_path / "records.jsonl"
+    save_jsonl(records, path)
+    loaded = load_jsonl(path)
+    assert len(loaded) == len(records)
+    assert loaded[0] == records[0]
+
+
+def test_jsonl_stamped_with_schema_version(tmp_path):
+    import json
+    record = ScreenRecord("g1", "T1", "ACGT", "HAP1", 7, 1, -1.0)
+    path = tmp_path / "records.jsonl"
+    save_jsonl([record], path)
+    line = json.loads(path.read_text().strip())
+    assert line["_v"] == SCHEMA_VERSION
+
+
+def test_from_dict_ignores_unknown_keys():
+    d = {
+        "guide_id": "g1", "target": "T1", "target_sequence": "ACGT",
+        "cell_line": "HAP1", "day": 7, "replicate": 1, "fold_change": -1.0,
+        "future_field": "ignored",
+    }
+    r = ScreenRecord.from_dict(d)
+    assert r.guide_id == "g1"
+    assert r.chrom == ""  # default applied
+
+
+def test_from_dict_missing_optional_fields_use_defaults():
+    d = {
+        "guide_id": "g1", "target": "T1", "target_sequence": "ACGT",
+        "cell_line": "HAP1", "day": 7, "replicate": 1, "fold_change": -1.0,
+    }
+    r = ScreenRecord.from_dict(d)
+    assert r.chrom == ""
+    assert r.strand == ""
+    assert r.closest_pc_gene == ""
+    assert r.distance_to_closest_pc_gene is None
