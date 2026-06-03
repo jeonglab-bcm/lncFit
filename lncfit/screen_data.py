@@ -26,12 +26,23 @@ _SHEET_TO_CELL_LINE: dict[str, str] = {
     "S2E": "THP1",
 }
 
-_FC_HEADER_RE = re.compile(r"[Dd]ay\s*(\d+).*?[Rr]ep(?:licate)?\s*(\d+)", re.IGNORECASE)
+_FC_HEADER_RE = re.compile(
+    r"[Dd]ay\s*(\d+).*?[Rr]ep(?:licate)?\s*(\d+).*?\(Fold-change\)", re.IGNORECASE
+)
+
+
+def _find_header_row(path, sheet_name: str) -> int:
+    """Return the 0-indexed row where the first cell is 'ID' (skips title/blank rows)."""
+    probe = pd.read_excel(path, sheet_name=sheet_name, header=None, usecols=[0], dtype=str)
+    for i, val in enumerate(probe.iloc[:, 0]):
+        if str(val).strip() == "ID":
+            return i
+    return 0
 
 
 def load_targets(path: Path | str) -> dict[str, tuple[str, str]]:
     """Parse S1B sheet from mmc2.xlsx. Returns {guide_id: (target, target_sequence)}."""
-    df = pd.read_excel(path, sheet_name="S1B", header=0, dtype=str)
+    df = pd.read_excel(path, sheet_name="S1B", header=_find_header_row(path, "S1B"), dtype=str)
     id_col, target_col, seq_col = df.columns[0], df.columns[1], df.columns[2]
     return {
         row[id_col]: (row[target_col], row[seq_col])
@@ -50,7 +61,7 @@ def load_screen(
     for sheet_name, cell_line in _SHEET_TO_CELL_LINE.items():
         if sheet_name not in xl.sheet_names:
             continue
-        df = pd.read_excel(xl, sheet_name=sheet_name, header=0, dtype=str)
+        df = pd.read_excel(xl, sheet_name=sheet_name, header=_find_header_row(xl, sheet_name), dtype=str)
         id_col = df.columns[0]
         fc_cols: list[tuple[str, int, int]] = []
         for col in df.columns[1:]:

@@ -1,6 +1,3 @@
-# Raw data files (download locally, do not commit)
-data/raw/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
