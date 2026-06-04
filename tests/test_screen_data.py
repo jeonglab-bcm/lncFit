@@ -170,7 +170,7 @@ def test_save_load_jsonl_round_trip(tmp_path):
     targets = load_targets(mmc2)
     annots = load_annotations(mmc2)
     records = load_screen(_make_mmc3(tmp_path), targets, annotations=annots)
-    path = tmp_path / "records.jsonl"
+    path = tmp_path / "records.jsonl.gz"
     save_jsonl(records, path)
     loaded = load_jsonl(path)
     assert len(loaded) == len(records)
@@ -178,11 +178,13 @@ def test_save_load_jsonl_round_trip(tmp_path):
 
 
 def test_jsonl_stamped_with_schema_version(tmp_path):
+    import gzip
     import json
     record = ScreenRecord("g1", "T1", "ACGT", "HAP1", 7, 1, -1.0)
-    path = tmp_path / "records.jsonl"
+    path = tmp_path / "records.jsonl.gz"
     save_jsonl([record], path)
-    line = json.loads(path.read_text().strip())
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        line = json.loads(f.read().strip())
     assert line["_v"] == SCHEMA_VERSION
 
 
