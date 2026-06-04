@@ -7,24 +7,14 @@ from pathlib import Path
 
 import numpy as np
 import xgboost as xgb
-from scipy.stats import pearsonr, spearmanr
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.screen_data import load_jsonl
 from lncfit.features import build_features
+from lncfit.metrics import compute_metrics
 
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
-
-
-def rmse(y_true, y_pred):
-    return float(np.sqrt(np.mean((np.array(y_true) - np.array(y_pred)) ** 2)))
-
-
-def print_metrics(label, y_true, y_pred):
-    r, _ = pearsonr(y_true, y_pred)
-    rho, _ = spearmanr(y_true, y_pred)
-    print(f"  {label:<20}  n={len(y_true):>7,}  Pearson r={r:.4f}  Spearman ρ={rho:.4f}  RMSE={rmse(y_true, y_pred):.4f}")
 
 
 def main():
@@ -77,17 +67,11 @@ def main():
     print("\nEvaluating ...")
     y_pred = model.predict(X_test)
 
-    print_metrics("Overall", y_test.values, y_pred)
-
-    metrics_rows = [{"split": "overall", "n": len(y_test),
-                     "pearson_r": pearsonr(y_test, y_pred)[0],
-                     "spearman_rho": spearmanr(y_test, y_pred)[0],
-                     "rmse": rmse(y_test, y_pred)}]
-
     test_df = X_test.copy()
     test_df["_y_true"] = y_test.values
     test_df["_y_pred"] = y_pred
 
+    metrics_rows = [compute_metrics("Overall", y_test.values, y_pred)]
     for cl in _CELL_LINES:
         col = f"cell_{cl}"
         if col not in test_df.columns:
@@ -95,13 +79,9 @@ def main():
         mask = test_df[col] == 1
         if mask.sum() == 0:
             continue
-        yt = test_df.loc[mask, "_y_true"].values
-        yp = test_df.loc[mask, "_y_pred"].values
-        print_metrics(cl, yt, yp)
-        metrics_rows.append({"split": cl, "n": len(yt),
-                              "pearson_r": pearsonr(yt, yp)[0],
-                              "spearman_rho": spearmanr(yt, yp)[0],
-                              "rmse": rmse(yt, yp)})
+        metrics_rows.append(compute_metrics(cl,
+                                            test_df.loc[mask, "_y_true"].values,
+                                            test_df.loc[mask, "_y_pred"].values))
 
     model.save_model(str(model_path))
     print(f"\nModel saved      -> {model_path}")
