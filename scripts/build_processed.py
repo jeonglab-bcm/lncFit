@@ -1,4 +1,4 @@
-"""Build data/processed/screen_records.jsonl from raw Excel files."""
+"""Build data/processed/screen_records.jsonl.gz from raw Excel files."""
 import sys
 from pathlib import Path
 
@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lncfit.screen_data import load_annotations, load_screen, load_targets, save_jsonl
 
 RAW = Path("data/raw")
-OUT = Path("data/processed/screen_records.jsonl")
+OUT = Path("data/processed/screen_records.jsonl.gz")
 
 
 def main() -> None:
