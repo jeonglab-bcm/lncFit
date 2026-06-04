@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import dataclasses
+import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+
+
+SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +25,19 @@ class ScreenRecord:
     strand: str = ""
     closest_pc_gene: str = ""
     distance_to_closest_pc_gene: int | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ScreenRecord:
+        """Construct from a dict, ignoring unknown keys and applying defaults for missing fields."""
+        known = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in known}
+        # Coerce numeric fields that JSON may deserialise as float
+        for name in ("day", "replicate"):
+            if name in filtered and filtered[name] is not None:
+                filtered[name] = int(filtered[name])
+        if filtered.get("distance_to_closest_pc_gene") is not None:
+            filtered["distance_to_closest_pc_gene"] = int(filtered["distance_to_closest_pc_gene"])
+        return cls(**filtered)
 
 
 _SHEET_TO_CELL_LINE: dict[str, str] = {
@@ -140,6 +158,28 @@ def load_screen(
                         distance_to_closest_pc_gene=dist,
                     )
                 )
+    return records
+
+
+def save_jsonl(records: list[ScreenRecord], path: Path | str) -> None:
+    """Write records to a JSONL file, one JSON object per line, stamped with schema version."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        for r in records:
+            d = dataclasses.asdict(r)
+            d["_v"] = SCHEMA_VERSION
+            f.write(json.dumps(d) + "\n")
+
+
+def load_jsonl(path: Path | str) -> list[ScreenRecord]:
+    """Load records from a JSONL file produced by save_jsonl."""
+    records: list[ScreenRecord] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(ScreenRecord.from_dict(json.loads(line)))
     return records
 
 
