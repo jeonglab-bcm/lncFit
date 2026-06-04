@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import gzip
 import json
 import re
 from dataclasses import dataclass
@@ -162,10 +163,10 @@ def load_screen(
 
 
 def save_jsonl(records: list[ScreenRecord], path: Path | str) -> None:
-    """Write records to a JSONL file, one JSON object per line, stamped with schema version."""
+    """Write records to a gzip-compressed JSONL file, one JSON object per line, stamped with schema version."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
+    with gzip.open(path, "wt", encoding="utf-8") as f:
         for r in records:
             d = dataclasses.asdict(r)
             d["_v"] = SCHEMA_VERSION
@@ -173,9 +174,9 @@ def save_jsonl(records: list[ScreenRecord], path: Path | str) -> None:
 
 
 def load_jsonl(path: Path | str) -> list[ScreenRecord]:
-    """Load records from a JSONL file produced by save_jsonl."""
+    """Load records from a gzip-compressed JSONL file produced by save_jsonl."""
     records: list[ScreenRecord] = []
-    with open(path) as f:
+    with gzip.open(path, "rt", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
