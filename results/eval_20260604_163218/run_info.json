@@ -1,0 +1,9 @@
+{
+  "model_path": "data/model/xgboost_k3.ubj",
+  "test_file": "data/processed/test_chrom1.jsonl.gz",
+  "k": 3,
+  "include_distance": false,
+  "n_test_records": 69292,
+  "timestamp": "20260604_163218",
+  "git_commit": "645d4fb"
+}
