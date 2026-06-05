@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate a saved XGBoost log2FC model.")
     parser.add_argument("--model", required=True, help="Path to saved model (.ubj or .json)")
     parser.add_argument("--test", default="data/processed/test_chrom1.jsonl.gz")
-    parser.add_argument("--k", type=int, choices=[3, 6], default=6)
+    parser.add_argument("--k", type=int, choices=[3, 6], default=3)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--output-dir", default="results")
     args = parser.parse_args()
