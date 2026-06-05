@@ -219,3 +219,6 @@ __marimo__/
 
 # Trained model artifacts
 data/model/*.ubj
+
+# Memory profiler output
+logs/
