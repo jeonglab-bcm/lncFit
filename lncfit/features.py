@@ -3,7 +3,6 @@ from __future__ import annotations
 import itertools
 
 import numpy as np
-import pandas as pd
 
 from lncfit.screen_data import ScreenRecord
 
@@ -18,11 +17,7 @@ def all_kmers(k: int) -> list[str]:
 
 
 def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
-    """Normalized k-mer frequency vector for seq. Non-ACGT characters are skipped.
-
-    Sliding window of size k; each window that contains a non-ACGT character is dropped.
-    Result sums to 1.0 (or is all zeros if no valid k-mers exist).
-    """
+    """Normalized k-mer frequency vector for seq. Non-ACGT characters are skipped."""
     vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
     counts = [0] * len(vocab)
     total = 0
@@ -40,10 +35,7 @@ def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
 
 
 def _fill_kmer_row(row: np.ndarray, seq: str, k: int, vocab_index: dict[str, int]) -> None:
-    """Fill a pre-allocated float32 row with normalised k-mer frequencies in-place.
-
-    Uses a pre-built vocab_index dict so it is not rebuilt on every call.
-    """
+    """Fill a pre-allocated float32 row with normalised k-mer frequencies in-place."""
     total = 0
     for i in range(len(seq) - k + 1):
         kmer = seq[i : i + k]
@@ -61,19 +53,22 @@ def build_features(
     records: list[ScreenRecord],
     k: int = 6,
     include_distance: bool = False,
-) -> tuple[pd.DataFrame, pd.Series]:
-    """Build feature matrix X and target vector y from a list of ScreenRecords.
+    dtype: np.dtype = np.float32,
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Build feature matrix X, target vector y, and column names from ScreenRecords.
 
-    X columns: k-mer frequency features, day one-hot, cell-line one-hot,
-               and optionally distance_to_closest_pc_gene.
-    y: fold_change (one row per record — both replicates kept as independent examples).
+    Returns (X, y, columns):
+      X        ndarray of shape (n_records, n_features), dtype controlled by `dtype`
+      y        float32 ndarray of shape (n_records,)
+      columns  list[str] of feature column names
 
-    Memory layout: preallocates a single float32 numpy array instead of building a
-    Python list-of-lists. For k=6 at 1M records this reduces peak RAM from ~57 GB
-    to ~16 GB by eliminating the intermediate Python object overhead.
+    Memory layout: preallocates a single array and fills rows in-place.
+    For k=6 at 1M records: float32 ~16 GB, float16 ~8 GB.
+    Pass dtype=np.float16 in the Optuna CV loop to halve the steady-state matrix size;
+    convert individual fold slices to float32 before passing to XGBoost.
+    Returns bare numpy arrays — no pandas/polars wrapper.
     """
     vocab = all_kmers(k)
-    # Build vocab_index once here; _fill_kmer_row reuses it across all records.
     vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
     n_kmer = len(vocab)
 
@@ -88,7 +83,7 @@ def build_features(
     day_offset = n_kmer
     cell_offset = n_kmer + len(_DAYS)
 
-    X = np.zeros((n, n_cols), dtype=np.float32)
+    X = np.zeros((n, n_cols), dtype=dtype)
     y = np.empty(n, dtype=np.float32)
 
     for i, r in enumerate(records):
@@ -104,4 +99,4 @@ def build_features(
             X[i, n_cols - 1] = float(dist)
         y[i] = r.fold_change
 
-    return pd.DataFrame(X, columns=columns), pd.Series(y, name="fold_change")
+    return X, y, columns
