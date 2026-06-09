@@ -79,6 +79,9 @@ def main():
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-trials", type=int, default=50,
                         help="Number of Optuna trials (default 50; 50–100 recommended).")
+    parser.add_argument("--objective", default="reg:squarederror",
+                        choices=["reg:squarederror", "reg:pseudohubererror"],
+                        help="XGBoost training objective (default: reg:squarederror).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--final-val-chrom", default="22",
@@ -135,15 +138,18 @@ def main():
     cv_rows: list[dict] = []
 
     def objective(trial: optuna.Trial) -> float:
+        lr = trial.suggest_float("learning_rate", 0.005, 0.2, log=True)
+        es_rounds = max(50, int(0.5 / lr))
         base_params = dict(
-            n_estimators=2000,
-            learning_rate=trial.suggest_float("learning_rate", 0.02, 0.3, log=True),
+            n_estimators=5000,
+            learning_rate=lr,
             max_depth=trial.suggest_int("max_depth", 3, 9),
             subsample=trial.suggest_float("subsample", 0.5, 1.0),
             colsample_bytree=trial.suggest_float("colsample_bytree", 0.5, 1.0),
             min_child_weight=trial.suggest_int("min_child_weight", 1, 10),
             reg_alpha=trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
             reg_lambda=trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+            objective=args.objective,
             tree_method="hist",
             random_state=args.seed,
         )
@@ -167,7 +173,7 @@ def main():
             # Fresh callback per fold — EarlyStopping holds per-training state
             model = xgb.XGBRegressor(
                 **base_params,
-                callbacks=[xgb.callback.EarlyStopping(rounds=50, save_best=True)],
+                callbacks=[xgb.callback.EarlyStopping(rounds=es_rounds, save_best=True)],
             )
             model.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
 
@@ -252,6 +258,7 @@ def main():
     median_n_est = int(np.median(best_cv["best_n_estimators"].values))
     best_params_doc = {
         "k": args.k,
+        "objective": args.objective,
         "include_distance": args.include_distance,
         "seed": args.seed,
         "cv_mean_spearman_rho": float(mean_rho),
@@ -262,7 +269,7 @@ def main():
             for k, v in best_trial.params.items()
         },
     }
-    params_path = model_dir / f"xgboost_best_params_k{args.k}.json"
+    params_path = model_dir / f"xgboost_best_params_k{args.k}_{_obj_tag}.json"
     with open(params_path, "w") as fh:
         json.dump(best_params_doc, fh, indent=2)
     print(f"\nBest params saved -> {params_path}")
@@ -277,8 +284,9 @@ def main():
     print(f"  final train: {final_train_mask.sum():,}  early-stop val: {final_val_mask.sum():,}")
 
     bp = best_trial.params
+    final_es_rounds = max(50, int(0.5 / bp["learning_rate"]))
     final_model = xgb.XGBRegressor(
-        n_estimators=2000,
+        n_estimators=5000,
         learning_rate=bp["learning_rate"],
         max_depth=bp["max_depth"],
         subsample=bp["subsample"],
@@ -286,9 +294,10 @@ def main():
         min_child_weight=bp["min_child_weight"],
         reg_alpha=bp["reg_alpha"],
         reg_lambda=bp["reg_lambda"],
+        objective=args.objective,
         tree_method="hist",
         random_state=args.seed,
-        callbacks=[xgb.callback.EarlyStopping(rounds=50, save_best=True)],
+        callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
         X_np[final_train_mask], y_np[final_train_mask],
@@ -298,7 +307,8 @@ def main():
     final_n_trees = final_model.best_iteration + 1
     print(f"  Final model: {final_n_trees} trees")
 
-    model_path = model_dir / f"xgboost_k{args.k}_tuned.ubj"
+    _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
+    model_path = model_dir / f"xgboost_k{args.k}_tuned_{_obj_tag}.ubj"
     final_model.save_model(str(model_path))
     print(f"  Model saved  -> {model_path}")
 
@@ -394,6 +404,7 @@ def main():
         "train_file": str(args.train),
         "test_file": str(args.test),
         "k": args.k,
+        "objective": args.objective,
         "include_distance": args.include_distance,
         "n_trials_requested": args.n_trials,
         "n_trials_completed": len([t for t in study.trials
