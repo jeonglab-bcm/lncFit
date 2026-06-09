@@ -12,6 +12,16 @@ CV structure (per Optuna trial):
     → fit XGBoost with early stopping, evaluate Spearman rho on val set
   trial score = mean Spearman rho across all folds
 
+Optimization notes:
+  - Lower learning rates (0.005–0.05) with more trees and greater early-stopping
+    patience consistently outperform higher rates; the model takes smaller steps and
+    avoids overshooting the optimum.
+  - The default training objective (reg:squarederror) minimises MSE, but the
+    evaluation metric is Spearman rank correlation — a rank-based measure.  This
+    mismatch means the model does not directly optimise what we measure.  Use
+    --objective reg:pseudohubererror for a robust alternative that down-weights
+    outliers and can improve rank correlation.
+
 Outputs:
   data/model/xgboost_best_params_k<K>.json   best hyperparameter configuration
   results/cv/cv_scores.csv                   per-chromosome rho for every trial
@@ -19,6 +29,7 @@ Outputs:
 """
 
 import argparse
+import gc
 import json
 import subprocess
 import sys
@@ -32,7 +43,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import optuna
-import pandas as pd
+import polars as pl
 import xgboost as xgb
 from scipy.stats import spearmanr
 
@@ -92,6 +103,8 @@ def main():
                         help="Root directory for all outputs (default: current directory).")
     args = parser.parse_args()
 
+    _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
+
     out_dir = Path(args.output_dir)
     model_dir = out_dir / "data" / "model"
     cv_dir = out_dir / "results" / "cv"
@@ -109,10 +122,14 @@ def main():
 
     # ── Pre-compute feature matrix once ───────────────────────────────────────
     print(f"\nBuilding features (k={args.k}, include_distance={args.include_distance}) ...")
-    X_all, y_all = build_features(train_records, k=args.k, include_distance=args.include_distance)
-    feature_cols = list(X_all.columns)
-    X_np = X_all.values.astype(np.float32)
-    y_np = y_all.values.astype(np.float32)
+    # Store the global matrix as float16 to halve steady-state RAM
+    # (k=6 @ 1M records: float32 ~16 GB → float16 ~8 GB).
+    # XGBoost receives float32 slices — only the held-between-trials copy is float16.
+    X_np, y_np, feature_cols = build_features(
+        train_records, k=args.k, include_distance=args.include_distance,
+        dtype=np.float16,
+    )
+    gc.collect()
     chrom_arr = np.array([r.chrom for r in train_records])
     print(f"  Feature matrix: {X_np.shape[0]:,} × {X_np.shape[1]}")
 
@@ -139,6 +156,8 @@ def main():
 
     def objective(trial: optuna.Trial) -> float:
         lr = trial.suggest_float("learning_rate", 0.005, 0.2, log=True)
+        # Scale early-stopping patience with learning rate: lower LR needs more rounds
+        # to detect real improvement vs. noise.
         es_rounds = max(50, int(0.5 / lr))
         base_params = dict(
             n_estimators=5000,
@@ -163,11 +182,14 @@ def main():
             es_mask = chrom_arr == es_chrom
             train_mask = ~val_mask & ~es_mask
 
-            X_tr = X_np[train_mask]
+            # Slices are float32 for XGBoost; the global X_np stays float16.
+            # Explicit del + gc after fit frees ~13 GB before the next fold's
+            # allocation, avoiding the double-copy peak at loop boundaries.
+            X_tr = X_np[train_mask].astype(np.float32)
             y_tr = y_np[train_mask]
-            X_val = X_np[val_mask]
+            X_val = X_np[val_mask].astype(np.float32)
             y_val = y_np[val_mask]
-            X_es = X_np[es_mask]
+            X_es = X_np[es_mask].astype(np.float32)
             y_es = y_np[es_mask]
 
             # Fresh callback per fold — EarlyStopping holds per-training state
@@ -176,10 +198,13 @@ def main():
                 callbacks=[xgb.callback.EarlyStopping(rounds=es_rounds, save_best=True)],
             )
             model.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
+            del X_tr, y_tr, X_es, y_es
+            gc.collect()
 
             y_pred = model.predict(X_val)
             rho, _ = spearmanr(y_val, y_pred)
             n_trees = model.best_iteration + 1
+            del X_val, y_val
 
             fold_rhos.append(float(rho))
             cv_rows.append({
@@ -212,13 +237,13 @@ def main():
         pruned = trial.state == optuna.trial.TrialState.PRUNED
         status = "PRUNED" if pruned else f"rho={trial.value:.4f}"
         print(f"  Trial {trial.number:>3d}  {status:<18}  best={best:.4f}", flush=True)
-        # Write incremental snapshot so progress is visible during the run
         if cv_rows:
-            snap = pd.DataFrame(cv_rows)
-            snap["pruned"] = snap["trial"].isin(
-                {t.number for t in study.trials if t.state == optuna.trial.TrialState.PRUNED}
+            pruned_set = [t.number for t in study.trials
+                          if t.state == optuna.trial.TrialState.PRUNED]
+            snap = pl.DataFrame(cv_rows).with_columns(
+                pl.col("trial").is_in(pruned_set).alias("pruned")
             )
-            snap.to_csv(cv_dir / "cv_scores.csv", index=False)
+            snap.write_csv(cv_dir / "cv_scores.csv")
 
     try:
         study.optimize(objective, n_trials=args.n_trials, callbacks=[_trial_callback])
@@ -230,32 +255,33 @@ def main():
         return
 
     # ── Save CV scores ─────────────────────────────────────────────────────────
-    cv_df = pd.DataFrame(cv_rows)
-    # Mark which trials were pruned
-    pruned_trials = {
-        t.number for t in study.trials
-        if t.state == optuna.trial.TrialState.PRUNED
-    }
-    cv_df["pruned"] = cv_df["trial"].isin(pruned_trials)
+    pruned_trials = [t.number for t in study.trials
+                     if t.state == optuna.trial.TrialState.PRUNED]
+    cv_df = pl.DataFrame(cv_rows).with_columns(
+        pl.col("trial").is_in(pruned_trials).alias("pruned")
+    )
     cv_path = cv_dir / "cv_scores.csv"
-    cv_df.to_csv(cv_path, index=False)
+    cv_df.write_csv(cv_path)
     print(f"\nCV scores saved  -> {cv_path}")
 
     # ── Report best trial ──────────────────────────────────────────────────────
     best_trial = study.best_trial
-    best_cv = cv_df[cv_df["trial"] == best_trial.number]
+    best_cv = cv_df.filter(pl.col("trial") == best_trial.number)
     mean_rho = best_cv["spearman_rho"].mean()
     std_rho = best_cv["spearman_rho"].std()
 
     print(f"\nBest trial: #{best_trial.number}  CV Spearman rho = {mean_rho:.4f} ± {std_rho:.4f}")
     print(f"\nPer-chromosome CV scores (best trial):")
     print(f"  {'chrom':<8}  {'n_val':>8}  {'rho':>8}  {'n_trees':>8}")
-    for _, row in best_cv.sort_values("chromosome", key=lambda s: s.map(lambda x: (len(x), x))).iterrows():
+    sorted_cv = best_cv.sort(
+        by=[pl.col("chromosome").str.len_chars(), pl.col("chromosome")]
+    )
+    for row in sorted_cv.iter_rows(named=True):
         print(f"  chr{row['chromosome']:<5}  {int(row['n_val']):>8,}  "
               f"{row['spearman_rho']:>8.4f}  {int(row['best_n_estimators']):>8}")
 
     # ── Save best hyperparameter config ───────────────────────────────────────
-    median_n_est = int(np.median(best_cv["best_n_estimators"].values))
+    median_n_est = int(np.median(best_cv["best_n_estimators"].to_numpy()))
     best_params_doc = {
         "k": args.k,
         "objective": args.objective,
@@ -300,65 +326,52 @@ def main():
         callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
-        X_np[final_train_mask], y_np[final_train_mask],
-        eval_set=[(X_np[final_val_mask], y_np[final_val_mask])],
+        X_np[final_train_mask].astype(np.float32), y_np[final_train_mask],
+        eval_set=[(X_np[final_val_mask].astype(np.float32), y_np[final_val_mask])],
         verbose=100,
     )
+    del X_np, y_np
+    gc.collect()
     final_n_trees = final_model.best_iteration + 1
     print(f"  Final model: {final_n_trees} trees")
 
-    _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
     model_path = model_dir / f"xgboost_k{args.k}_tuned_{_obj_tag}.ubj"
     final_model.save_model(str(model_path))
     print(f"  Model saved  -> {model_path}")
 
-    # Update params JSON with final model tree count
     best_params_doc["n_estimators_final_model"] = final_n_trees
     with open(params_path, "w") as fh:
         json.dump(best_params_doc, fh, indent=2)
 
     # ── Evaluate on held-out test set ─────────────────────────────────────────
     print("\nEvaluating on held-out test set ...")
-    X_test, y_test = build_features(test_records, k=args.k, include_distance=args.include_distance)
-    y_test_pred = final_model.predict(X_test.values.astype(np.float32))
+    X_test, y_test, _ = build_features(
+        test_records, k=args.k, include_distance=args.include_distance
+    )
+    y_test_pred = final_model.predict(X_test)
+    del X_test
+    gc.collect()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     eval_dir = out_dir / "results" / f"final_eval_{timestamp}"
     eval_dir.mkdir(parents=True, exist_ok=True)
 
-    test_feat_df = X_test.copy()
-    test_feat_df["_y_true"] = y_test.values
-    test_feat_df["_y_pred"] = y_test_pred
-
+    # Filter by cell line / day using the original records — no copy of X_test needed.
     print("\nTest set metrics:")
-    metrics_rows = [compute_metrics("Overall", y_test.values, y_test_pred)]
+    metrics_rows = [compute_metrics("Overall", y_test, y_test_pred)]
     for cl in _CELL_LINES:
-        col = f"cell_{cl}"
-        if col not in test_feat_df.columns:
-            continue
-        mask = test_feat_df[col] == 1
+        mask = np.array([r.cell_line == cl for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(
-            cl,
-            test_feat_df.loc[mask, "_y_true"].values,
-            test_feat_df.loc[mask, "_y_pred"].values,
-        ))
+        metrics_rows.append(compute_metrics(cl, y_test[mask], y_test_pred[mask]))
     for day in _DAYS:
-        col = f"day_{day}"
-        if col not in test_feat_df.columns:
-            continue
-        mask = test_feat_df[col] == 1
+        mask = np.array([r.day == day for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(
-            f"day_{day}",
-            test_feat_df.loc[mask, "_y_true"].values,
-            test_feat_df.loc[mask, "_y_pred"].values,
-        ))
+        metrics_rows.append(compute_metrics(f"day_{day}", y_test[mask], y_test_pred[mask]))
 
     metrics_path = eval_dir / "metrics.csv"
-    pd.DataFrame(metrics_rows).to_csv(metrics_path, index=False)
+    pl.DataFrame(metrics_rows).write_csv(metrics_path)
     print(f"\nMetrics CSV      -> {metrics_path}")
 
     preds_rows = [
@@ -370,11 +383,11 @@ def main():
             "y_true": float(y_t),
             "y_pred": float(y_p),
         }
-        for rec, y_t, y_p in zip(test_records, y_test.values, y_test_pred)
+        for rec, y_t, y_p in zip(test_records, y_test, y_test_pred)
     ]
-    preds_df = pd.DataFrame(preds_rows)
+    preds_df = pl.DataFrame(preds_rows)
     preds_path = eval_dir / "predictions.csv"
-    preds_df.to_csv(preds_path, index=False)
+    preds_df.write_csv(preds_path)
     print(f"Predictions CSV  -> {preds_path}")
 
     present_cls = [cl for cl in _CELL_LINES if (preds_df["cell_line"] == cl).any()]
@@ -383,13 +396,13 @@ def main():
     gs = gridspec.GridSpec(1, n_panels, figure=fig, wspace=0.4)
     _scatter_panel(
         fig.add_subplot(gs[0, 0]),
-        preds_df["y_true"].values, preds_df["y_pred"].values, "Overall",
+        preds_df["y_true"].to_numpy(), preds_df["y_pred"].to_numpy(), "Overall",
     )
     for i, cl in enumerate(present_cls):
-        sub = preds_df[preds_df["cell_line"] == cl]
+        sub = preds_df.filter(pl.col("cell_line") == cl)
         _scatter_panel(
             fig.add_subplot(gs[0, i + 1]),
-            sub["y_true"].values, sub["y_pred"].values, cl,
+            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), cl,
         )
     fig.suptitle(
         f"Predicted vs. Observed log2FC  (k={args.k}, tuned)",
