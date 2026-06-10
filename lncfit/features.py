@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 from lncfit.screen_data import ScreenRecord
 
@@ -54,19 +55,18 @@ def build_features(
     k: int = 6,
     include_distance: bool = False,
     dtype: np.dtype = np.float32,
-) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    sparse: bool = False,
+) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, target vector y, and column names from ScreenRecords.
 
     Returns (X, y, columns):
-      X        ndarray of shape (n_records, n_features), dtype controlled by `dtype`
+      X        ndarray or csr_matrix of shape (n_records, n_features)
       y        float32 ndarray of shape (n_records,)
       columns  list[str] of feature column names
 
-    Memory layout: preallocates a single array and fills rows in-place.
-    For k=6 at 1M records: float32 ~16 GB, float16 ~8 GB.
-    Pass dtype=np.float16 in the Optuna CV loop to halve the steady-state matrix size;
-    convert individual fold slices to float32 before passing to XGBoost.
-    Returns bare numpy arrays — no pandas/polars wrapper.
+    Pass sparse=True for a CSR sparse matrix (~0.15 GB for k=6 at 1M records vs ~8 GB
+    dense float16). XGBoost accepts csr_matrix directly; no float16/float32 cast needed.
+    The dense path still accepts a dtype parameter for backwards compatibility.
     """
     vocab = all_kmers(k)
     vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
@@ -83,20 +83,68 @@ def build_features(
     day_offset = n_kmer
     cell_offset = n_kmer + len(_DAYS)
 
-    X = np.zeros((n, n_cols), dtype=dtype)
     y = np.empty(n, dtype=np.float32)
 
+    if sparse:
+        # Build via COO arrays — only ~20 non-zeros per row for 23-nt sequences at k=6.
+        row_idx: list[int] = []
+        col_idx: list[int] = []
+        vals: list[float] = []
+
+        for i, r in enumerate(records):
+            seq = r.target_sequence
+            kmer_counts: dict[int, int] = {}
+            total = 0
+            for j in range(len(seq) - k + 1):
+                kmer = seq[j : j + k]
+                if any(c not in _BASES for c in kmer):
+                    continue
+                idx = vocab_index.get(kmer)
+                if idx is not None:
+                    kmer_counts[idx] = kmer_counts.get(idx, 0) + 1
+                    total += 1
+            if total > 0:
+                for col, count in kmer_counts.items():
+                    row_idx.append(i)
+                    col_idx.append(col)
+                    vals.append(count / total)
+            for j, d in enumerate(_DAYS):
+                if r.day == d:
+                    row_idx.append(i)
+                    col_idx.append(day_offset + j)
+                    vals.append(1.0)
+                    break
+            for j, c in enumerate(_CELL_LINES):
+                if r.cell_line == c:
+                    row_idx.append(i)
+                    col_idx.append(cell_offset + j)
+                    vals.append(1.0)
+                    break
+            if include_distance:
+                dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
+                row_idx.append(i)
+                col_idx.append(n_cols - 1)
+                vals.append(float(dist))
+            y[i] = r.fold_change
+
+        X = csr_matrix(
+            (np.array(vals, dtype=np.float32), (np.array(row_idx), np.array(col_idx))),
+            shape=(n, n_cols),
+        )
+        return X, y, columns
+
+    X_dense = np.zeros((n, n_cols), dtype=dtype)
     for i, r in enumerate(records):
-        _fill_kmer_row(X[i, :n_kmer], r.target_sequence, k, vocab_index)
+        _fill_kmer_row(X_dense[i, :n_kmer], r.target_sequence, k, vocab_index)
         for j, d in enumerate(_DAYS):
             if r.day == d:
-                X[i, day_offset + j] = 1.0
+                X_dense[i, day_offset + j] = 1.0
         for j, c in enumerate(_CELL_LINES):
             if r.cell_line == c:
-                X[i, cell_offset + j] = 1.0
+                X_dense[i, cell_offset + j] = 1.0
         if include_distance:
             dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
-            X[i, n_cols - 1] = float(dist)
+            X_dense[i, n_cols - 1] = float(dist)
         y[i] = r.fold_change
 
-    return X, y, columns
+    return X_dense, y, columns
