@@ -86,7 +86,7 @@ def main():
     )
     parser.add_argument("--train", default="data/processed/train_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_chrom1.jsonl.gz")
-    parser.add_argument("--k", type=int, choices=[3, 6], default=6)
+    parser.add_argument("--k", type=int, choices=[3, 6], default=3)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-trials", type=int, default=50,
                         help="Number of Optuna trials (default 50; 50–100 recommended).")
