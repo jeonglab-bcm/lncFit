@@ -101,6 +101,9 @@ def main():
     )
     parser.add_argument("--output-dir", default=".",
                         help="Root directory for all outputs (default: current directory).")
+    parser.add_argument("--nthread", type=int, default=-1,
+                        help="XGBoost CPU threads per model fit (-1 = all cores, the default). "
+                             "Cap this on shared servers to avoid starving other users.")
     args = parser.parse_args()
 
     _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
@@ -122,16 +125,15 @@ def main():
 
     # ── Pre-compute feature matrix once ───────────────────────────────────────
     print(f"\nBuilding features (k={args.k}, include_distance={args.include_distance}) ...")
-    # Store the global matrix as float16 to halve steady-state RAM
-    # (k=6 @ 1M records: float32 ~16 GB → float16 ~8 GB).
-    # XGBoost receives float32 slices — only the held-between-trials copy is float16.
-    X_np, y_np, feature_cols = build_features(
+    # Sparse CSR: ~0.15 GB for k=6 at 1M records (vs ~8 GB dense float16).
+    # Each 23-nt sequence has at most 18 non-zero k-mer columns; XGBoost accepts CSR directly.
+    X, y_np, feature_cols = build_features(
         train_records, k=args.k, include_distance=args.include_distance,
-        dtype=np.float16,
+        sparse=True,
     )
     gc.collect()
     chrom_arr = np.array([r.chrom for r in train_records])
-    print(f"  Feature matrix: {X_np.shape[0]:,} × {X_np.shape[1]}")
+    print(f"  Feature matrix: {X.shape[0]:,} × {X.shape[1]} (sparse, {X.nnz:,} non-zeros)")
 
     # ── Determine CV chromosome folds ─────────────────────────────────────────
     chrom_counts = Counter(chrom_arr)
@@ -170,6 +172,7 @@ def main():
             reg_lambda=trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
             objective=args.objective,
             tree_method="hist",
+            nthread=args.nthread,
             random_state=args.seed,
         )
 
@@ -182,14 +185,11 @@ def main():
             es_mask = chrom_arr == es_chrom
             train_mask = ~val_mask & ~es_mask
 
-            # Slices are float32 for XGBoost; the global X_np stays float16.
-            # Explicit del + gc after fit frees ~13 GB before the next fold's
-            # allocation, avoiding the double-copy peak at loop boundaries.
-            X_tr = X_np[train_mask].astype(np.float32)
+            X_tr = X[train_mask]
             y_tr = y_np[train_mask]
-            X_val = X_np[val_mask].astype(np.float32)
+            X_val = X[val_mask]
             y_val = y_np[val_mask]
-            X_es = X_np[es_mask].astype(np.float32)
+            X_es = X[es_mask]
             y_es = y_np[es_mask]
 
             # Fresh callback per fold — EarlyStopping holds per-training state
@@ -322,15 +322,16 @@ def main():
         reg_lambda=bp["reg_lambda"],
         objective=args.objective,
         tree_method="hist",
+        nthread=args.nthread,
         random_state=args.seed,
         callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
-        X_np[final_train_mask].astype(np.float32), y_np[final_train_mask],
-        eval_set=[(X_np[final_val_mask].astype(np.float32), y_np[final_val_mask])],
+        X[final_train_mask], y_np[final_train_mask],
+        eval_set=[(X[final_val_mask], y_np[final_val_mask])],
         verbose=100,
     )
-    del X_np, y_np
+    del X, y_np
     gc.collect()
     final_n_trees = final_model.best_iteration + 1
     print(f"  Final model: {final_n_trees} trees")
@@ -346,7 +347,7 @@ def main():
     # ── Evaluate on held-out test set ─────────────────────────────────────────
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_features(
-        test_records, k=args.k, include_distance=args.include_distance
+        test_records, k=args.k, include_distance=args.include_distance, sparse=True
     )
     y_test_pred = final_model.predict(X_test)
     del X_test
