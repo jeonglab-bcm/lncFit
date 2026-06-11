@@ -79,10 +79,10 @@ def load_rra(path, cell_line):
 
 def main():
     parser = argparse.ArgumentParser(description="TPM vs. lncRNA essentiality analysis.")
-    parser.add_argument("--mmc2", default="data/raw/mmc2.xlsx",
-                        help="Path to mmc2.xlsx (TPM tables, default: data/raw/mmc2.xlsx)")
-    parser.add_argument("--mmc3", default="data/raw/mmc3.xlsx",
-                        help="Path to mmc3.xlsx (RRA p-values, default: data/raw/mmc3.xlsx)")
+    parser.add_argument("--tpm", default="data/raw/mmc2.xlsx",
+                        help="Path to TPM table Excel file (default: data/raw/mmc2.xlsx)")
+    parser.add_argument("--rra", default="data/raw/mmc3.xlsx",
+                        help="Path to RRA p-value Excel file (default: data/raw/mmc3.xlsx)")
     parser.add_argument("--output-dir", default="results/tpm_essentiality",
                         help="Output directory (default: results/tpm_essentiality)")
     args = parser.parse_args()
@@ -91,8 +91,8 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading TPM tables ...")
-    s1c = load_s1c(args.mmc2)
-    s1e = load_s1e(args.mmc2)
+    s1c = load_s1c(args.tpm)
+    s1e = load_s1e(args.tpm)
     tpm = s1c.merge(s1e, on="target", how="inner")
     print(f"  {len(tpm):,} lncRNAs after inner join of S1C and S1E")
 
@@ -104,7 +104,7 @@ def main():
     summary_rows = []
 
     for ax, cl in zip(axes, _CELL_LINES):
-        rra = load_rra(args.mmc3, cl)
+        rra = load_rra(args.rra, cl)
 
         # Expressed = TPM > 0 in any column for this cell line
         expressed_mask = (tpm[_CL_EXPR_COLS[cl]] > 0).any(axis=1)
