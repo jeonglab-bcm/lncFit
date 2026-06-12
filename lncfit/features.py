@@ -74,6 +74,7 @@ def build_features(
 
     day_cols = [f"day_{d}" for d in _DAYS]
     cell_cols = [f"cell_{c}" for c in _CELL_LINES]
+
     columns = vocab + day_cols + cell_cols
     if include_distance:
         columns.append("distance_to_closest_pc_gene")
