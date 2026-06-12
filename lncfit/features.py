@@ -17,10 +17,9 @@ def all_kmers(k: int) -> list[str]:
     return ["".join(p) for p in itertools.product(_BASES, repeat=k)]
 
 
-def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
-    """Normalized k-mer frequency vector for seq. Non-ACGT characters are skipped."""
-    vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
-    counts = [0] * len(vocab)
+def _count_kmers(seq: str, k: int, vocab_index: dict[str, int]) -> tuple[dict[int, int], int]:
+    """Return (col_index -> raw_count, total_valid_windows) for seq."""
+    counts: dict[int, int] = {}
     total = 0
     for i in range(len(seq) - k + 1):
         kmer = seq[i : i + k]
@@ -28,26 +27,29 @@ def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
             continue
         idx = vocab_index.get(kmer)
         if idx is not None:
-            counts[idx] += 1
+            counts[idx] = counts.get(idx, 0) + 1
             total += 1
+    return counts, total
+
+
+def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
+    """Normalized k-mer frequency vector for seq. Non-ACGT characters are skipped."""
+    vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
+    counts, total = _count_kmers(seq, k, vocab_index)
     if total == 0:
         return [0.0] * len(vocab)
-    return [c / total for c in counts]
+    result = [0.0] * len(vocab)
+    for idx, count in counts.items():
+        result[idx] = count / total
+    return result
 
 
 def _fill_kmer_row(row: np.ndarray, seq: str, k: int, vocab_index: dict[str, int]) -> None:
     """Fill a pre-allocated float32 row with normalised k-mer frequencies in-place."""
-    total = 0
-    for i in range(len(seq) - k + 1):
-        kmer = seq[i : i + k]
-        if any(c not in _BASES for c in kmer):
-            continue
-        idx = vocab_index.get(kmer)
-        if idx is not None:
-            row[idx] += 1
-            total += 1
+    counts, total = _count_kmers(seq, k, vocab_index)
     if total > 0:
-        row /= total
+        for idx, count in counts.items():
+            row[idx] = count / total
 
 
 def build_features(
@@ -74,7 +76,6 @@ def build_features(
 
     day_cols = [f"day_{d}" for d in _DAYS]
     cell_cols = [f"cell_{c}" for c in _CELL_LINES]
-
     columns = vocab + day_cols + cell_cols
     if include_distance:
         columns.append("distance_to_closest_pc_gene")
@@ -94,16 +95,7 @@ def build_features(
 
         for i, r in enumerate(records):
             seq = r.target_sequence
-            kmer_counts: dict[int, int] = {}
-            total = 0
-            for j in range(len(seq) - k + 1):
-                kmer = seq[j : j + k]
-                if any(c not in _BASES for c in kmer):
-                    continue
-                idx = vocab_index.get(kmer)
-                if idx is not None:
-                    kmer_counts[idx] = kmer_counts.get(idx, 0) + 1
-                    total += 1
+            kmer_counts, total = _count_kmers(seq, k, vocab_index)
             if total > 0:
                 for col, count in kmer_counts.items():
                     row_idx.append(i)
