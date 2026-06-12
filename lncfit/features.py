@@ -17,6 +17,17 @@ def all_kmers(k: int) -> list[str]:
     return ["".join(p) for p in itertools.product(_BASES, repeat=k)]
 
 
+def fit_vocab(seqs: list[str], k: int) -> list[str]:
+    """Return sorted list of k-mers observed in at least one sequence in seqs."""
+    observed: set[str] = set()
+    for seq in seqs:
+        for i in range(len(seq) - k + 1):
+            kmer = seq[i : i + k]
+            if not any(c not in _BASES for c in kmer):
+                observed.add(kmer)
+    return sorted(observed)
+
+
 def _count_kmers(seq: str, k: int, vocab_index: dict[str, int]) -> tuple[dict[int, int], int]:
     """Return (col_index -> raw_count, total_valid_windows) for seq."""
     counts: dict[int, int] = {}
@@ -58,6 +69,7 @@ def build_features(
     include_distance: bool = False,
     dtype: np.dtype = np.float32,
     sparse: bool = False,
+    vocab: list[str] | None = None,
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, target vector y, and column names from ScreenRecords.
 
@@ -70,7 +82,8 @@ def build_features(
     dense float16). XGBoost accepts csr_matrix directly; no float16/float32 cast needed.
     The dense path still accepts a dtype parameter for backwards compatibility.
     """
-    vocab = all_kmers(k)
+    if vocab is None:
+        vocab = all_kmers(k)
     vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
     n_kmer = len(vocab)
 
