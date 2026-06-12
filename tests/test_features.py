@@ -1,6 +1,6 @@
 import pytest
 from lncfit.screen_data import ScreenRecord
-from lncfit.features import all_kmers, kmer_freq_vector, build_features
+from lncfit.features import all_kmers, kmer_freq_vector, build_features, fit_vocab
 
 
 def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None):
@@ -116,3 +116,53 @@ class TestBuildFeatures:
         assert cols_dense == cols_sparse
         assert np.allclose(X_dense, X_sparse.toarray())
         assert np.allclose(y_dense, y_sparse)
+
+    def test_custom_vocab_reduces_columns(self):
+        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 3
+        full_vocab = all_kmers(3)
+        small_vocab = full_vocab[:10]
+        X, _, cols = build_features(records, k=3, vocab=small_vocab)
+        assert X.shape == (3, 10 + 2 + 5)
+        assert cols[:10] == small_vocab
+
+    def test_holdout_unseen_kmer_silently_dropped(self):
+        import numpy as np
+        # train on sequences that only produce "AAA"; holdout has "TTT" too
+        train_vocab = ["AAA"]
+        train = [_rec("AAAAAA")]
+        holdout = [_rec("TTTTTT")]
+        X_train, _, _ = build_features(train, k=3, vocab=train_vocab)
+        X_hold, _, _ = build_features(holdout, k=3, vocab=train_vocab)
+        # holdout TTT is not in vocab — its row should be all zeros (k-mer part)
+        assert X_train.shape[1] == X_hold.shape[1]
+        assert X_hold[0, 0] == pytest.approx(0.0)
+
+    def test_custom_vocab_sparse_matches_dense(self):
+        import numpy as np
+        records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0]]
+        vocab = all_kmers(3)[:20]
+        X_dense, _, _ = build_features(records, k=3, vocab=vocab)
+        X_sparse, _, _ = build_features(records, k=3, vocab=vocab, sparse=True)
+        assert np.allclose(X_dense, X_sparse.toarray())
+
+
+class TestFitVocab:
+    def test_returns_only_observed_kmers(self):
+        vocab = fit_vocab(["AAAAAA"], k=3)
+        assert vocab == ["AAA"]
+
+    def test_sorted(self):
+        vocab = fit_vocab(["ACGT"], k=2)
+        assert vocab == sorted(vocab)
+
+    def test_skips_non_acgt(self):
+        vocab = fit_vocab(["ACGNACG"], k=3)
+        assert all("N" not in km for km in vocab)
+
+    def test_subset_of_all_kmers(self):
+        seqs = ["ACGTACGTACGTACGTACGTACG"]
+        vocab = fit_vocab(seqs, k=6)
+        assert set(vocab) <= set(all_kmers(6))
+
+    def test_empty_seqs_returns_empty(self):
+        assert fit_vocab([], k=3) == []

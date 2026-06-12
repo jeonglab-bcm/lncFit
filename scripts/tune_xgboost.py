@@ -50,7 +50,7 @@ from scipy.stats import spearmanr
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.screen_data import load_jsonl
-from lncfit.features import build_features
+from lncfit.features import build_features, fit_vocab
 from lncfit.metrics import compute_metrics
 
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
@@ -86,7 +86,7 @@ def main():
     )
     parser.add_argument("--train", default="data/processed/train_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_chrom1.jsonl.gz")
-    parser.add_argument("--k", type=int, choices=[3, 6], default=3)
+    parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=6)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-trials", type=int, default=50,
                         help="Number of Optuna trials (default 50; 50–100 recommended).")
@@ -123,17 +123,7 @@ def main():
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
 
-    # ── Pre-compute feature matrix once ───────────────────────────────────────
-    print(f"\nBuilding features (k={args.k}, include_distance={args.include_distance}) ...")
-    # Sparse CSR: ~0.15 GB for k=6 at 1M records (vs ~8 GB dense float16).
-    # Each 23-nt sequence has at most 18 non-zero k-mer columns; XGBoost accepts CSR directly.
-    X, y_np, feature_cols = build_features(
-        train_records, k=args.k, include_distance=args.include_distance,
-        sparse=True,
-    )
-    gc.collect()
     chrom_arr = np.array([r.chrom for r in train_records])
-    print(f"  Feature matrix: {X.shape[0]:,} × {X.shape[1]} (sparse, {X.nnz:,} non-zeros)")
 
     # ── Determine CV chromosome folds ─────────────────────────────────────────
     chrom_counts = Counter(chrom_arr)
@@ -152,6 +142,43 @@ def main():
         final_val_chrom = fallback
     else:
         final_val_chrom = args.final_val_chrom
+
+    # ── Pre-compute per-fold feature matrices ─────────────────────────────────
+    # Vocab is fitted on each fold's training rows only (excludes val + early-stop
+    # chromosomes) so k-mers unique to held-out sequences don't inflate the feature space.
+    # Matrices are built once here — the Optuna objective reuses them across all trials.
+    print(f"\nFitting per-fold vocabularies and building feature matrices ...")
+    fold_data: dict[str, tuple] = {}
+    feature_cols: list[str] = []
+    for i, val_chrom in enumerate(cv_chroms):
+        es_chrom = cv_chroms[(i + 1) % len(cv_chroms)]
+        val_mask = chrom_arr == val_chrom
+        es_mask = chrom_arr == es_chrom
+        train_mask = ~val_mask & ~es_mask
+
+        train_recs_fold = [r for r, m in zip(train_records, train_mask) if m]
+        val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
+        es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
+
+        fold_vocab = fit_vocab([r.target_sequence for r in train_recs_fold], args.k)
+        X_tr, y_tr, cols = build_features(
+            train_recs_fold, k=args.k, include_distance=args.include_distance,
+            sparse=True, vocab=fold_vocab,
+        )
+        X_val, y_val, _ = build_features(
+            val_recs_fold, k=args.k, include_distance=args.include_distance,
+            sparse=True, vocab=fold_vocab,
+        )
+        X_es, y_es, _ = build_features(
+            es_recs_fold, k=args.k, include_distance=args.include_distance,
+            sparse=True, vocab=fold_vocab,
+        )
+        fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
+        if not feature_cols:
+            feature_cols = cols
+        print(f"  fold chr{val_chrom}: {len(fold_vocab)}/{4**args.k} k-mers  "
+              f"train={X_tr.shape[0]:,}  val={X_val.shape[0]:,}  es={X_es.shape[0]:,}")
+        gc.collect()
 
     # ── Optuna objective ───────────────────────────────────────────────────────
     cv_rows: list[dict] = []
@@ -178,19 +205,7 @@ def main():
 
         fold_rhos: list[float] = []
         for i, val_chrom in enumerate(cv_chroms):
-            # Rotating early-stop chromosome: never the same as val_chrom
-            es_chrom = cv_chroms[(i + 1) % len(cv_chroms)]
-
-            val_mask = chrom_arr == val_chrom
-            es_mask = chrom_arr == es_chrom
-            train_mask = ~val_mask & ~es_mask
-
-            X_tr = X[train_mask]
-            y_tr = y_np[train_mask]
-            X_val = X[val_mask]
-            y_val = y_np[val_mask]
-            X_es = X[es_mask]
-            y_es = y_np[es_mask]
+            X_tr, y_tr, X_val, y_val, X_es, y_es = fold_data[val_chrom]
 
             # Fresh callback per fold — EarlyStopping holds per-training state
             model = xgb.XGBRegressor(
@@ -307,7 +322,22 @@ def main():
 
     final_val_mask = chrom_arr == final_val_chrom
     final_train_mask = ~final_val_mask
-    print(f"  final train: {final_train_mask.sum():,}  early-stop val: {final_val_mask.sum():,}")
+    final_train_recs = [r for r, m in zip(train_records, final_train_mask) if m]
+    final_val_recs   = [r for r, m in zip(train_records, final_val_mask)   if m]
+    print(f"  final train: {len(final_train_recs):,}  early-stop val: {len(final_val_recs):,}")
+
+    # Fit vocab on final training rows only (excludes early-stop chromosome).
+    final_vocab = fit_vocab([r.target_sequence for r in final_train_recs], args.k)
+    print(f"  Final vocab: {len(final_vocab)}/{4**args.k} k-mers observed")
+    X_final_tr, y_final_tr, _ = build_features(
+        final_train_recs, k=args.k, include_distance=args.include_distance,
+        sparse=True, vocab=final_vocab,
+    )
+    X_final_val, y_final_val, _ = build_features(
+        final_val_recs, k=args.k, include_distance=args.include_distance,
+        sparse=True, vocab=final_vocab,
+    )
+    gc.collect()
 
     bp = best_trial.params
     final_es_rounds = max(50, int(0.5 / bp["learning_rate"]))
@@ -327,11 +357,11 @@ def main():
         callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
-        X[final_train_mask], y_np[final_train_mask],
-        eval_set=[(X[final_val_mask], y_np[final_val_mask])],
+        X_final_tr, y_final_tr,
+        eval_set=[(X_final_val, y_final_val)],
         verbose=100,
     )
-    del X, y_np
+    del X_final_tr, y_final_tr, X_final_val, y_final_val
     gc.collect()
     final_n_trees = final_model.best_iteration + 1
     print(f"  Final model: {final_n_trees} trees")
@@ -340,6 +370,11 @@ def main():
     final_model.save_model(str(model_path))
     print(f"  Model saved  -> {model_path}")
 
+    vocab_path = model_dir / f"xgboost_vocab_k{args.k}_{_obj_tag}.json"
+    with open(vocab_path, "w") as fh:
+        json.dump(final_vocab, fh)
+    print(f"  Vocab saved  -> {vocab_path}")
+
     best_params_doc["n_estimators_final_model"] = final_n_trees
     with open(params_path, "w") as fh:
         json.dump(best_params_doc, fh, indent=2)
@@ -347,7 +382,8 @@ def main():
     # ── Evaluate on held-out test set ─────────────────────────────────────────
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_features(
-        test_records, k=args.k, include_distance=args.include_distance, sparse=True
+        test_records, k=args.k, include_distance=args.include_distance, sparse=True,
+        vocab=final_vocab,
     )
     y_test_pred = final_model.predict(X_test)
     del X_test

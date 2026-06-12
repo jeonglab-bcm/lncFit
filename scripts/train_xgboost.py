@@ -11,7 +11,7 @@ import xgboost as xgb
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.screen_data import load_jsonl
-from lncfit.features import build_features
+from lncfit.features import build_features, fit_vocab
 from lncfit.metrics import compute_metrics
 
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
@@ -21,12 +21,9 @@ def main():
     parser = argparse.ArgumentParser(description="Train XGBoost log2FC predictor.")
     parser.add_argument("--train", default="data/processed/train_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_chrom1.jsonl.gz")
-    parser.add_argument("--k", type=int, choices=[3, 6], default=3)
+    parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=6)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-estimators", type=int, default=500)
-    parser.add_argument("--objective", default="reg:squarederror",
-                        choices=["reg:squarederror", "reg:pseudohubererror"],
-                        help="XGBoost training objective (default: reg:squarederror).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", default="data/model")
     parser.add_argument("--output-model", default=None)
@@ -50,9 +47,17 @@ def main():
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
 
-    print(f"\nBuilding features (k={args.k}, include_distance={args.include_distance}) ...")
-    X_train, y_train = build_features(train_records, k=args.k, include_distance=args.include_distance)
-    X_test, y_test = build_features(test_records, k=args.k, include_distance=args.include_distance)
+    print(f"\nFitting k={args.k} vocabulary on training sequences ...")
+    vocab = fit_vocab([r.target_sequence for r in train_records], args.k)
+    print(f"  {len(vocab)} / {4**args.k} k-mers observed")
+
+    print(f"Building features (k={args.k}, include_distance={args.include_distance}) ...")
+    X_train, y_train, train_cols = build_features(
+        train_records, k=args.k, include_distance=args.include_distance, vocab=vocab,
+    )
+    X_test, y_test, _ = build_features(
+        test_records, k=args.k, include_distance=args.include_distance, vocab=vocab,
+    )
     print(f"  Feature matrix: {X_train.shape[1]} columns")
 
     print("\nFitting XGBoost ...")
@@ -62,7 +67,6 @@ def main():
         max_depth=6,
         subsample=0.8,
         colsample_bytree=0.8,
-        objective=args.objective,
         tree_method="hist",
         random_state=args.seed,
     )
@@ -71,28 +75,23 @@ def main():
     print("\nEvaluating ...")
     y_pred = model.predict(X_test)
 
-    test_df = X_test.copy()
-    test_df["_y_true"] = y_test.values
-    test_df["_y_pred"] = y_pred
-
-    metrics_rows = [compute_metrics("Overall", y_test.values, y_pred)]
+    metrics_rows = [compute_metrics("Overall", y_test, y_pred)]
     for cl in _CELL_LINES:
-        col = f"cell_{cl}"
-        if col not in test_df.columns:
-            continue
-        mask = test_df[col] == 1
+        mask = np.array([r.cell_line == cl for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(cl,
-                                            test_df.loc[mask, "_y_true"].values,
-                                            test_df.loc[mask, "_y_pred"].values))
+        metrics_rows.append(compute_metrics(cl, y_test[mask], y_pred[mask]))
 
     model.save_model(str(model_path))
     print(f"\nModel saved      -> {model_path}")
 
+    vocab_path = out_dir / f"{tag}_vocab.json"
+    with open(vocab_path, "w") as fh:
+        json.dump(vocab, fh)
+    print(f"Vocab saved      -> {vocab_path}")
+
     params_dict = {
         "k": args.k,
-        "objective": args.objective,
         "include_distance": args.include_distance,
         "n_estimators": args.n_estimators,
         "learning_rate": 0.05,
@@ -101,7 +100,7 @@ def main():
         "colsample_bytree": 0.8,
         "tree_method": "hist",
         "seed": args.seed,
-        "feature_columns": list(X_train.columns),
+        "feature_columns": train_cols,
         "n_features": X_train.shape[1],
         "train_file": str(args.train),
         "test_file": str(args.test),
