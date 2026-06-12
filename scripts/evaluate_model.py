@@ -72,7 +72,9 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate a saved XGBoost log2FC model.")
     parser.add_argument("--model", required=True, help="Path to saved model (.ubj or .json)")
     parser.add_argument("--test", default="data/processed/test_chrom1.jsonl.gz")
-    parser.add_argument("--k", type=int, choices=[3, 6], default=6)
+    parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=6)
+    parser.add_argument("--vocab", default=None,
+                        help="Path to vocab JSON sidecar. Auto-detected from model path if omitted.")
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--output-dir", default="results")
     args = parser.parse_args()
@@ -89,42 +91,41 @@ def main():
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
 
+    vocab_path = Path(args.vocab) if args.vocab else Path(args.model).with_name(
+        Path(args.model).stem + "_vocab.json"
+    )
+    vocab = None
+    if vocab_path.exists():
+        with open(vocab_path) as fh:
+            vocab = json.load(fh)
+        print(f"Loaded vocab from {vocab_path} ({len(vocab)} k-mers)")
+    else:
+        print(f"No vocab sidecar found at {vocab_path}; using full {4**args.k}-kmer vocabulary")
+
     print(f"Building features (k={args.k}, include_distance={args.include_distance}) ...")
-    X_test, y_test = build_features(test_records, k=args.k, include_distance=args.include_distance)
+    X_test, y_test, _ = build_features(
+        test_records, k=args.k, include_distance=args.include_distance, vocab=vocab,
+    )
     print(f"  Feature matrix: {X_test.shape[1]} columns")
 
     print("\nRunning inference ...")
     y_pred = model.predict(X_test)
 
-    test_df = X_test.copy()
-    test_df["_y_true"] = y_test.values
-    test_df["_y_pred"] = y_pred
-
     # --- Metrics ---
     print("\nMetrics:")
-    metrics_rows = [compute_metrics("Overall", y_test.values, y_pred)]
+    metrics_rows = [compute_metrics("Overall", y_test, y_pred)]
 
     for cl in _CELL_LINES:
-        col = f"cell_{cl}"
-        if col not in test_df.columns:
-            continue
-        mask = test_df[col] == 1
+        mask = np.array([r.cell_line == cl for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(cl,
-                                            test_df.loc[mask, "_y_true"].values,
-                                            test_df.loc[mask, "_y_pred"].values))
+        metrics_rows.append(compute_metrics(cl, y_test[mask], y_pred[mask]))
 
     for day in _DAYS:
-        col = f"day_{day}"
-        if col not in test_df.columns:
-            continue
-        mask = test_df[col] == 1
+        mask = np.array([r.day == day for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(f"day_{day}",
-                                            test_df.loc[mask, "_y_true"].values,
-                                            test_df.loc[mask, "_y_pred"].values))
+        metrics_rows.append(compute_metrics(f"day_{day}", y_test[mask], y_pred[mask]))
 
     # --- Write outputs ---
     metrics_path = out_dir / "metrics.csv"
