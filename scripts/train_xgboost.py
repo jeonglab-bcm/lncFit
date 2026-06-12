@@ -24,6 +24,9 @@ def main():
     parser.add_argument("--k", type=int, choices=[3, 6], default=6)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-estimators", type=int, default=500)
+    parser.add_argument("--objective", default="reg:squarederror",
+                        choices=["reg:squarederror", "reg:pseudohubererror"],
+                        help="XGBoost training objective (default: reg:squarederror).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", default="data/model")
     parser.add_argument("--output-model", default=None)
@@ -59,6 +62,7 @@ def main():
         max_depth=6,
         subsample=0.8,
         colsample_bytree=0.8,
+        objective=args.objective,
         tree_method="hist",
         random_state=args.seed,
     )
@@ -88,6 +92,7 @@ def main():
 
     params_dict = {
         "k": args.k,
+        "objective": args.objective,
         "include_distance": args.include_distance,
         "n_estimators": args.n_estimators,
         "learning_rate": 0.05,
