@@ -405,13 +405,13 @@ def main():
         mask = np.array([r.day == day for r in test_records])
         if mask.sum() == 0:
             continue
-        metrics_rows.append(compute_metrics(f"day_{day}", y_test[mask], y_test_pred[mask]))
+        metrics_rows.append(compute_metrics(f"Day {day}", y_test[mask], y_test_pred[mask]))
     for cl in _CELL_LINES:
         for day in _DAYS:
             mask = np.array([r.cell_line == cl and r.day == day for r in test_records])
             if mask.sum() == 0:
                 continue
-            metrics_rows.append(compute_metrics(f"{cl}_day{day}", y_test[mask], y_test_pred[mask]))
+            metrics_rows.append(compute_metrics(f"{cl} Day {day}", y_test[mask], y_test_pred[mask]))
 
     metrics_path = eval_dir / "metrics.csv"
     pl.DataFrame(metrics_rows).write_csv(metrics_path)
@@ -434,9 +434,12 @@ def main():
     print(f"Predictions CSV  -> {preds_path}")
 
     present_cls = [cl for cl in _CELL_LINES if (preds_df["cell_line"] == cl).any()]
-    n_panels = 1 + len(present_cls)
-    fig = plt.figure(figsize=(4 * n_panels, 4))
-    gs = gridspec.GridSpec(1, n_panels, figure=fig, wspace=0.4)
+    present_days = [d for d in _DAYS if (preds_df["day"] == d).any()]
+    n_row1 = 1 + len(present_cls)
+    n_row2 = len(present_days)
+    n_cols = max(n_row1, n_row2)
+    fig = plt.figure(figsize=(4 * n_cols, 8))
+    gs = gridspec.GridSpec(2, n_cols, figure=fig, wspace=0.4, hspace=0.5)
     _scatter_panel(
         fig.add_subplot(gs[0, 0]),
         preds_df["y_true"].to_numpy(), preds_df["y_pred"].to_numpy(), "Overall",
@@ -446,6 +449,12 @@ def main():
         _scatter_panel(
             fig.add_subplot(gs[0, i + 1]),
             sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), cl,
+        )
+    for i, day in enumerate(present_days):
+        sub = preds_df.filter(pl.col("day") == day)
+        _scatter_panel(
+            fig.add_subplot(gs[1, i]),
+            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), f"Day {day}",
         )
     fig.suptitle(
         f"Predicted vs. Observed log2FC  (k={args.k}, tuned)",
@@ -479,6 +488,7 @@ def main():
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:
         json.dump(run_info, fh, indent=2)
+        fh.write("\n")
     print(f"Run info JSON    -> {run_info_path}")
 
     print("\nDone.")

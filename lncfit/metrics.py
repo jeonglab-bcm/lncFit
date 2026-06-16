@@ -26,9 +26,9 @@ def compute_metrics(label: str, y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     return {
         "split": label,
         "n": n,
-        "pearson_r": float(r),
-        "spearman_rho": float(rho),
-        "rmse": rmse,
-        "mae": mae,
-        "r2": r2,
+        "pearson_r": round(float(r), 4),
+        "spearman_rho": round(float(rho), 4),
+        "rmse": round(rmse, 4),
+        "mae": round(mae, 4),
+        "r2": round(r2, 4),
     }
