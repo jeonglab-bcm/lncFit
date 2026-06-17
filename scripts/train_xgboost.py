@@ -10,11 +10,10 @@ import xgboost as xgb
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lncfit.screen_data import load_jsonl
+from lncfit.constants import CELL_LINES
 from lncfit.features import build_features, fit_vocab
-from lncfit.metrics import compute_metrics
-
-_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
+from lncfit.screen_data import load_jsonl
+from lncfit.xgboost_model import evaluate_by_group
 
 
 def main():
@@ -75,12 +74,7 @@ def main():
     print("\nEvaluating ...")
     y_pred = model.predict(X_test)
 
-    metrics_rows = [compute_metrics("Overall", y_test, y_pred)]
-    for cl in _CELL_LINES:
-        mask = np.array([r.cell_line == cl for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(cl, y_test[mask], y_pred[mask]))
+    metrics_rows = evaluate_by_group(test_records, y_test, y_pred, cross_terms=False)
 
     model.save_model(str(model_path))
     print(f"\nModel saved      -> {model_path}")

@@ -5,67 +5,21 @@ and writes a timestamped results bundle to results/eval_<YYYYMMDD_HHMMSS>/.
 """
 import argparse
 import json
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from lncfit.features import build_features
+from lncfit.io import git_commit
+from lncfit.plotting import plot_scatter_grid
 from lncfit.screen_data import load_jsonl
-from lncfit.features import build_features, all_kmers
-from lncfit.metrics import compute_metrics
-
-_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
-_DAYS = [7, 14]
-
-
-def _scatter_panel(ax, y_true, y_pred, label):
-    from scipy.stats import pearsonr
-    r, _ = pearsonr(y_true, y_pred)
-    ax.scatter(y_true, y_pred, s=2, alpha=0.2, color="#2166ac", linewidths=0, rasterized=True)
-    lo = min(y_true.min(), y_pred.min())
-    hi = max(y_true.max(), y_pred.max())
-    ax.plot([lo, hi], [lo, hi], "k--", linewidth=0.8)
-    ax.set_xlabel("Observed log2FC", fontsize=8)
-    ax.set_ylabel("Predicted log2FC", fontsize=8)
-    ax.set_title(f"{label}\nr={r:.3f}  n={len(y_true):,}", fontsize=8)
-    ax.tick_params(labelsize=7)
-
-
-def plot_scatter(preds_df: pd.DataFrame, cell_lines: list, out_path: Path, k: int) -> None:
-    present = [cl for cl in cell_lines if (preds_df["cell_line"] == cl).any()]
-    n_panels = 1 + len(present)
-    fig = plt.figure(figsize=(4 * n_panels, 4))
-    gs = gridspec.GridSpec(1, n_panels, figure=fig, wspace=0.4)
-
-    _scatter_panel(fig.add_subplot(gs[0, 0]),
-                   preds_df["y_true"].values, preds_df["y_pred"].values, "Overall")
-    for i, cl in enumerate(present):
-        sub = preds_df[preds_df["cell_line"] == cl]
-        _scatter_panel(fig.add_subplot(gs[0, i + 1]),
-                       sub["y_true"].values, sub["y_pred"].values, cl)
-
-    fig.suptitle(f"Predicted vs. Observed log2FC  (k={k})", fontsize=11, fontweight="bold", y=1.02)
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "unknown"
+from lncfit.xgboost_model import evaluate_by_group
 
 
 def main():
@@ -113,19 +67,7 @@ def main():
 
     # --- Metrics ---
     print("\nMetrics:")
-    metrics_rows = [compute_metrics("Overall", y_test, y_pred)]
-
-    for cl in _CELL_LINES:
-        mask = np.array([r.cell_line == cl for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(cl, y_test[mask], y_pred[mask]))
-
-    for day in _DAYS:
-        mask = np.array([r.day == day for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(f"day_{day}", y_test[mask], y_pred[mask]))
+    metrics_rows = evaluate_by_group(test_records, y_test, y_pred, cross_terms=False)
 
     # --- Write outputs ---
     metrics_path = out_dir / "metrics.csv"
@@ -153,7 +95,7 @@ def main():
         "include_distance": args.include_distance,
         "n_test_records": len(test_records),
         "timestamp": timestamp,
-        "git_commit": _git_commit(),
+        "git_commit": git_commit(),
     }
     run_info_path = out_dir / "run_info.json"
     with open(run_info_path, "w") as fh:
@@ -162,7 +104,7 @@ def main():
 
     preds_df = pd.DataFrame(preds_rows)
     scatter_path = out_dir / "scatter.png"
-    plot_scatter(preds_df, _CELL_LINES, scatter_path, k=args.k)
+    plot_scatter_grid(preds_df, scatter_path, k=args.k)
     print(f"Scatter plot     -> {scatter_path}")
 
 

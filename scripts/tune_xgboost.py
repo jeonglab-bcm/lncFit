@@ -31,54 +31,28 @@ Outputs:
 import argparse
 import gc
 import json
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 import polars as pl
 import xgboost as xgb
 from scipy.stats import spearmanr
 
+
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lncfit.screen_data import load_jsonl
+from lncfit.constants import CELL_LINES, DAYS, MIN_FOLD_RECORDS
 from lncfit.features import build_features, fit_vocab
-from lncfit.metrics import compute_metrics
+from lncfit.io import git_commit
+from lncfit.plotting import plot_scatter_grid
+from lncfit.screen_data import load_jsonl
 from lncfit.sequence import load_body_sequences
-
-_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
-_DAYS = [7, 14]
-_MIN_FOLD_RECORDS = 500
-
-
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "unknown"
-
-
-def _scatter_panel(ax, y_true, y_pred, label):
-    from scipy.stats import pearsonr
-    r, _ = pearsonr(y_true, y_pred)
-    ax.scatter(y_true, y_pred, s=2, alpha=0.2, color="#2166ac", linewidths=0, rasterized=True)
-    lo = min(y_true.min(), y_pred.min())
-    hi = max(y_true.max(), y_pred.max())
-    ax.plot([lo, hi], [lo, hi], "k--", linewidth=0.8)
-    ax.set_xlabel("Observed log2FC", fontsize=8)
-    ax.set_ylabel("Predicted log2FC", fontsize=8)
-    ax.set_title(f"{label}\nr={r:.3f}  n={len(y_true):,}", fontsize=8)
-    ax.tick_params(labelsize=7)
+from lncfit.xgboost_model import build_xgb_params, evaluate_by_group
 
 
 def main():
@@ -158,7 +132,7 @@ def main():
     # ── Determine CV chromosome folds ─────────────────────────────────────────
     chrom_counts = Counter(chrom_arr)
     cv_chroms = sorted(
-        [str(c) for c, n in chrom_counts.items() if c and n >= _MIN_FOLD_RECORDS],
+        [str(c) for c, n in chrom_counts.items() if c and n >= MIN_FOLD_RECORDS],
         key=lambda x: (len(x), x),
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
@@ -224,20 +198,15 @@ def main():
         # Scale early-stopping patience with learning rate: lower LR needs more rounds
         # to detect real improvement vs. noise.
         es_rounds = max(50, int(0.5 / lr))
-        base_params = dict(
-            n_estimators=5000,
-            learning_rate=lr,
-            max_depth=trial.suggest_int("max_depth", 3, 9),
-            subsample=trial.suggest_float("subsample", 0.5, 1.0),
-            colsample_bytree=trial.suggest_float("colsample_bytree", 0.5, 1.0),
-            min_child_weight=trial.suggest_int("min_child_weight", 1, 10),
-            reg_alpha=trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
-            reg_lambda=trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
-            objective=args.objective,
-            tree_method="hist",
-            nthread=args.nthread,
-            random_state=args.seed,
-        )
+        trial_params = {
+            "learning_rate": lr,
+            "max_depth": trial.suggest_int("max_depth", 3, 9),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+        }
 
         fold_rhos: list[float] = []
         for i, val_chrom in enumerate(cv_chroms):
@@ -245,7 +214,7 @@ def main():
 
             # Fresh callback per fold — EarlyStopping holds per-training state
             model = xgb.XGBRegressor(
-                **base_params,
+                **build_xgb_params(trial_params, args.objective, args.nthread, args.seed),
                 callbacks=[xgb.callback.EarlyStopping(rounds=es_rounds, save_best=True)],
             )
             model.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
@@ -384,18 +353,7 @@ def main():
     bp = best_trial.params
     final_es_rounds = max(50, int(0.5 / bp["learning_rate"]))
     final_model = xgb.XGBRegressor(
-        n_estimators=5000,
-        learning_rate=bp["learning_rate"],
-        max_depth=bp["max_depth"],
-        subsample=bp["subsample"],
-        colsample_bytree=bp["colsample_bytree"],
-        min_child_weight=bp["min_child_weight"],
-        reg_alpha=bp["reg_alpha"],
-        reg_lambda=bp["reg_lambda"],
-        objective=args.objective,
-        tree_method="hist",
-        nthread=args.nthread,
-        random_state=args.seed,
+        **build_xgb_params(bp, args.objective, args.nthread, args.seed),
         callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
@@ -435,25 +393,8 @@ def main():
     eval_dir = out_dir / "results" / f"final_eval_{timestamp}"
     eval_dir.mkdir(parents=True, exist_ok=True)
 
-    # Filter by cell line / day using the original records — no copy of X_test needed.
     print("\nTest set metrics:")
-    metrics_rows = [compute_metrics("Overall", y_test, y_test_pred)]
-    for cl in _CELL_LINES:
-        mask = np.array([r.cell_line == cl for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(cl, y_test[mask], y_test_pred[mask]))
-    for day in _DAYS:
-        mask = np.array([r.day == day for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(f"Day {day}", y_test[mask], y_test_pred[mask]))
-    for cl in _CELL_LINES:
-        for day in _DAYS:
-            mask = np.array([r.cell_line == cl and r.day == day for r in test_records])
-            if mask.sum() == 0:
-                continue
-            metrics_rows.append(compute_metrics(f"{cl} Day {day}", y_test[mask], y_test_pred[mask]))
+    metrics_rows = evaluate_by_group(test_records, y_test, y_test_pred, cross_terms=True)
 
     metrics_path = eval_dir / "metrics.csv"
     pl.DataFrame(metrics_rows).write_csv(metrics_path)
@@ -475,36 +416,8 @@ def main():
     preds_df.write_csv(preds_path)
     print(f"Predictions CSV  -> {preds_path}")
 
-    present_cls = [cl for cl in _CELL_LINES if (preds_df["cell_line"] == cl).any()]
-    present_days = [d for d in _DAYS if (preds_df["day"] == d).any()]
-    n_row1 = 1 + len(present_cls)
-    n_row2 = len(present_days)
-    n_cols = max(n_row1, n_row2)
-    fig = plt.figure(figsize=(4 * n_cols, 8))
-    gs = gridspec.GridSpec(2, n_cols, figure=fig, wspace=0.4, hspace=0.5)
-    _scatter_panel(
-        fig.add_subplot(gs[0, 0]),
-        preds_df["y_true"].to_numpy(), preds_df["y_pred"].to_numpy(), "Overall",
-    )
-    for i, cl in enumerate(present_cls):
-        sub = preds_df.filter(pl.col("cell_line") == cl)
-        _scatter_panel(
-            fig.add_subplot(gs[0, i + 1]),
-            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), cl,
-        )
-    for i, day in enumerate(present_days):
-        sub = preds_df.filter(pl.col("day") == day)
-        _scatter_panel(
-            fig.add_subplot(gs[1, i]),
-            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), f"Day {day}",
-        )
-    fig.suptitle(
-        f"Predicted vs. Observed log2FC  (k={args.k}, tuned)",
-        fontsize=11, fontweight="bold", y=1.02,
-    )
     scatter_path = eval_dir / "scatter.png"
-    fig.savefig(scatter_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_scatter_grid(preds_df, scatter_path, k=args.k)
     print(f"Scatter plot     -> {scatter_path}")
 
     run_info = {
@@ -525,7 +438,7 @@ def main():
         "final_n_estimators": final_n_trees,
         "n_test_records": len(test_records),
         "timestamp": timestamp,
-        "git_commit": _git_commit(),
+        "git_commit": git_commit(),
         "body_sequences_file": args.body_sequences,
         "use_body_kmers": body_sequences is not None,
     }
