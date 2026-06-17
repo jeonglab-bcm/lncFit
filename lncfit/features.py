@@ -270,12 +270,12 @@ def build_features(
             cached = signed_cache.get(r.target)
             if cached is not None:
                 freqs, first_seq, last_seq = cached
-                guide_in_body = r.target_sequence in first_seq or r.target_sequence in last_seq
+                rc_guide = _revcomp(r.target_sequence)
+                guide_in_body = rc_guide in first_seq or rc_guide in last_seq
                 guide_kmer_idxs: set[int] = set()
                 if guide_in_body:
-                    g = r.target_sequence
-                    for gi in range(len(g) - k + 1):
-                        idx = vocab_index.get(g[gi:gi + k])
+                    for gi in range(len(rc_guide) - k + 1):
+                        idx = vocab_index.get(rc_guide[gi:gi + k])
                         if idx is not None:
                             guide_kmer_idxs.add(idx)
                 for col, freq in freqs.items():
