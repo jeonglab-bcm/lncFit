@@ -31,53 +31,28 @@ Outputs:
 import argparse
 import gc
 import json
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 import polars as pl
 import xgboost as xgb
 from scipy.stats import spearmanr
 
+
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lncfit.screen_data import load_jsonl
+from lncfit.constants import CELL_LINES, DAYS, MIN_FOLD_RECORDS
 from lncfit.features import build_features, fit_vocab
-from lncfit.metrics import compute_metrics
-
-_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
-_DAYS = [7, 14]
-_MIN_FOLD_RECORDS = 500
-
-
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "unknown"
-
-
-def _scatter_panel(ax, y_true, y_pred, label):
-    from scipy.stats import pearsonr
-    r, _ = pearsonr(y_true, y_pred)
-    ax.scatter(y_true, y_pred, s=2, alpha=0.2, color="#2166ac", linewidths=0, rasterized=True)
-    lo = min(y_true.min(), y_pred.min())
-    hi = max(y_true.max(), y_pred.max())
-    ax.plot([lo, hi], [lo, hi], "k--", linewidth=0.8)
-    ax.set_xlabel("Observed log2FC", fontsize=8)
-    ax.set_ylabel("Predicted log2FC", fontsize=8)
-    ax.set_title(f"{label}\nr={r:.3f}  n={len(y_true):,}", fontsize=8)
-    ax.tick_params(labelsize=7)
+from lncfit.io import git_commit
+from lncfit.plotting import plot_scatter_grid
+from lncfit.screen_data import load_jsonl
+from lncfit.sequence import load_body_sequences
+from lncfit.xgboost_model import build_xgb_params, evaluate_by_group
 
 
 def main():
@@ -104,6 +79,16 @@ def main():
     parser.add_argument("--nthread", type=int, default=-1,
                         help="XGBoost CPU threads per model fit (-1 = all cores, the default). "
                              "Cap this on shared servers to avoid starving other users.")
+    parser.add_argument(
+        "--body-sequences", default=None,
+        help="Path to body sequences JSON produced by lncfit/sequence.py "
+             "(e.g. data/processed/body_sequences.json). When provided, first/last "
+             "1000 bp lncRNA body k-mers are added as features alongside guide k-mers.",
+    )
+    parser.add_argument(
+        "--gtf", default="data/raw/human.lncRNA.hg38.gtf",
+        help="GTF path used to build body sequences on-the-fly if --body-sequences is not given.",
+    )
     args = parser.parse_args()
 
     _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
@@ -123,12 +108,31 @@ def main():
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
 
+    # ── Load body sequences (optional) ────────────────────────────────────────
+    body_sequences: dict | None = None
+    if args.body_sequences:
+        body_seq_path = Path(args.body_sequences)
+        if body_seq_path.exists():
+            print(f"\nLoading body sequences from {body_seq_path} ...")
+            with open(body_seq_path) as fh:
+                _raw = json.load(fh)
+            body_sequences = {k: tuple(v) for k, v in _raw.items()}
+            print(f"  {len(body_sequences):,} genes with body sequences")
+        else:
+            print(f"\nBody sequences file not found at {body_seq_path}.")
+            print(f"  Generating from GTF ({args.gtf}) + FASTA — this may take several minutes ...")
+            body_sequences = load_body_sequences(gtf_path=args.gtf)
+            body_seq_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(body_seq_path, "w") as fh:
+                json.dump({k: list(v) for k, v in body_sequences.items()}, fh)
+            print(f"  Saved to {body_seq_path} for future runs.")
+
     chrom_arr = np.array([r.chrom for r in train_records])
 
     # ── Determine CV chromosome folds ─────────────────────────────────────────
     chrom_counts = Counter(chrom_arr)
     cv_chroms = sorted(
-        [str(c) for c, n in chrom_counts.items() if c and n >= _MIN_FOLD_RECORDS],
+        [str(c) for c, n in chrom_counts.items() if c and n >= MIN_FOLD_RECORDS],
         key=lambda x: (len(x), x),
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
@@ -160,18 +164,24 @@ def main():
         val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
         es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
 
-        fold_vocab = fit_vocab([r.target_sequence for r in train_recs_fold], args.k)
+        guide_seqs = [r.target_sequence for r in train_recs_fold]
+        if body_sequences is not None:
+            seen_targets = {r.target for r in train_recs_fold}
+            body_seqs_for_vocab = [seq for t in seen_targets for seq in body_sequences.get(t, ())]
+        else:
+            body_seqs_for_vocab = []
+        fold_vocab = fit_vocab(guide_seqs + body_seqs_for_vocab, args.k)
         X_tr, y_tr, cols = build_features(
             train_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         X_val, y_val, _ = build_features(
             val_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         X_es, y_es, _ = build_features(
             es_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
         if not feature_cols:
@@ -188,20 +198,15 @@ def main():
         # Scale early-stopping patience with learning rate: lower LR needs more rounds
         # to detect real improvement vs. noise.
         es_rounds = max(50, int(0.5 / lr))
-        base_params = dict(
-            n_estimators=5000,
-            learning_rate=lr,
-            max_depth=trial.suggest_int("max_depth", 3, 9),
-            subsample=trial.suggest_float("subsample", 0.5, 1.0),
-            colsample_bytree=trial.suggest_float("colsample_bytree", 0.5, 1.0),
-            min_child_weight=trial.suggest_int("min_child_weight", 1, 10),
-            reg_alpha=trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
-            reg_lambda=trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
-            objective=args.objective,
-            tree_method="hist",
-            nthread=args.nthread,
-            random_state=args.seed,
-        )
+        trial_params = {
+            "learning_rate": lr,
+            "max_depth": trial.suggest_int("max_depth", 3, 9),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+        }
 
         fold_rhos: list[float] = []
         for i, val_chrom in enumerate(cv_chroms):
@@ -209,7 +214,7 @@ def main():
 
             # Fresh callback per fold — EarlyStopping holds per-training state
             model = xgb.XGBRegressor(
-                **base_params,
+                **build_xgb_params(trial_params, args.objective, args.nthread, args.seed),
                 callbacks=[xgb.callback.EarlyStopping(rounds=es_rounds, save_best=True)],
             )
             model.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
@@ -327,33 +332,28 @@ def main():
     print(f"  final train: {len(final_train_recs):,}  early-stop val: {len(final_val_recs):,}")
 
     # Fit vocab on final training rows only (excludes early-stop chromosome).
-    final_vocab = fit_vocab([r.target_sequence for r in final_train_recs], args.k)
+    final_guide_seqs = [r.target_sequence for r in final_train_recs]
+    if body_sequences is not None:
+        final_seen_targets = {r.target for r in final_train_recs}
+        final_body_seqs_for_vocab = [seq for t in final_seen_targets for seq in body_sequences.get(t, ())]
+    else:
+        final_body_seqs_for_vocab = []
+    final_vocab = fit_vocab(final_guide_seqs + final_body_seqs_for_vocab, args.k)
     print(f"  Final vocab: {len(final_vocab)}/{4**args.k} k-mers observed")
     X_final_tr, y_final_tr, _ = build_features(
         final_train_recs, k=args.k, include_distance=args.include_distance,
-        sparse=True, vocab=final_vocab,
+        sparse=True, vocab=final_vocab, body_sequences=body_sequences,
     )
     X_final_val, y_final_val, _ = build_features(
         final_val_recs, k=args.k, include_distance=args.include_distance,
-        sparse=True, vocab=final_vocab,
+        sparse=True, vocab=final_vocab, body_sequences=body_sequences,
     )
     gc.collect()
 
     bp = best_trial.params
     final_es_rounds = max(50, int(0.5 / bp["learning_rate"]))
     final_model = xgb.XGBRegressor(
-        n_estimators=5000,
-        learning_rate=bp["learning_rate"],
-        max_depth=bp["max_depth"],
-        subsample=bp["subsample"],
-        colsample_bytree=bp["colsample_bytree"],
-        min_child_weight=bp["min_child_weight"],
-        reg_alpha=bp["reg_alpha"],
-        reg_lambda=bp["reg_lambda"],
-        objective=args.objective,
-        tree_method="hist",
-        nthread=args.nthread,
-        random_state=args.seed,
+        **build_xgb_params(bp, args.objective, args.nthread, args.seed),
         callbacks=[xgb.callback.EarlyStopping(rounds=final_es_rounds, save_best=True)],
     )
     final_model.fit(
@@ -383,7 +383,7 @@ def main():
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_features(
         test_records, k=args.k, include_distance=args.include_distance, sparse=True,
-        vocab=final_vocab,
+        vocab=final_vocab, body_sequences=body_sequences,
     )
     y_test_pred = final_model.predict(X_test)
     del X_test
@@ -393,25 +393,8 @@ def main():
     eval_dir = out_dir / "results" / f"final_eval_{timestamp}"
     eval_dir.mkdir(parents=True, exist_ok=True)
 
-    # Filter by cell line / day using the original records — no copy of X_test needed.
     print("\nTest set metrics:")
-    metrics_rows = [compute_metrics("Overall", y_test, y_test_pred)]
-    for cl in _CELL_LINES:
-        mask = np.array([r.cell_line == cl for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(cl, y_test[mask], y_test_pred[mask]))
-    for day in _DAYS:
-        mask = np.array([r.day == day for r in test_records])
-        if mask.sum() == 0:
-            continue
-        metrics_rows.append(compute_metrics(f"Day {day}", y_test[mask], y_test_pred[mask]))
-    for cl in _CELL_LINES:
-        for day in _DAYS:
-            mask = np.array([r.cell_line == cl and r.day == day for r in test_records])
-            if mask.sum() == 0:
-                continue
-            metrics_rows.append(compute_metrics(f"{cl} Day {day}", y_test[mask], y_test_pred[mask]))
+    metrics_rows = evaluate_by_group(test_records, y_test, y_test_pred, cross_terms=True)
 
     metrics_path = eval_dir / "metrics.csv"
     pl.DataFrame(metrics_rows).write_csv(metrics_path)
@@ -433,36 +416,8 @@ def main():
     preds_df.write_csv(preds_path)
     print(f"Predictions CSV  -> {preds_path}")
 
-    present_cls = [cl for cl in _CELL_LINES if (preds_df["cell_line"] == cl).any()]
-    present_days = [d for d in _DAYS if (preds_df["day"] == d).any()]
-    n_row1 = 1 + len(present_cls)
-    n_row2 = len(present_days)
-    n_cols = max(n_row1, n_row2)
-    fig = plt.figure(figsize=(4 * n_cols, 8))
-    gs = gridspec.GridSpec(2, n_cols, figure=fig, wspace=0.4, hspace=0.5)
-    _scatter_panel(
-        fig.add_subplot(gs[0, 0]),
-        preds_df["y_true"].to_numpy(), preds_df["y_pred"].to_numpy(), "Overall",
-    )
-    for i, cl in enumerate(present_cls):
-        sub = preds_df.filter(pl.col("cell_line") == cl)
-        _scatter_panel(
-            fig.add_subplot(gs[0, i + 1]),
-            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), cl,
-        )
-    for i, day in enumerate(present_days):
-        sub = preds_df.filter(pl.col("day") == day)
-        _scatter_panel(
-            fig.add_subplot(gs[1, i]),
-            sub["y_true"].to_numpy(), sub["y_pred"].to_numpy(), f"Day {day}",
-        )
-    fig.suptitle(
-        f"Predicted vs. Observed log2FC  (k={args.k}, tuned)",
-        fontsize=11, fontweight="bold", y=1.02,
-    )
     scatter_path = eval_dir / "scatter.png"
-    fig.savefig(scatter_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_scatter_grid(preds_df, scatter_path, k=args.k)
     print(f"Scatter plot     -> {scatter_path}")
 
     run_info = {
@@ -483,7 +438,9 @@ def main():
         "final_n_estimators": final_n_trees,
         "n_test_records": len(test_records),
         "timestamp": timestamp,
-        "git_commit": _git_commit(),
+        "git_commit": git_commit(),
+        "body_sequences_file": args.body_sequences,
+        "use_body_kmers": body_sequences is not None,
     }
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:

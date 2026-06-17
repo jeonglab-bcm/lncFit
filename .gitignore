@@ -219,3 +219,17 @@ __marimo__/
 
 # Trained model artifacts
 data/model/*.ubj
+
+# Genome reference files — large, never commit
+*.fa
+*.fa.gz
+*.fai
+*.2bit
+data/raw/genome/
+
+# Large derived data files — reproducible, do not commit
+data/raw/human.lncRNA.hg38.gtf
+data/processed/body_sequences.json
+
+# Claude Code project file
+CLAUDE.md
