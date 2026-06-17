@@ -3,10 +3,10 @@ from lncfit.screen_data import ScreenRecord
 from lncfit.features import all_kmers, kmer_freq_vector, build_features, fit_vocab
 
 
-def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None):
+def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T1"):
     return ScreenRecord(
         guide_id="g1",
-        target="T1",
+        target=target,
         target_sequence=seq,
         cell_line=cell_line,
         day=day,
@@ -143,6 +143,32 @@ class TestBuildFeatures:
         vocab = all_kmers(3)[:20]
         X_dense, _, _ = build_features(records, k=3, vocab=vocab)
         X_sparse, _, _ = build_features(records, k=3, vocab=vocab, sparse=True)
+        assert np.allclose(X_dense, X_sparse.toarray())
+
+
+class TestSignedOverlap:
+    def test_overlap_negates_shared_kmers_and_sparse_matches_dense(self):
+        import numpy as np
+        # guide AAACCC → revcomp GGGTTT; body first window contains GGGTTT
+        # rc_guide k-mers GGG, GGT, GTT, TTT must be negative; others positive
+        body_seqs = {"G1": ("ACGTGGGTTTACGT", "AAAAAAAAAA")}
+        rec = _rec("AAACCC", target="G1")
+        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
+        X_sparse, _, _ = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True, sparse=True)
+        for kmer in ("GGG", "GGT", "GTT", "TTT"):
+            assert X_dense[0, cols.index(f"body_signed_{kmer}")] < 0, f"{kmer} should be negative"
+        assert X_dense[0, cols.index("body_signed_AAA")] > 0
+        assert np.allclose(X_dense, X_sparse.toarray())
+
+    def test_no_overlap_all_nonnegative_and_sparse_matches_dense(self):
+        import numpy as np
+        # guide AAACCC → revcomp GGGTTT; body does not contain GGGTTT → no negation
+        body_seqs = {"G1": ("ACGTACGTACGT", "CCCCCCCCCC")}
+        rec = _rec("AAACCC", target="G1")
+        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
+        X_sparse, _, _ = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True, sparse=True)
+        kmer_end = cols.index("day_7")
+        assert (X_dense[0, :kmer_end] >= 0).all()
         assert np.allclose(X_dense, X_sparse.toarray())
 
 
