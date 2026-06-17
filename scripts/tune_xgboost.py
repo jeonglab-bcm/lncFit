@@ -52,6 +52,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lncfit.screen_data import load_jsonl
 from lncfit.features import build_features, fit_vocab
 from lncfit.metrics import compute_metrics
+from lncfit.sequence import load_body_sequences
 
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
 _DAYS = [7, 14]
@@ -104,6 +105,16 @@ def main():
     parser.add_argument("--nthread", type=int, default=-1,
                         help="XGBoost CPU threads per model fit (-1 = all cores, the default). "
                              "Cap this on shared servers to avoid starving other users.")
+    parser.add_argument(
+        "--body-sequences", default=None,
+        help="Path to body sequences JSON produced by lncfit/sequence.py "
+             "(e.g. data/processed/body_sequences.json). When provided, first/last "
+             "1000 bp lncRNA body k-mers are added as features alongside guide k-mers.",
+    )
+    parser.add_argument(
+        "--gtf", default="data/raw/human.lncRNA.hg38.gtf",
+        help="GTF path used to build body sequences on-the-fly if --body-sequences is not given.",
+    )
     args = parser.parse_args()
 
     _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
@@ -122,6 +133,25 @@ def main():
     print(f"Loading test records from {args.test} ...")
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
+
+    # ── Load body sequences (optional) ────────────────────────────────────────
+    body_sequences: dict | None = None
+    if args.body_sequences:
+        body_seq_path = Path(args.body_sequences)
+        if body_seq_path.exists():
+            print(f"\nLoading body sequences from {body_seq_path} ...")
+            with open(body_seq_path) as fh:
+                _raw = json.load(fh)
+            body_sequences = {k: tuple(v) for k, v in _raw.items()}
+            print(f"  {len(body_sequences):,} genes with body sequences")
+        else:
+            print(f"\nBody sequences file not found at {body_seq_path}.")
+            print(f"  Generating from GTF ({args.gtf}) + FASTA — this may take several minutes ...")
+            body_sequences = load_body_sequences(gtf_path=args.gtf)
+            body_seq_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(body_seq_path, "w") as fh:
+                json.dump({k: list(v) for k, v in body_sequences.items()}, fh)
+            print(f"  Saved to {body_seq_path} for future runs.")
 
     chrom_arr = np.array([r.chrom for r in train_records])
 
@@ -160,18 +190,24 @@ def main():
         val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
         es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
 
-        fold_vocab = fit_vocab([r.target_sequence for r in train_recs_fold], args.k)
+        guide_seqs = [r.target_sequence for r in train_recs_fold]
+        if body_sequences is not None:
+            seen_targets = {r.target for r in train_recs_fold}
+            body_seqs_for_vocab = [seq for t in seen_targets for seq in body_sequences.get(t, ())]
+        else:
+            body_seqs_for_vocab = []
+        fold_vocab = fit_vocab(guide_seqs + body_seqs_for_vocab, args.k)
         X_tr, y_tr, cols = build_features(
             train_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         X_val, y_val, _ = build_features(
             val_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         X_es, y_es, _ = build_features(
             es_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab,
+            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
         )
         fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
         if not feature_cols:
@@ -327,15 +363,21 @@ def main():
     print(f"  final train: {len(final_train_recs):,}  early-stop val: {len(final_val_recs):,}")
 
     # Fit vocab on final training rows only (excludes early-stop chromosome).
-    final_vocab = fit_vocab([r.target_sequence for r in final_train_recs], args.k)
+    final_guide_seqs = [r.target_sequence for r in final_train_recs]
+    if body_sequences is not None:
+        final_seen_targets = {r.target for r in final_train_recs}
+        final_body_seqs_for_vocab = [seq for t in final_seen_targets for seq in body_sequences.get(t, ())]
+    else:
+        final_body_seqs_for_vocab = []
+    final_vocab = fit_vocab(final_guide_seqs + final_body_seqs_for_vocab, args.k)
     print(f"  Final vocab: {len(final_vocab)}/{4**args.k} k-mers observed")
     X_final_tr, y_final_tr, _ = build_features(
         final_train_recs, k=args.k, include_distance=args.include_distance,
-        sparse=True, vocab=final_vocab,
+        sparse=True, vocab=final_vocab, body_sequences=body_sequences,
     )
     X_final_val, y_final_val, _ = build_features(
         final_val_recs, k=args.k, include_distance=args.include_distance,
-        sparse=True, vocab=final_vocab,
+        sparse=True, vocab=final_vocab, body_sequences=body_sequences,
     )
     gc.collect()
 
@@ -383,7 +425,7 @@ def main():
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_features(
         test_records, k=args.k, include_distance=args.include_distance, sparse=True,
-        vocab=final_vocab,
+        vocab=final_vocab, body_sequences=body_sequences,
     )
     y_test_pred = final_model.predict(X_test)
     del X_test
@@ -484,6 +526,8 @@ def main():
         "n_test_records": len(test_records),
         "timestamp": timestamp,
         "git_commit": _git_commit(),
+        "body_sequences_file": args.body_sequences,
+        "use_body_kmers": body_sequences is not None,
     }
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:
