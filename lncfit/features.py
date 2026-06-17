@@ -10,6 +10,11 @@ from lncfit.screen_data import ScreenRecord
 _BASES = "ACGT"
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
 _DAYS = [7, 14]
+_COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
+
+
+def _revcomp(seq: str) -> str:
+    return seq.translate(_COMPLEMENT)[::-1]
 
 
 def all_kmers(k: int) -> list[str]:
@@ -88,6 +93,38 @@ def _precompute_body_kmer_cache(
     return cache
 
 
+def _precompute_signed_body_cache(
+    records: list[ScreenRecord],
+    body_sequences: dict[str, tuple[str, str]],
+    k: int,
+    vocab_index: dict[str, int],
+) -> dict[str, tuple[dict[int, float], str, str]]:
+    """Compute combined body k-mer frequencies + retain raw sequences for overlap checks.
+
+    Combines first and last window counts into a single normalized frequency dict.
+    Raw sequences are stored so each record can check whether its guide overlaps.
+
+    Returns {gene_id: (freq_dict, first_seq, last_seq)} where freq_dict maps
+    col_index -> frequency over the combined first+last window k-mer counts.
+    """
+    cache: dict[str, tuple[dict[int, float], str, str]] = {}
+    for r in records:
+        gene_id = r.target
+        if gene_id in cache or gene_id not in body_sequences:
+            continue
+        first_seq, last_seq = body_sequences[gene_id]
+        combined: dict[int, int] = {}
+        total = 0
+        for seq in (first_seq, last_seq):
+            counts, t = _count_kmers(seq, k, vocab_index)
+            for idx, cnt in counts.items():
+                combined[idx] = combined.get(idx, 0) + cnt
+            total += t
+        freqs = {idx: cnt / total for idx, cnt in combined.items()} if total > 0 else {}
+        cache[gene_id] = (freqs, first_seq, last_seq)
+    return cache
+
+
 def build_features(
     records: list[ScreenRecord],
     k: int = 6,
@@ -96,6 +133,7 @@ def build_features(
     sparse: bool = False,
     vocab: list[str] | None = None,
     body_sequences: dict[str, tuple[str, str]] | None = None,
+    signed_overlap: bool = False,
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, target vector y, and column names from ScreenRecords.
 
@@ -111,6 +149,12 @@ def build_features(
     Pass body_sequences={gene_id: (first_1000bp, last_1000bp)} to supplement guide k-mers
     with k-mers from the lncRNA body windows (from lncfit.sequence.load_body_sequences).
     Records whose gene_id is absent from body_sequences get zero body k-mer columns.
+
+    Pass signed_overlap=True (requires body_sequences) for a compact single-block encoding:
+    body k-mer frequencies are computed over the combined first+last windows, then negated
+    for any k-mer that appears in the guide IF the guide sequence is a substring of either
+    body window. Positive values = k-mer unique to body; negative = shared with guide.
+    Column layout becomes body_signed_{kmer} + day + cell (no separate guide block).
     """
     if vocab is None:
         vocab = all_kmers(k)
@@ -118,27 +162,38 @@ def build_features(
     n_kmer = len(vocab)
 
     use_body = body_sequences is not None
-    body_first_cols = [f"body_first_{kmer}" for kmer in vocab] if use_body else []
-    body_last_cols = [f"body_last_{kmer}" for kmer in vocab] if use_body else []
     day_cols = [f"day_{d}" for d in _DAYS]
     cell_cols = [f"cell_{c}" for c in _CELL_LINES]
-    columns = vocab + body_first_cols + body_last_cols + day_cols + cell_cols
-    if include_distance:
-        columns.append("distance_to_closest_pc_gene")
+
+    if signed_overlap and use_body:
+        # Compact signed encoding: one k-mer block, no separate guide columns.
+        columns = [f"body_signed_{kmer}" for kmer in vocab] + day_cols + cell_cols
+        if include_distance:
+            columns.append("distance_to_closest_pc_gene")
+        day_offset = n_kmer
+        cell_offset = day_offset + len(_DAYS)
+    else:
+        body_first_cols = [f"body_first_{kmer}" for kmer in vocab] if use_body else []
+        body_last_cols = [f"body_last_{kmer}" for kmer in vocab] if use_body else []
+        columns = vocab + body_first_cols + body_last_cols + day_cols + cell_cols
+        if include_distance:
+            columns.append("distance_to_closest_pc_gene")
+        body_first_offset = n_kmer
+        body_last_offset = n_kmer + (n_kmer if use_body else 0)
+        day_offset = n_kmer + (2 * n_kmer if use_body else 0)
+        cell_offset = day_offset + len(_DAYS)
 
     n = len(records)
     n_cols = len(columns)
-    body_first_offset = n_kmer
-    body_last_offset = n_kmer + (n_kmer if use_body else 0)
-    day_offset = n_kmer + (2 * n_kmer if use_body else 0)
-    cell_offset = day_offset + len(_DAYS)
-
     y = np.empty(n, dtype=np.float32)
 
     # Pre-compute body k-mer vectors once per gene — avoids recomputing identical
     # sequences for every record that maps to the same gene target.
     body_cache: dict | None = None
-    if use_body:
+    signed_cache: dict | None = None
+    if signed_overlap and use_body:
+        signed_cache = _precompute_signed_body_cache(records, body_sequences, k, vocab_index)
+    elif use_body:
         body_cache = _precompute_body_kmer_cache(records, body_sequences, k, vocab_index)
 
     if sparse:
@@ -148,25 +203,42 @@ def build_features(
         vals: list[float] = []
 
         for i, r in enumerate(records):
-            seq = r.target_sequence
-            kmer_counts, total = _count_kmers(seq, k, vocab_index)
-            if total > 0:
-                for col, count in kmer_counts.items():
-                    row_idx.append(i)
-                    col_idx.append(col)
-                    vals.append(count / total)
-            if body_cache is not None:
-                cached = body_cache.get(r.target)
+            if signed_cache is not None:
+                cached = signed_cache.get(r.target)
                 if cached is not None:
-                    first_entries, last_entries = cached
-                    for col, val in first_entries:
+                    freqs, first_seq, last_seq = cached
+                    rc_guide = _revcomp(r.target_sequence)
+                    guide_in_body = rc_guide in first_seq or rc_guide in last_seq
+                    guide_kmer_idxs: set[int] = set()
+                    if guide_in_body:
+                        for gi in range(len(rc_guide) - k + 1):
+                            idx = vocab_index.get(rc_guide[gi:gi + k])
+                            if idx is not None:
+                                guide_kmer_idxs.add(idx)
+                    for col, freq in freqs.items():
                         row_idx.append(i)
-                        col_idx.append(body_first_offset + col)
-                        vals.append(val)
-                    for col, val in last_entries:
+                        col_idx.append(col)
+                        vals.append(-freq if col in guide_kmer_idxs else freq)
+            else:
+                seq = r.target_sequence
+                kmer_counts, total = _count_kmers(seq, k, vocab_index)
+                if total > 0:
+                    for col, count in kmer_counts.items():
                         row_idx.append(i)
-                        col_idx.append(body_last_offset + col)
-                        vals.append(val)
+                        col_idx.append(col)
+                        vals.append(count / total)
+                if body_cache is not None:
+                    cached = body_cache.get(r.target)
+                    if cached is not None:
+                        first_entries, last_entries = cached
+                        for col, val in first_entries:
+                            row_idx.append(i)
+                            col_idx.append(body_first_offset + col)
+                            vals.append(val)
+                        for col, val in last_entries:
+                            row_idx.append(i)
+                            col_idx.append(body_last_offset + col)
+                            vals.append(val)
             for j, d in enumerate(_DAYS):
                 if r.day == d:
                     row_idx.append(i)
@@ -194,15 +266,30 @@ def build_features(
 
     X_dense = np.zeros((n, n_cols), dtype=dtype)
     for i, r in enumerate(records):
-        _fill_kmer_row(X_dense[i, :n_kmer], r.target_sequence, k, vocab_index)
-        if body_cache is not None:
-            cached = body_cache.get(r.target)
+        if signed_cache is not None:
+            cached = signed_cache.get(r.target)
             if cached is not None:
-                first_entries, last_entries = cached
-                for col, val in first_entries:
-                    X_dense[i, body_first_offset + col] = val
-                for col, val in last_entries:
-                    X_dense[i, body_last_offset + col] = val
+                freqs, first_seq, last_seq = cached
+                guide_in_body = r.target_sequence in first_seq or r.target_sequence in last_seq
+                guide_kmer_idxs: set[int] = set()
+                if guide_in_body:
+                    g = r.target_sequence
+                    for gi in range(len(g) - k + 1):
+                        idx = vocab_index.get(g[gi:gi + k])
+                        if idx is not None:
+                            guide_kmer_idxs.add(idx)
+                for col, freq in freqs.items():
+                    X_dense[i, col] = -freq if col in guide_kmer_idxs else freq
+        else:
+            _fill_kmer_row(X_dense[i, :n_kmer], r.target_sequence, k, vocab_index)
+            if body_cache is not None:
+                cached = body_cache.get(r.target)
+                if cached is not None:
+                    first_entries, last_entries = cached
+                    for col, val in first_entries:
+                        X_dense[i, body_first_offset + col] = val
+                    for col, val in last_entries:
+                        X_dense[i, body_last_offset + col] = val
         for j, d in enumerate(_DAYS):
             if r.day == d:
                 X_dense[i, day_offset + j] = 1.0

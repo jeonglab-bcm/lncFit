@@ -89,6 +89,12 @@ def main():
         "--gtf", default="data/raw/human.lncRNA.hg38.gtf",
         help="GTF path used to build body sequences on-the-fly if --body-sequences is not given.",
     )
+    parser.add_argument(
+        "--signed-overlap", action="store_true",
+        help="Use signed body k-mer encoding: body frequencies negated for k-mers shared "
+             "with the guide when the guide sequence overlaps a body window. "
+             "Requires --body-sequences. Produces one k-mer block instead of three.",
+    )
     args = parser.parse_args()
 
     _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
@@ -174,14 +180,17 @@ def main():
         X_tr, y_tr, cols = build_features(
             train_recs_fold, k=args.k, include_distance=args.include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
+            signed_overlap=args.signed_overlap,
         )
         X_val, y_val, _ = build_features(
             val_recs_fold, k=args.k, include_distance=args.include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
+            signed_overlap=args.signed_overlap,
         )
         X_es, y_es, _ = build_features(
             es_recs_fold, k=args.k, include_distance=args.include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
+            signed_overlap=args.signed_overlap,
         )
         fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
         if not feature_cols:
@@ -343,10 +352,12 @@ def main():
     X_final_tr, y_final_tr, _ = build_features(
         final_train_recs, k=args.k, include_distance=args.include_distance,
         sparse=True, vocab=final_vocab, body_sequences=body_sequences,
+        signed_overlap=args.signed_overlap,
     )
     X_final_val, y_final_val, _ = build_features(
         final_val_recs, k=args.k, include_distance=args.include_distance,
         sparse=True, vocab=final_vocab, body_sequences=body_sequences,
+        signed_overlap=args.signed_overlap,
     )
     gc.collect()
 
@@ -383,7 +394,7 @@ def main():
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_features(
         test_records, k=args.k, include_distance=args.include_distance, sparse=True,
-        vocab=final_vocab, body_sequences=body_sequences,
+        vocab=final_vocab, body_sequences=body_sequences, signed_overlap=args.signed_overlap,
     )
     y_test_pred = final_model.predict(X_test)
     del X_test
@@ -441,6 +452,7 @@ def main():
         "git_commit": git_commit(),
         "body_sequences_file": args.body_sequences,
         "use_body_kmers": body_sequences is not None,
+        "signed_overlap": args.signed_overlap,
     }
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:
