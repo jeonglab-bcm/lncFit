@@ -1,3 +1,15 @@
+import subprocess
+
+
+def git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "unknown"
+
+
 def read_fasta(path: str) -> list[str]:
     sequences = []
     current_seq = []
