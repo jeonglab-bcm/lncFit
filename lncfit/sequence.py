@@ -1,13 +1,15 @@
-"""Extract first/last 1000 bp body windows for each lncRNA gene from a GTF + FASTA."""
+"""Extract body sequences for each lncRNA gene from a GTF + FASTA."""
 from __future__ import annotations
 
 import re
 import tarfile
+from collections import defaultdict
 from pathlib import Path
 
 from pyfaidx import Fasta
 
 _GENE_ID_RE = re.compile(r'gene_id\s+(\S+?);')
+_TRANSCRIPT_ID_RE = re.compile(r'transcript_id\s+(\S+?);')
 _COMPLEMENT = str.maketrans("ACGTacgtNn", "TGCAtgcaNn")
 
 _DEFAULT_GTF = Path("data/raw/human.lncRNA.hg38.gtf")
@@ -151,22 +153,162 @@ def load_body_sequences(
     return extract_body_sequences(gene_bounds, fasta_path, fasta_targz, window)
 
 
+def extract_full_genomic_sequences(
+    gene_bounds: dict[str, tuple[str, int, int, str]],
+    fasta_path: Path | str = _DEFAULT_FASTA,
+    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+) -> dict[str, tuple[str, str]]:
+    """Extract the full genomic span for each gene (no window truncation).
+
+    Returns:
+        {gene_id: (full_seq, "")} — full span on the sense strand; second element
+        is empty so the return type is compatible with body_sequences consumers.
+    """
+    fasta_path = _ensure_fasta(Path(fasta_targz), Path(fasta_path))
+
+    print(f"Loading FASTA index from {fasta_path} …")
+    fa = Fasta(str(fasta_path), sequence_always_upper=True, as_raw=True)
+    fasta_chroms = set(fa.keys())
+
+    def _resolve_chrom(chrom: str) -> str | None:
+        if chrom in fasta_chroms:
+            return chrom
+        with_prefix = f"chr{chrom}"
+        if with_prefix in fasta_chroms:
+            return with_prefix
+        return None
+
+    result: dict[str, tuple[str, str]] = {}
+    missing_chroms: set[str] = set()
+
+    for gene_id, (chrom, g_start, g_end, strand) in gene_bounds.items():
+        resolved = _resolve_chrom(chrom)
+        if resolved is None:
+            missing_chroms.add(chrom)
+            continue
+        s = g_start - 1  # 0-based
+        e = g_end
+        seq = str(fa[resolved][s:e])
+        if strand == "-":
+            seq = _revcomp(seq)
+        result[gene_id] = (seq, "")
+
+    if missing_chroms:
+        print(f"Warning: {len(missing_chroms)} chromosome(s) not found: {sorted(missing_chroms)[:10]}")
+
+    return result
+
+
+def extract_spliced_sequences(
+    gtf_path: Path | str = _DEFAULT_GTF,
+    fasta_path: Path | str = _DEFAULT_FASTA,
+    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+) -> dict[str, tuple[str, str]]:
+    """Extract spliced transcript sequence for each gene using the longest transcript.
+
+    Concatenates exon sequences in RNA order (5'→3'), reverse-complementing for
+    minus-strand genes. Returns:
+        {gene_id: (spliced_seq, "")} — second element empty for type compatibility.
+    """
+    # Parse GTF: collect exons per (gene_id, transcript_id)
+    gene_txs: dict[str, dict[str, list[tuple[str, int, int, str]]]] = defaultdict(lambda: defaultdict(list))
+
+    with open(gtf_path) as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 9 or parts[2] != "exon":
+                continue
+            chrom, start, end, strand, attrs = parts[0], int(parts[3]), int(parts[4]), parts[6], parts[8]
+            g = _GENE_ID_RE.search(attrs)
+            t = _TRANSCRIPT_ID_RE.search(attrs)
+            if g and t:
+                gene_txs[g.group(1)][t.group(1)].append((chrom, start, end, strand))
+
+    # For each gene pick the transcript with the most total exonic bp
+    gene_best_exons: dict[str, list[tuple[str, int, int, str]]] = {}
+    for gene_id, txs in gene_txs.items():
+        gene_best_exons[gene_id] = max(
+            txs.values(), key=lambda exons: sum(e - s + 1 for _, s, e, _ in exons)
+        )
+
+    fasta_path = _ensure_fasta(Path(fasta_targz), Path(fasta_path))
+    print(f"Loading FASTA index from {fasta_path} …")
+    fa = Fasta(str(fasta_path), sequence_always_upper=True, as_raw=True)
+    fasta_chroms = set(fa.keys())
+
+    def _resolve_chrom(chrom: str) -> str | None:
+        if chrom in fasta_chroms:
+            return chrom
+        with_prefix = f"chr{chrom}"
+        if with_prefix in fasta_chroms:
+            return with_prefix
+        return None
+
+    result: dict[str, tuple[str, str]] = {}
+    missing_chroms: set[str] = set()
+
+    for gene_id, exons in gene_best_exons.items():
+        chrom = exons[0][0]
+        strand = exons[0][3]
+        resolved = _resolve_chrom(chrom)
+        if resolved is None:
+            missing_chroms.add(chrom)
+            continue
+
+        sorted_exons = sorted(exons, key=lambda e: e[1])  # ascending genomic order
+        if strand == "-":
+            # RNA 5'→3' runs from highest to lowest genomic coordinate
+            sorted_exons = sorted_exons[::-1]
+            parts = [_revcomp(str(fa[resolved][s - 1:e])) for _, s, e, _ in sorted_exons]
+        else:
+            parts = [str(fa[resolved][s - 1:e]) for _, s, e, _ in sorted_exons]
+
+        result[gene_id] = ("".join(parts), "")
+
+    if missing_chroms:
+        print(f"Warning: {len(missing_chroms)} chromosome(s) not found: {sorted(missing_chroms)[:10]}")
+
+    return result
+
+
 if __name__ == "__main__":
     import argparse
     import json
+
+    _DEFAULTS = {
+        "windowed":   "data/processed/body_sequences.json",
+        "genomic":    "data/processed/body_sequences_genomic_full.json",
+        "transcript": "data/processed/body_sequences_transcript.json",
+    }
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gtf", type=Path, default=_DEFAULT_GTF)
     parser.add_argument("--fasta", type=Path, default=_DEFAULT_FASTA)
     parser.add_argument("--fasta-targz", type=Path, default=_DEFAULT_FASTA_TARGZ)
-    parser.add_argument("--window", type=int, default=1000)
-    parser.add_argument("--output", type=Path, default=Path("data/processed/body_sequences.json"))
+    parser.add_argument("--sequence-type", choices=["windowed", "genomic", "transcript"],
+                        default="windowed",
+                        help="windowed=first/last 1000 bp (default), genomic=full span, transcript=spliced exons")
+    parser.add_argument("--window", type=int, default=1000,
+                        help="Window size in bp (only used with --sequence-type windowed)")
+    parser.add_argument("--output", type=Path, default=None,
+                        help="Output path (defaults per sequence type if omitted)")
     args = parser.parse_args()
 
-    seqs = load_body_sequences(args.gtf, args.fasta, args.fasta_targz, args.window)
-    print(f"Extracted sequences for {len(seqs)} genes.")
+    output = args.output or Path(_DEFAULTS[args.sequence_type])
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
+    if args.sequence_type == "windowed":
+        seqs = load_body_sequences(args.gtf, args.fasta, args.fasta_targz, args.window)
+    elif args.sequence_type == "genomic":
+        gene_bounds = parse_gtf(args.gtf)
+        print(f"Parsed {len(gene_bounds)} genes from GTF.")
+        seqs = extract_full_genomic_sequences(gene_bounds, args.fasta, args.fasta_targz)
+    else:
+        seqs = extract_spliced_sequences(args.gtf, args.fasta, args.fasta_targz)
+
+    print(f"Extracted sequences for {len(seqs)} genes.")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "w") as f:
         json.dump(seqs, f)
-    print(f"Saved to {args.output}")
+    print(f"Saved to {output}")

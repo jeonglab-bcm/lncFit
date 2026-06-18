@@ -98,30 +98,25 @@ def _precompute_signed_body_cache(
     body_sequences: dict[str, tuple[str, str]],
     k: int,
     vocab_index: dict[str, int],
-) -> dict[str, tuple[dict[int, float], str, str]]:
-    """Compute combined body k-mer frequencies + retain raw sequences for overlap checks.
+) -> dict[str, dict[int, float]]:
+    """Compute combined body k-mer frequencies once per gene.
 
-    Combines first and last window counts into a single normalized frequency dict.
-    Raw sequences are stored so each record can check whether its guide overlaps.
-
-    Returns {gene_id: (freq_dict, first_seq, last_seq)} where freq_dict maps
-    col_index -> frequency over the combined first+last window k-mer counts.
+    Returns {gene_id: freq_dict} where freq_dict maps col_index -> frequency
+    over the combined sequence k-mer counts.
     """
-    cache: dict[str, tuple[dict[int, float], str, str]] = {}
+    cache: dict[str, dict[int, float]] = {}
     for r in records:
         gene_id = r.target
         if gene_id in cache or gene_id not in body_sequences:
             continue
-        first_seq, last_seq = body_sequences[gene_id]
         combined: dict[int, int] = {}
         total = 0
-        for seq in (first_seq, last_seq):
+        for seq in body_sequences[gene_id]:
             counts, t = _count_kmers(seq, k, vocab_index)
             for idx, cnt in counts.items():
                 combined[idx] = combined.get(idx, 0) + cnt
             total += t
-        freqs = {idx: cnt / total for idx, cnt in combined.items()} if total > 0 else {}
-        cache[gene_id] = (freqs, first_seq, last_seq)
+        cache[gene_id] = {idx: cnt / total for idx, cnt in combined.items()} if total > 0 else {}
     return cache
 
 
@@ -151,9 +146,9 @@ def build_features(
     Records whose gene_id is absent from body_sequences get zero body k-mer columns.
 
     Pass signed_overlap=True (requires body_sequences) for a compact single-block encoding:
-    body k-mer frequencies are computed over the combined first+last windows, then negated
-    for any k-mer that appears in the guide IF the guide sequence is a substring of either
-    body window. Positive values = k-mer unique to body; negative = shared with guide.
+    body k-mer frequencies are negated for any k-mer whose 3-mer also appears in the
+    reverse complement of the guide spacer (k-mer level intersection, not positional).
+    Positive values = k-mer present in body but not guide; negative = shared with guide.
     Column layout becomes body_signed_{kmer} + day + cell (no separate guide block).
     """
     if vocab is None:
@@ -204,17 +199,14 @@ def build_features(
 
         for i, r in enumerate(records):
             if signed_cache is not None:
-                cached = signed_cache.get(r.target)
-                if cached is not None:
-                    freqs, first_seq, last_seq = cached
+                freqs = signed_cache.get(r.target)
+                if freqs is not None:
                     rc_guide = _revcomp(r.target_sequence)
-                    guide_in_body = rc_guide in first_seq or rc_guide in last_seq
                     guide_kmer_idxs: set[int] = set()
-                    if guide_in_body:
-                        for gi in range(len(rc_guide) - k + 1):
-                            idx = vocab_index.get(rc_guide[gi:gi + k])
-                            if idx is not None:
-                                guide_kmer_idxs.add(idx)
+                    for gi in range(len(rc_guide) - k + 1):
+                        idx = vocab_index.get(rc_guide[gi:gi + k])
+                        if idx is not None:
+                            guide_kmer_idxs.add(idx)
                     for col, freq in freqs.items():
                         row_idx.append(i)
                         col_idx.append(col)
@@ -267,17 +259,14 @@ def build_features(
     X_dense = np.zeros((n, n_cols), dtype=dtype)
     for i, r in enumerate(records):
         if signed_cache is not None:
-            cached = signed_cache.get(r.target)
-            if cached is not None:
-                freqs, first_seq, last_seq = cached
+            freqs = signed_cache.get(r.target)
+            if freqs is not None:
                 rc_guide = _revcomp(r.target_sequence)
-                guide_in_body = rc_guide in first_seq or rc_guide in last_seq
                 guide_kmer_idxs: set[int] = set()
-                if guide_in_body:
-                    for gi in range(len(rc_guide) - k + 1):
-                        idx = vocab_index.get(rc_guide[gi:gi + k])
-                        if idx is not None:
-                            guide_kmer_idxs.add(idx)
+                for gi in range(len(rc_guide) - k + 1):
+                    idx = vocab_index.get(rc_guide[gi:gi + k])
+                    if idx is not None:
+                        guide_kmer_idxs.add(idx)
                 for col, freq in freqs.items():
                     X_dense[i, col] = -freq if col in guide_kmer_idxs else freq
         else:
