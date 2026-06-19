@@ -46,7 +46,8 @@ from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lncfit.constants import CELL_LINES, DAYS, MIN_FOLD_RECORDS
+from lncfit.constants import CELL_LINES, DAYS
+from lncfit.cv import build_folds
 from lncfit.features import build_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.plotting import plot_scatter_grid
@@ -134,12 +135,15 @@ def main():
             print(f"  Saved to {body_seq_path} for future runs.")
 
     chrom_arr = np.array([r.chrom for r in train_records])
-
-    # ── Determine CV chromosome folds ─────────────────────────────────────────
     chrom_counts = Counter(chrom_arr)
-    cv_chroms = sorted(
-        [str(c) for c, n in chrom_counts.items() if c and n >= MIN_FOLD_RECORDS],
-        key=lambda x: (len(x), x),
+
+    # ── Pre-compute per-fold feature matrices ─────────────────────────────────
+    print()
+    cv_chroms, fold_data, feature_cols = build_folds(
+        train_records, k=args.k,
+        include_distance=args.include_distance,
+        body_sequences=body_sequences,
+        signed_overlap=args.signed_overlap,
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
     print(f"  Records with no chromosome annotation: "
@@ -152,52 +156,6 @@ def main():
         final_val_chrom = fallback
     else:
         final_val_chrom = args.final_val_chrom
-
-    # ── Pre-compute per-fold feature matrices ─────────────────────────────────
-    # Vocab is fitted on each fold's training rows only (excludes val + early-stop
-    # chromosomes) so k-mers unique to held-out sequences don't inflate the feature space.
-    # Matrices are built once here — the Optuna objective reuses them across all trials.
-    print(f"\nFitting per-fold vocabularies and building feature matrices ...")
-    fold_data: dict[str, tuple] = {}
-    feature_cols: list[str] = []
-    for i, val_chrom in enumerate(cv_chroms):
-        es_chrom = cv_chroms[(i + 1) % len(cv_chroms)]
-        val_mask = chrom_arr == val_chrom
-        es_mask = chrom_arr == es_chrom
-        train_mask = ~val_mask & ~es_mask
-
-        train_recs_fold = [r for r, m in zip(train_records, train_mask) if m]
-        val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
-        es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
-
-        guide_seqs = [r.target_sequence for r in train_recs_fold]
-        if body_sequences is not None:
-            seen_targets = {r.target for r in train_recs_fold}
-            body_seqs_for_vocab = [seq for t in seen_targets for seq in body_sequences.get(t, ())]
-        else:
-            body_seqs_for_vocab = []
-        fold_vocab = fit_vocab(guide_seqs + body_seqs_for_vocab, args.k)
-        X_tr, y_tr, cols = build_features(
-            train_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=args.signed_overlap,
-        )
-        X_val, y_val, _ = build_features(
-            val_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=args.signed_overlap,
-        )
-        X_es, y_es, _ = build_features(
-            es_recs_fold, k=args.k, include_distance=args.include_distance,
-            sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=args.signed_overlap,
-        )
-        fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
-        if not feature_cols:
-            feature_cols = cols
-        print(f"  fold chr{val_chrom}: {len(fold_vocab)}/{4**args.k} k-mers  "
-              f"train={X_tr.shape[0]:,}  val={X_val.shape[0]:,}  es={X_es.shape[0]:,}")
-        gc.collect()
 
     # ── Optuna objective ───────────────────────────────────────────────────────
     cv_rows: list[dict] = []
