@@ -56,6 +56,25 @@ from lncfit.sequence import load_body_sequences
 from lncfit.xgboost_model import build_xgb_params, evaluate_by_group
 
 
+def filter_records(records, cell_line=None, day=None):
+    """Filter ScreenRecords by cell_line and/or day (issue #49)."""
+    if cell_line:
+        records = [r for r in records if r.cell_line == cell_line]
+    if day is not None:
+        records = [r for r in records if r.day == day]
+    return records
+
+
+def obj_tag_for(objective, cell_line=None, day=None):
+    """Build the output filename tag, namespaced by cell-line/day filters (issue #49)."""
+    tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[objective]
+    if cell_line:
+        tag += f"_{cell_line}"
+    if day is not None:
+        tag += f"_d{day}"
+    return tag
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Tune XGBoost hyperparameters via Optuna TPE + chromosome LOCO-CV."
@@ -96,9 +115,20 @@ def main():
              "with the guide when the guide sequence overlaps a body window. "
              "Requires --body-sequences. Produces one k-mer block instead of three.",
     )
+    parser.add_argument(
+        "--cell-line", default=None, choices=CELL_LINES,
+        help="Filter records to a single cell line and train a per-cell-line model "
+             "(issue #49). Outputs are namespaced with the cell-line name. "
+             "Default: use all cell lines (pooled).",
+    )
+    parser.add_argument(
+        "--day", type=int, default=None, choices=DAYS,
+        help="Filter records to a single screening day (7 or 14). Combine with "
+             "--cell-line for per-cell-line x day models. Default: use both days.",
+    )
     args = parser.parse_args()
 
-    _obj_tag = {"reg:squarederror": "mse", "reg:pseudohubererror": "huber"}[args.objective]
+    _obj_tag = obj_tag_for(args.objective, args.cell_line, args.day)
 
     out_dir = Path(args.output_dir)
     model_dir = out_dir / "data" / "model"
@@ -114,6 +144,15 @@ def main():
     print(f"Loading test records from {args.test} ...")
     test_records = load_jsonl(args.test)
     print(f"  {len(test_records):,} records")
+
+    # ── Optional cell-line / day filter (issue #49) ─────────────────────────
+    if args.cell_line or args.day is not None:
+        before_tr, before_te = len(train_records), len(test_records)
+        train_records = filter_records(train_records, args.cell_line, args.day)
+        test_records  = filter_records(test_records,  args.cell_line, args.day)
+        print(f"Filtered to cell_line={args.cell_line}, day={args.day}: "
+              f"train {before_tr:,} -> {len(train_records):,}, "
+              f"test {before_te:,} -> {len(test_records):,}")
 
     # ── Load body sequences (optional) ────────────────────────────────────────
     body_sequences: dict | None = None
@@ -191,13 +230,14 @@ def main():
             y_pred = model.predict(X_val)
             rho, _ = spearmanr(y_val, y_pred)
             n_trees = model.best_iteration + 1
+            n_val = X_val.shape[0]
             del X_val, y_val
 
             fold_rhos.append(float(rho))
             cv_rows.append({
                 "trial": trial.number,
                 "chromosome": val_chrom,
-                "n_val": int(val_mask.sum()),
+                "n_val": int(n_val),
                 "spearman_rho": float(rho),
                 "best_n_estimators": int(n_trees),
             })
@@ -395,6 +435,8 @@ def main():
         "k": args.k,
         "objective": args.objective,
         "include_distance": args.include_distance,
+        "cell_line": args.cell_line,
+        "day": args.day,
         "n_trials_requested": args.n_trials,
         "n_trials_completed": len([t for t in study.trials
                                    if t.state == optuna.trial.TrialState.COMPLETE]),
