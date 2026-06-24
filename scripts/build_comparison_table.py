@@ -106,17 +106,13 @@ def main():
     rows = []
     for cl in args.cell_lines:
         pooled_rho, pooled_n = _rho_for(pooled_run["metrics"], cl)
-        pooled_d7, _ = _rho_for(pooled_run["metrics"], f"{cl} Day 7")
-        pooled_d14, _ = _rho_for(pooled_run["metrics"], f"{cl} Day 14")
 
         if cl in per_cl_runs:
             per = per_cl_runs[cl]
             per_rho, per_n = _rho_for(per["metrics"], cl)
-            per_d7, _ = _rho_for(per["metrics"], f"{cl} Day 7")
-            per_d14, _ = _rho_for(per["metrics"], f"{cl} Day 14")
             per_dir = per["dir"].name
         else:
-            per_rho = per_d7 = per_d14 = float("nan")
+            per_rho = float("nan")
             per_n = 0
             per_dir = "(missing)"
 
@@ -126,10 +122,6 @@ def main():
             "pooled_rho": round(pooled_rho, 4),
             "per_cell_line_rho": round(per_rho, 4) if per_rho == per_rho else float("nan"),
             "delta_rho": round(per_rho - pooled_rho, 4) if per_rho == per_rho else float("nan"),
-            "pooled_day7": round(pooled_d7, 4),
-            "per_day7": round(per_d7, 4) if per_d7 == per_d7 else float("nan"),
-            "pooled_day14": round(pooled_d14, 4),
-            "per_day14": round(per_d14, 4) if per_d14 == per_d14 else float("nan"),
             "per_cell_line_run": per_dir,
         })
 
