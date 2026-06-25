@@ -1,0 +1,17 @@
+{
+  "k": 3,
+  "objective": "reg:squarederror",
+  "include_distance": false,
+  "seed": 42,
+  "cv_mean_spearman_rho": 0.04231918219892247,
+  "cv_std_spearman_rho": 0.03060425064013633,
+  "n_estimators_cv_median": 361,
+  "learning_rate": 0.010455207127271476,
+  "max_depth": 8,
+  "subsample": 0.693022927133524,
+  "colsample_bytree": 0.8142634472008576,
+  "min_child_weight": 2,
+  "reg_alpha": 9.650554673574462,
+  "reg_lambda": 0.44290816125293975,
+  "n_estimators_final_model": 375
+}
