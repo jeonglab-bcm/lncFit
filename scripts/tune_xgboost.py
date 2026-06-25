@@ -51,6 +51,7 @@ from lncfit.cv import build_folds
 from lncfit.features import build_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.plotting import plot_scatter_grid
+from lncfit.preprocessing import symmetric_quantile_clip
 from lncfit.screen_data import load_jsonl
 from lncfit.sequence import load_body_sequences
 from lncfit.xgboost_model import build_xgb_params, evaluate_by_group
@@ -126,6 +127,12 @@ def main():
         help="Filter records to a single screening day (7 or 14). Combine with "
              "--cell-line for per-cell-line x day models. Default: use both days.",
     )
+    parser.add_argument(
+        "--clip-quantile", type=float, default=1.0,
+        help="Clip log2FC targets symmetrically at this quantile of |y| before training "
+             "(issue #51). 1.0 = no clipping (default). E.g. 0.95 clips the top 5%% "
+             "of extreme values. A floor of 1.0 prevents clipping near-zero values.",
+    )
     args = parser.parse_args()
 
     _obj_tag = obj_tag_for(args.objective, args.cell_line, args.day)
@@ -185,6 +192,21 @@ def main():
         signed_overlap=args.signed_overlap,
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
+
+    # ── Clip log2FC targets (issue #51) ───────────────────────────────────────
+    # Derive clip_limit from all training y values; apply the same limit to val/es
+    # so the model never sees different target scales across splits.
+    all_train_y = np.concatenate([fold_data[c][1] for c in cv_chroms])
+    _, _clip_limit, _pct_clipped = symmetric_quantile_clip(all_train_y, args.clip_quantile)
+    if args.clip_quantile < 1.0:
+        print(f"\nlog2FC clipping (quantile={args.clip_quantile}): "
+              f"limit={_clip_limit:.4f}, {_pct_clipped*100:.2f}% of training values clipped")
+        for c in cv_chroms:
+            X_tr, y_tr, X_val, y_val, X_es, y_es = fold_data[c]
+            y_tr,  _, _ = symmetric_quantile_clip(y_tr,  clip_limit=_clip_limit)
+            y_val, _, _ = symmetric_quantile_clip(y_val, clip_limit=_clip_limit)
+            y_es,  _, _ = symmetric_quantile_clip(y_es,  clip_limit=_clip_limit)
+            fold_data[c] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
     print(f"  Records with no chromosome annotation: "
           f"{chrom_counts.get('', 0):,} (always in training, never held out)")
 
@@ -357,6 +379,9 @@ def main():
         sparse=True, vocab=final_vocab, body_sequences=body_sequences,
         signed_overlap=args.signed_overlap,
     )
+    if args.clip_quantile < 1.0:
+        y_final_tr,  _, _ = symmetric_quantile_clip(y_final_tr,  clip_limit=_clip_limit)
+        y_final_val, _, _ = symmetric_quantile_clip(y_final_val, clip_limit=_clip_limit)
     gc.collect()
 
     bp = best_trial.params
@@ -394,6 +419,8 @@ def main():
         test_records, k=args.k, include_distance=args.include_distance, sparse=True,
         vocab=final_vocab, body_sequences=body_sequences, signed_overlap=args.signed_overlap,
     )
+    if args.clip_quantile < 1.0:
+        y_test, _, _ = symmetric_quantile_clip(y_test, clip_limit=_clip_limit)
     y_test_pred = final_model.predict(X_test)
     del X_test
     gc.collect()
@@ -453,6 +480,9 @@ def main():
         "body_sequences_file": args.body_sequences,
         "use_body_kmers": body_sequences is not None,
         "signed_overlap": args.signed_overlap,
+        "clip_quantile": args.clip_quantile,
+        "clip_limit": _clip_limit,
+        "clip_pct_train": round(_pct_clipped, 6),
     }
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:
