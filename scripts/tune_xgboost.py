@@ -48,6 +48,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.constants import CELL_LINES, DAYS
 from lncfit.cv import build_folds
+from lncfit.embeddings import load_embeddings
 from lncfit.features import build_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.plotting import plot_scatter_grid
@@ -126,6 +127,12 @@ def main():
         help="Filter records to a single screening day (7 or 14). Combine with "
              "--cell-line for per-cell-line x day models. Default: use both days.",
     )
+    parser.add_argument(
+        "--body-embeddings", default=None,
+        help="Path to a .npz file of pre-computed DNABERT-2 body embeddings produced by "
+             "scripts/embed_sequences.py --source body. When provided, the embedding "
+             "vectors are appended after k-mer and categorical features.",
+    )
     args = parser.parse_args()
 
     _obj_tag = obj_tag_for(args.objective, args.cell_line, args.day)
@@ -173,6 +180,18 @@ def main():
                 json.dump({k: list(v) for k, v in body_sequences.items()}, fh)
             print(f"  Saved to {body_seq_path} for future runs.")
 
+    # ── Load DNABERT-2 body embeddings (optional) ─────────────────────────────
+    body_embeddings = None
+    if args.body_embeddings:
+        emb_path = Path(args.body_embeddings)
+        if not emb_path.exists():
+            print(f"\nEmbeddings file not found: {emb_path} — skipping embeddings.")
+        else:
+            print(f"\nLoading DNABERT-2 embeddings from {emb_path} ...")
+            body_embeddings = load_embeddings(str(emb_path))
+            emb_matrix, emb_index = body_embeddings
+            print(f"  {len(emb_index):,} genes  embedding dim={emb_matrix.shape[1]}")
+
     chrom_arr = np.array([r.chrom for r in train_records])
     chrom_counts = Counter(chrom_arr)
 
@@ -183,6 +202,7 @@ def main():
         include_distance=args.include_distance,
         body_sequences=body_sequences,
         signed_overlap=args.signed_overlap,
+        body_embeddings=body_embeddings,
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
     print(f"  Records with no chromosome annotation: "
@@ -350,12 +370,12 @@ def main():
     X_final_tr, y_final_tr, _ = build_features(
         final_train_recs, k=args.k, include_distance=args.include_distance,
         sparse=True, vocab=final_vocab, body_sequences=body_sequences,
-        signed_overlap=args.signed_overlap,
+        signed_overlap=args.signed_overlap, body_embeddings=body_embeddings,
     )
     X_final_val, y_final_val, _ = build_features(
         final_val_recs, k=args.k, include_distance=args.include_distance,
         sparse=True, vocab=final_vocab, body_sequences=body_sequences,
-        signed_overlap=args.signed_overlap,
+        signed_overlap=args.signed_overlap, body_embeddings=body_embeddings,
     )
     gc.collect()
 
@@ -393,6 +413,7 @@ def main():
     X_test, y_test, _ = build_features(
         test_records, k=args.k, include_distance=args.include_distance, sparse=True,
         vocab=final_vocab, body_sequences=body_sequences, signed_overlap=args.signed_overlap,
+        body_embeddings=body_embeddings,
     )
     y_test_pred = final_model.predict(X_test)
     del X_test
@@ -453,6 +474,8 @@ def main():
         "body_sequences_file": args.body_sequences,
         "use_body_kmers": body_sequences is not None,
         "signed_overlap": args.signed_overlap,
+        "body_embeddings_file": args.body_embeddings,
+        "use_body_embeddings": body_embeddings is not None,
     }
     run_info_path = eval_dir / "run_info.json"
     with open(run_info_path, "w") as fh:

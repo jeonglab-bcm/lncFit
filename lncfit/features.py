@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, hstack as sp_hstack
 
 from lncfit.screen_data import ScreenRecord
 
@@ -120,6 +120,22 @@ def _precompute_signed_body_cache(
     return cache
 
 
+def _build_embedding_block(
+    records: list[ScreenRecord],
+    body_embeddings: tuple[np.ndarray, dict[str, int]],
+) -> tuple[np.ndarray, list[str]]:
+    """Return (E, col_names) where E is float32 (n_records, n_dims), keyed by r.target."""
+    emb_matrix, emb_index = body_embeddings
+    n_dims = emb_matrix.shape[1]
+    E = np.zeros((len(records), n_dims), dtype=np.float32)
+    for i, r in enumerate(records):
+        row = emb_index.get(r.target)
+        if row is not None:
+            E[i] = emb_matrix[row]
+    col_names = [f"dnabert_{j}" for j in range(n_dims)]
+    return E, col_names
+
+
 def build_features(
     records: list[ScreenRecord],
     k: int = 6,
@@ -129,6 +145,7 @@ def build_features(
     vocab: list[str] | None = None,
     body_sequences: dict[str, tuple[str, str]] | None = None,
     signed_overlap: bool = False,
+    body_embeddings: tuple[np.ndarray, dict[str, int]] | None = None,
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, target vector y, and column names from ScreenRecords.
 
@@ -150,6 +167,10 @@ def build_features(
     reverse complement of the guide spacer (k-mer level intersection, not positional).
     Positive values = k-mer present in body but not guide; negative = shared with guide.
     Column layout becomes body_signed_{kmer} + day + cell (no separate guide block).
+
+    Pass body_embeddings=(matrix, index) from lncfit.embeddings.load_embeddings() to
+    append pre-computed DNABERT-2 vectors (keyed by r.target) after all other columns.
+    Records whose target is absent from the index receive a zero vector.
     """
     if vocab is None:
         vocab = all_kmers(k)
@@ -254,6 +275,10 @@ def build_features(
             (np.array(vals, dtype=np.float32), (np.array(row_idx), np.array(col_idx))),
             shape=(n, n_cols),
         )
+        if body_embeddings is not None:
+            E, emb_cols = _build_embedding_block(records, body_embeddings)
+            X = sp_hstack([X, csr_matrix(E)], format="csr")
+            columns = columns + emb_cols
         return X, y, columns
 
     X_dense = np.zeros((n, n_cols), dtype=dtype)
@@ -290,4 +315,8 @@ def build_features(
             X_dense[i, n_cols - 1] = float(dist)
         y[i] = r.fold_change
 
+    if body_embeddings is not None:
+        E, emb_cols = _build_embedding_block(records, body_embeddings)
+        X_dense = np.hstack([X_dense, E])
+        columns = columns + emb_cols
     return X_dense, y, columns
