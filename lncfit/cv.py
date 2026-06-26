@@ -16,6 +16,8 @@ def build_folds(
     include_distance: bool = False,
     body_sequences: dict | None = None,
     signed_overlap: bool = False,
+    body_embeddings: tuple | None = None,
+    guide_embeddings: tuple | None = None,
     verbose: bool = True,
 ) -> tuple[list[str], dict[str, tuple], list[str]]:
     """Build per-fold feature matrices for chromosome LOCO-CV.
@@ -58,17 +60,20 @@ def build_folds(
         X_tr, y_tr, cols = build_features(
             train_recs_fold, k=k, include_distance=include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=signed_overlap,
+            signed_overlap=signed_overlap, body_embeddings=body_embeddings,
+            guide_embeddings=guide_embeddings,
         )
         X_val, y_val, _ = build_features(
             val_recs_fold, k=k, include_distance=include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=signed_overlap,
+            signed_overlap=signed_overlap, body_embeddings=body_embeddings,
+            guide_embeddings=guide_embeddings,
         )
         X_es, y_es, _ = build_features(
             es_recs_fold, k=k, include_distance=include_distance,
             sparse=True, vocab=fold_vocab, body_sequences=body_sequences,
-            signed_overlap=signed_overlap,
+            signed_overlap=signed_overlap, body_embeddings=body_embeddings,
+            guide_embeddings=guide_embeddings,
         )
         fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
         if not feature_cols:
