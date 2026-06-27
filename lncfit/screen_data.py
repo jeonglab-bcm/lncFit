@@ -184,6 +184,28 @@ def load_jsonl(path: Path | str) -> list[ScreenRecord]:
     return records
 
 
+def aggregate_replicates(records: list[ScreenRecord]) -> list[ScreenRecord]:
+    """Average fold_change across replicates per (guide_id, cell_line, day).
+
+    Returns one record per unique (guide_id, cell_line, day) with fold_change
+    set to the mean across all replicates. replicate is set to 0 to signal
+    this is an aggregated record.
+    """
+    from collections import defaultdict
+
+    groups: dict[tuple, list[float]] = defaultdict(list)
+    exemplars: dict[tuple, ScreenRecord] = {}
+    for r in records:
+        key = (r.guide_id, r.cell_line, r.day)
+        groups[key].append(r.fold_change)
+        if key not in exemplars:
+            exemplars[key] = r
+    return [
+        dataclasses.replace(exemplars[key], replicate=0, fold_change=sum(fcs) / len(fcs))
+        for key, fcs in groups.items()
+    ]
+
+
 def to_dataframe(records: list[ScreenRecord]) -> pd.DataFrame:
     """Convert a list of ScreenRecord to a tidy DataFrame."""
     return pd.DataFrame(
