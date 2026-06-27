@@ -233,6 +233,9 @@ data/raw/genome/
 # Large derived data files — reproducible, do not commit
 data/raw/human.lncRNA.hg38.gtf
 data/processed/body_sequences.json
+data/processed/body_sequences_transcript.json
+data/processed/body_sequences_genomic_full.json
+data/processed/*.npz
 
 # Claude Code project file
 CLAUDE.md

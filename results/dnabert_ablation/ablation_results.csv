@@ -1,0 +1,7 @@
+condition,label,cv_rho_mean,cv_rho_std,delta_vs_baseline
+kmer_only,k-mer only (baseline),0.132527,0.01414,0.0
+kmer+body_first,k-mer + DNABERT-2 body (first),0.166127,0.008218,0.0336
+kmer+body_last,k-mer + DNABERT-2 body (last),0.175283,0.009055,0.042756
+kmer+body_mean,k-mer + DNABERT-2 body (mean),0.1674,0.009827,0.034873
+kmer+guide,k-mer + DNABERT-2 guide,0.121388,0.012588,-0.011139
+kmer+body_mean+guide,k-mer + body(mean) + guide,0.164396,0.008501,0.031869
