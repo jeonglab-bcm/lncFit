@@ -7,8 +7,8 @@ from lncfit.parsers import parse_log2fc
 logger = logging.getLogger(__name__)
 
 
-def run_chatnt_inference(prompt: str, dna_sequences: list[str]) -> float | None:
-    """Load ChatNT, run inference, log raw response, return parsed log2FC."""
+def run_chatnt_inference_full(prompt: str, dna_sequences: list[str]) -> tuple[str, float | None]:
+    """Load ChatNT, run inference. Returns (raw_response, parsed_log2fc)."""
     pipe = pipeline(model="InstaDeepAI/ChatNT", trust_remote_code=True)
     result = pipe(inputs={"english_sequence": prompt, "dna_sequences": dna_sequences})
 
@@ -29,4 +29,10 @@ def run_chatnt_inference(prompt: str, dna_sequences: list[str]) -> float | None:
         "and requires experimental validation against known CRISPR-screen labels before use."
     )
 
+    return raw_response, value
+
+
+def run_chatnt_inference(prompt: str, dna_sequences: list[str]) -> float | None:
+    """Load ChatNT, run inference, log raw response, return parsed log2FC."""
+    _, value = run_chatnt_inference_full(prompt, dna_sequences)
     return value
