@@ -1,7 +1,7 @@
 {
   "train_file": "data/processed/train_lncrna_day14_chrom1.jsonl.gz",
   "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
-  "k": 3,
+  "k": 5,
   "include_distance": false,
   "n_trials_requested": 50,
   "n_trials_completed": 30,
@@ -28,13 +28,13 @@
     "20",
     "22"
   ],
-  "best_trial": 49,
-  "cv_mean_auprc": 0.16675879208628347,
-  "cv_std_auprc": 0.05720852124728934,
+  "best_trial": 36,
+  "cv_mean_auprc": 0.12429436026586209,
+  "cv_std_auprc": 0.06617165856418578,
   "final_val_chrom": "22",
-  "final_n_estimators": 3,
-  "final_scale_pos_weight": 5.309474752734172,
+  "final_n_estimators": 16,
+  "final_scale_pos_weight": 7.095432603392559,
   "n_test_records": 2470,
-  "timestamp": "20260708_221134",
-  "git_commit": "1e24b71"
+  "timestamp": "20260709_045326",
+  "git_commit": "ffe9c4e"
 }

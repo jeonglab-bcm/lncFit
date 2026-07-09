@@ -20,10 +20,22 @@ from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
 
 
+def load_transcript_sequences(path: str) -> dict[str, str]:
+    """Load {gene_id: [seq, ""]} produced by `python -m lncfit.sequence --sequence-type transcript`
+    and flatten to {gene_id: seq}."""
+    with open(path) as fh:
+        raw = json.load(fh)
+    return {gene_id: seq for gene_id, (seq, _) in raw.items()}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train XGBoost lncRNA RRA-hit classifier (Day 14).")
     parser.add_argument("--train", default="data/processed/train_lncrna_day14_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_lncrna_day14_chrom1.jsonl.gz")
+    parser.add_argument("--transcript-sequences", default="data/processed/body_sequences_transcript.json",
+                        help="Path to {target: [spliced_seq, \"\"]} JSON from lncfit/sequence.py "
+                             "(--sequence-type transcript). This is the lncRNA's own sequence, "
+                             "not guide spacer sequences (issue #65).")
     parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=6)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-estimators", type=int, default=500)
@@ -50,17 +62,22 @@ def main():
     test_records = load_jsonl(args.test, record_cls=LncRnaRecord)
     print(f"  {len(test_records):,} records")
 
-    print(f"\nFitting k={args.k} vocabulary on training guide sequences ...")
-    train_guide_seqs = [seq for r in train_records for seq in r.guide_sequences]
-    vocab = fit_vocab(train_guide_seqs, args.k)
+    print(f"Loading transcript sequences from {args.transcript_sequences} ...")
+    transcript_sequences = load_transcript_sequences(args.transcript_sequences)
+    print(f"  {len(transcript_sequences):,} lncRNAs")
+
+    print(f"\nFitting k={args.k} vocabulary on training lncRNA transcript sequences ...")
+    train_targets = {r.target for r in train_records}
+    train_seqs = [transcript_sequences[t] for t in train_targets if t in transcript_sequences]
+    vocab = fit_vocab(train_seqs, args.k)
     print(f"  {len(vocab)} / {4**args.k} k-mers observed")
 
     print(f"Building features (k={args.k}, include_distance={args.include_distance}) ...")
     X_train, y_train, train_cols = build_lncrna_features(
-        train_records, k=args.k, include_distance=args.include_distance, vocab=vocab,
+        train_records, transcript_sequences, k=args.k, include_distance=args.include_distance, vocab=vocab,
     )
     X_test, y_test, _ = build_lncrna_features(
-        test_records, k=args.k, include_distance=args.include_distance, vocab=vocab,
+        test_records, transcript_sequences, k=args.k, include_distance=args.include_distance, vocab=vocab,
     )
     print(f"  Feature matrix: {X_train.shape[1]} columns")
 

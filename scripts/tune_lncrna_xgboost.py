@@ -65,12 +65,24 @@ def _natural_ratio(y: np.ndarray) -> float:
     return n_neg / n_pos if n_pos > 0 else 1.0
 
 
+def load_transcript_sequences(path: str) -> dict[str, str]:
+    """Load {gene_id: [seq, ""]} produced by `python -m lncfit.sequence --sequence-type transcript`
+    and flatten to {gene_id: seq}."""
+    with open(path) as fh:
+        raw = json.load(fh)
+    return {gene_id: seq for gene_id, (seq, _) in raw.items()}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Tune the lncRNA RRA-hit XGBoost classifier via Optuna TPE + chromosome LOCO-CV."
     )
     parser.add_argument("--train", default="data/processed/train_lncrna_day14_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_lncrna_day14_chrom1.jsonl.gz")
+    parser.add_argument("--transcript-sequences", default="data/processed/body_sequences_transcript.json",
+                        help="Path to {target: [spliced_seq, \"\"]} JSON from lncfit/sequence.py "
+                             "(--sequence-type transcript). This is the lncRNA's own sequence, "
+                             "not guide spacer sequences (issue #65).")
     parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=3)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--n-trials", type=int, default=50,
@@ -100,9 +112,13 @@ def main():
     test_records = load_jsonl(args.test, record_cls=LncRnaRecord)
     print(f"  {len(test_records):,} records")
 
+    print(f"Loading transcript sequences from {args.transcript_sequences} ...")
+    transcript_sequences = load_transcript_sequences(args.transcript_sequences)
+    print(f"  {len(transcript_sequences):,} lncRNAs")
+
     print()
     cv_chroms, fold_data, feature_cols = build_lncrna_folds(
-        train_records, k=args.k, include_distance=args.include_distance,
+        train_records, transcript_sequences, k=args.k, include_distance=args.include_distance,
     )
     print(f"\nCV chromosomes ({len(cv_chroms)} folds): {cv_chroms}")
 
@@ -236,15 +252,18 @@ def main():
     final_val_recs   = [r for r, m in zip(train_records, final_val_mask)   if m]
     print(f"  final train: {len(final_train_recs):,}  early-stop val: {len(final_val_recs):,}")
 
-    final_guide_seqs = [seq for r in final_train_recs for seq in r.guide_sequences]
-    final_vocab = fit_vocab(final_guide_seqs, args.k)
+    final_targets = {r.target for r in final_train_recs}
+    final_seqs = [transcript_sequences[t] for t in final_targets if t in transcript_sequences]
+    final_vocab = fit_vocab(final_seqs, args.k)
     print(f"  Final vocab: {len(final_vocab)}/{4**args.k} k-mers observed")
 
     X_final_tr, y_final_tr, _ = build_lncrna_features(
-        final_train_recs, k=args.k, include_distance=args.include_distance, vocab=final_vocab, sparse=True,
+        final_train_recs, transcript_sequences, k=args.k, include_distance=args.include_distance,
+        vocab=final_vocab, sparse=True,
     )
     X_final_val, y_final_val, _ = build_lncrna_features(
-        final_val_recs, k=args.k, include_distance=args.include_distance, vocab=final_vocab, sparse=True,
+        final_val_recs, transcript_sequences, k=args.k, include_distance=args.include_distance,
+        vocab=final_vocab, sparse=True,
     )
     gc.collect()
 
@@ -278,7 +297,8 @@ def main():
     # ── Evaluate on held-out test set ─────────────────────────────────────────
     print("\nEvaluating on held-out test set ...")
     X_test, y_test, _ = build_lncrna_features(
-        test_records, k=args.k, include_distance=args.include_distance, vocab=final_vocab, sparse=True,
+        test_records, transcript_sequences, k=args.k, include_distance=args.include_distance,
+        vocab=final_vocab, sparse=True,
     )
     y_test_pred = final_model.predict_proba(X_test)[:, 1]
     del X_test

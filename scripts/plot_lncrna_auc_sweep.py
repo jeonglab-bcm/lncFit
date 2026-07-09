@@ -1,4 +1,10 @@
-"""Plot untuned vs tuned AUROC/AUPRC across k for the lncRNA RRA-hit classifier (issues #61/#62)."""
+"""Plot untuned vs tuned AUROC/AUPRC across k for the lncRNA RRA-hit classifier.
+
+Features are the lncRNA's own transcript sequence (issue #65), not guide sequences
+(the #61/#62 numbers this plot originally showed). A k's tuned bar is omitted with
+a "not completed" label if its results/lncrna_rra_day14/tune_k<K>/final_eval_*/
+directory doesn't exist (e.g. k=6's tuning sweep was stopped early — see README).
+"""
 import sys
 from pathlib import Path
 
@@ -21,25 +27,29 @@ def _overall_row(csv_path: Path) -> pd.Series:
     return df[df["split"] == "Overall"].iloc[0]
 
 
-def _tuned_final_eval_csv(k: int) -> Path:
-    (metrics_csv,) = sorted((RESULTS_DIR / f"tune_k{k}").glob("final_eval_*/metrics.csv"))
-    return metrics_csv
+def _tuned_final_eval_csv(k: int) -> Path | None:
+    matches = sorted((RESULTS_DIR / f"tune_k{k}").glob("final_eval_*/metrics.csv"))
+    return matches[-1] if matches else None
 
 
 def main() -> None:
     untuned = [_overall_row(RESULTS_DIR / f"metrics_k{k}.csv") for k in KS]
-    tuned = [_overall_row(_tuned_final_eval_csv(k)) for k in KS]
+    tuned = [
+        _overall_row(csv_path) if (csv_path := _tuned_final_eval_csv(k)) is not None else None
+        for k in KS
+    ]
 
     test_n = int(untuned[0]["n"])
     test_pos = int(untuned[0]["n_pos"])
     base_rate = test_pos / test_n
 
-    x = range(len(KS))
+    x = list(range(len(KS)))
     width = 0.32
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.8))
     fig.suptitle(
-        "lncRNA RRA-hit classifier: untuned (#61) vs tuned (#62), held-out chr1 test set",
+        "lncRNA RRA-hit classifier: untuned vs tuned (transcript-sequence features, issue #65)\n"
+        "held-out chr1 test set",
         fontsize=11,
     )
 
@@ -49,8 +59,8 @@ def main() -> None:
         (axes[1], "auprc", base_rate, "AUPRC"),
     ]:
         untuned_vals = [row[metric] for row in untuned]
-        tuned_vals = [row[metric] for row in tuned]
-        top = max(max(untuned_vals), max(tuned_vals))
+        tuned_vals = [row[metric] if row is not None else 0.0 for row in tuned]
+        top = max(untuned_vals + [v for v in tuned_vals if v > 0])
 
         bars_u = ax.bar(
             [xi - width / 2 - 0.01 for xi in x], untuned_vals, width,
@@ -60,14 +70,21 @@ def main() -> None:
             [xi + width / 2 + 0.01 for xi in x], tuned_vals, width,
             color=COLOR_TUNED, label="Tuned", zorder=3,
         )
-        # Alternate label height for the two series so adjacent close values
-        # (e.g. k=5's 0.702 vs 0.697) don't merge into one another.
+        # Alternate label height for the two series so adjacent close values don't merge.
         for bars, dy in [(bars_u, 10), (bars_t, 3)]:
             for bar in bars:
                 h = bar.get_height()
+                if h == 0:
+                    continue
                 ax.annotate(
                     f"{h:.3f}", (bar.get_x() + bar.get_width() / 2, h),
                     textcoords="offset points", xytext=(0, dy), ha="center", fontsize=8,
+                )
+        for xi, row in zip(x, tuned):
+            if row is None:
+                ax.annotate(
+                    "not\ncompleted", (xi + width / 2 + 0.01, top * 0.04),
+                    ha="center", va="bottom", fontsize=6.5, color=COLOR_TUNED, style="italic",
                 )
         if series_handles is None:
             series_handles = [bars_u, bars_t]
@@ -78,7 +95,7 @@ def main() -> None:
             textcoords="offset points", xytext=(0, 4), ha="right", fontsize=7.5, color=COLOR_BASELINE,
         )
 
-        ax.set_xticks(list(x))
+        ax.set_xticks(x)
         ax.set_xticklabels([f"k={k}" for k in KS], fontsize=10)
         ax.set_ylabel(ylabel, fontsize=10)
         ax.set_ylim(0, top * 1.25)
@@ -88,10 +105,10 @@ def main() -> None:
             ax.spines[spine].set_visible(False)
 
     fig.legend(
-        series_handles, ["Untuned (#61)", "Tuned (#62)"],
-        loc="upper center", bbox_to_anchor=(0.5, 0.96), ncol=2, fontsize=9, frameon=False,
+        series_handles, ["Untuned", "Tuned"],
+        loc="upper center", bbox_to_anchor=(0.5, 0.9), ncol=2, fontsize=9, frameon=False,
     )
-    plt.tight_layout(rect=(0, 0, 1, 0.92))
+    plt.tight_layout(rect=(0, 0, 1, 0.88))
     plt.savefig(OUT_PATH, dpi=150, bbox_inches="tight")
     print(f"Saved -> {OUT_PATH}")
 
