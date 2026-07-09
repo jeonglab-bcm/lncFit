@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 from scipy.sparse import csr_matrix, hstack as sp_hstack
 
-from lncfit.screen_data import ScreenRecord
+from lncfit.screen_data import LncRnaRecord, ScreenRecord
 
 _BASES = "ACGT"
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
@@ -339,4 +339,97 @@ def build_features(
                                                 key_attr="target_sequence", col_prefix="guide_")
         X_dense = np.hstack([X_dense, G])
         columns = columns + guide_cols
+    return X_dense, y, columns
+
+
+def _pool_guide_kmers(
+    records: list[LncRnaRecord], k: int, vocab_index: dict[str, int]
+) -> dict[str, dict[int, float]]:
+    """Pool k-mer frequencies over all of a target's guide_sequences, once per unique target."""
+    cache: dict[str, dict[int, float]] = {}
+    for r in records:
+        if r.target in cache:
+            continue
+        combined: dict[int, int] = {}
+        total = 0
+        for seq in r.guide_sequences:
+            counts, t = _count_kmers(seq, k, vocab_index)
+            for idx, cnt in counts.items():
+                combined[idx] = combined.get(idx, 0) + cnt
+            total += t
+        cache[r.target] = {idx: cnt / total for idx, cnt in combined.items()} if total > 0 else {}
+    return cache
+
+
+def build_lncrna_features(
+    records: list[LncRnaRecord],
+    k: int = 6,
+    include_distance: bool = False,
+    vocab: list[str] | None = None,
+    sparse: bool = False,
+) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
+    """Build feature matrix X, binary label vector y, and column names from LncRnaRecords.
+
+    A lncRNA record has no single spacer sequence (unlike ScreenRecord) — it is targeted
+    by several guides. Each target's guide k-mer frequency vectors are pooled (summed
+    counts, then renormalised) across all of its guide_sequences, so every cell_line row
+    for the same lncRNA shares one pooled sequence-feature vector. Columns are
+    vocab k-mers + cell one-hot [+ distance]; no day one-hot (records are single-day).
+
+    y is the binary hit label (r.label), not a continuous fold-change.
+    """
+    if vocab is None:
+        vocab = all_kmers(k)
+    vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
+    n_kmer = len(vocab)
+
+    cell_cols = [f"cell_{c}" for c in _CELL_LINES]
+    columns = vocab + cell_cols
+    if include_distance:
+        columns.append("distance_to_closest_pc_gene")
+    cell_offset = n_kmer
+
+    n = len(records)
+    n_cols = len(columns)
+    y = np.empty(n, dtype=np.float32)
+    pooled = _pool_guide_kmers(records, k, vocab_index)
+
+    if sparse:
+        row_idx: list[int] = []
+        col_idx: list[int] = []
+        vals: list[float] = []
+        for i, r in enumerate(records):
+            for col, freq in pooled[r.target].items():
+                row_idx.append(i)
+                col_idx.append(col)
+                vals.append(freq)
+            for j, c in enumerate(_CELL_LINES):
+                if r.cell_line == c:
+                    row_idx.append(i)
+                    col_idx.append(cell_offset + j)
+                    vals.append(1.0)
+                    break
+            if include_distance:
+                dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
+                row_idx.append(i)
+                col_idx.append(n_cols - 1)
+                vals.append(float(dist))
+            y[i] = r.label
+        X = csr_matrix(
+            (np.array(vals, dtype=np.float32), (np.array(row_idx), np.array(col_idx))),
+            shape=(n, n_cols),
+        )
+        return X, y, columns
+
+    X_dense = np.zeros((n, n_cols), dtype=np.float32)
+    for i, r in enumerate(records):
+        for col, freq in pooled[r.target].items():
+            X_dense[i, col] = freq
+        for j, c in enumerate(_CELL_LINES):
+            if r.cell_line == c:
+                X_dense[i, cell_offset + j] = 1.0
+        if include_distance:
+            dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
+            X_dense[i, n_cols - 1] = float(dist)
+        y[i] = r.label
     return X_dense, y, columns
