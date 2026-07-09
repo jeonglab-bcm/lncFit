@@ -75,13 +75,16 @@ def make_pipeline_with_lora(model_dir: str, device: str):
     return pipe
 
 
-def run_inference(pipe, examples: list) -> list[float | None]:
+def run_inference(pipe, examples: list, bio_tokens_max_length: int = 2048) -> list[float | None]:
     preds = []
     for ex in examples:
-        result = pipe(inputs={
-            "english_sequence": ex["prompt"],
-            "dna_sequences": ex["dna_sequences"],
-        })
+        result = pipe(
+            inputs={
+                "english_sequence": ex["prompt"],
+                "dna_sequences": ex["dna_sequences"],
+            },
+            bio_tokens_max_length=bio_tokens_max_length,
+        )
         raw = result[0]["generated_text"] if isinstance(result, list) else str(result)
         preds.append(parse_log2fc(raw))
     return preds
@@ -105,6 +108,13 @@ def main():
         "--max-examples", type=int, default=None,
         help="Cap the number of test examples to evaluate (default: all). "
              "34K examples × ~2 sec = ~19 hours without a cap.",
+    )
+    parser.add_argument(
+        "--bio-max-length", type=int, default=2048,
+        help="Bio-tokenizer truncation length per DNA sequence. Matches ChatNT's NT "
+             "encoder architectural ceiling (nt_config.max_positions=2048) so the "
+             "lncRNA transcript body (issue #56 redesign) is not silently truncated "
+             "at the old pipeline default of 512 (~3kb).",
     )
     args = parser.parse_args()
 
@@ -137,7 +147,7 @@ def main():
             torch_dtype=torch.bfloat16,
         )
 
-    preds = run_inference(pipe, examples)
+    preds = run_inference(pipe, examples, bio_tokens_max_length=args.bio_max_length)
 
     # Filter unparseable predictions
     valid = [(ex, p) for ex, p in zip(examples, preds) if p is not None]

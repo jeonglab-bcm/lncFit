@@ -76,7 +76,13 @@ class ChatNTCollator:
     Builds two tensors:
       english_tokens  — full padded sequence for the GPT decoder:
                         [context + prompt + ASSISTANT: + target + EOS] padded to max_length
-      bio_tokens      — DNA tokens: shape (batch, 1, bio_max_length)
+      bio_tokens      — DNA tokens: shape (batch, num_sequences, bio_max_length).
+                        num_sequences is read from the first example and assumed uniform
+                        across the batch (issue #56 body-sequence redesign: every example
+                        in a given dataset file has either 1 sequence (guide-only fallback)
+                        or 2 (guide + transcript body) — build_finetune_data.py drops
+                        targets missing a transcript rather than mixing counts within a
+                        file, so a batch is never mixed).
       labels          — same length as english_tokens, -100 everywhere except target tokens
 
     The model generates autoregressively, predicting token[i+1] from logits[i].
@@ -105,7 +111,8 @@ class ChatNTCollator:
     def __call__(self, batch):
         english_input_list = []
         labels_list = []
-        dna_raw_list = []
+        num_sequences = len(batch[0]["dna_sequences"])
+        dna_raw_lists = [[] for _ in range(num_sequences)]
 
         for ex in batch:
             prefix_text = _CONTEXT + ex["prompt"] + _ASSISTANT_TAG
@@ -133,17 +140,28 @@ class ChatNTCollator:
 
             english_input_list.append(full_ids_padded)
             labels_list.append(labels)
-            dna_raw_list.append(ex["dna_sequences"][0])
+            assert len(ex["dna_sequences"]) == num_sequences, (
+                "Mixed dna_sequences counts within a batch — build_finetune_data.py "
+                "should drop or pad targets missing a transcript before writing the file."
+            )
+            for i, seq in enumerate(ex["dna_sequences"]):
+                dna_raw_lists[i].append(seq)
 
-        # Tokenize DNA sequences (batch)
-        bio_enc = self.bio_tokenizer(
-            dna_raw_list,
-            return_tensors="pt",
-            padding="max_length",
-            truncation=True,
-            max_length=self.bio_max_length,
-        )
-        bio_tokens = bio_enc.input_ids.unsqueeze(1)  # (batch, 1, bio_max_length)
+        # Tokenize each DNA sequence position across the batch independently — ChatNT
+        # NT-encodes dna_sequences[i] separately and merges it at its own <DNA>
+        # placeholder (see chatNT.py's insert_embeddings loop over bio_seq_num), so each
+        # position gets its own bio_max_length token budget, not a shared one.
+        bio_tensors = []
+        for raw_list in dna_raw_lists:
+            bio_enc = self.bio_tokenizer(
+                raw_list,
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=self.bio_max_length,
+            )
+            bio_tensors.append(bio_enc.input_ids)
+        bio_tokens = torch.stack(bio_tensors, dim=1)  # (batch, num_sequences, bio_max_length)
 
         return {
             "english_tokens": torch.tensor(english_input_list, dtype=torch.long),
@@ -220,7 +238,8 @@ def eval_epoch(model, loader, device, max_val_steps=500):
 
 @torch.no_grad()
 def generation_eval(model, val_dataset, english_tokenizer, bio_tokenizer,
-                    device, n_examples=200, max_decode_tokens=20):
+                    device, n_examples=200, max_decode_tokens=20,
+                    max_length=512, bio_max_length=512):
     """Spearman ρ on a fixed val subset via autoregressive generation.
 
     Replicates the ChatNT pipeline generation loop without loading a second
@@ -243,13 +262,13 @@ def generation_eval(model, val_dataset, english_tokenizer, bio_tokenizer,
         eng_tokens = english_tokenizer(
             _CONTEXT + ex["prompt"] + _ASSISTANT_TAG,
             return_tensors="pt", padding="max_length",
-            truncation=True, max_length=512,
+            truncation=True, max_length=max_length,
         ).input_ids.to(device)
 
         bio_tokens = bio_tokenizer(
-            ex["dna_sequences"][0], return_tensors="pt",
-            padding="max_length", max_length=512, truncation=True,
-        ).input_ids.unsqueeze(1).to(device)  # (1, 1, 512)
+            ex["dna_sequences"], return_tensors="pt",
+            padding="max_length", max_length=bio_max_length, truncation=True,
+        ).input_ids.unsqueeze(0).to(device)  # (1, num_sequences, bio_max_length)
 
         projected_bio_embeddings = None
         for _ in range(max_decode_tokens):
@@ -314,10 +333,24 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--max-length", type=int, default=512)
-    parser.add_argument("--bio-max-length", type=int, default=512)
+    parser.add_argument(
+        "--bio-max-length", type=int, default=2048,
+        help="Bio-tokenizer truncation length per DNA sequence (6bp/token). ChatNT's NT "
+             "encoder (nt_config.max_positions) supports up to 2048 -- the architectural "
+             "ceiling, not an arbitrary choice. At 2048 (~12kb), ~99.5%% of lncRNA "
+             "transcript bodies fit untruncated (issue #56 body-sequence redesign); the "
+             "old default of 512 (~3kb) truncated ~10%%. Going above 2048 would exceed "
+             "what the encoder's position embeddings were built for.",
+    )
     parser.add_argument(
         "--gen-eval-examples", type=int, default=200,
         help="Val examples for generation-based Spearman ρ per epoch. 0 = disable.",
+    )
+    parser.add_argument(
+        "--max-val-steps", type=int, default=500,
+        help="Cap on token-level val batches per epoch (eval_epoch). At bio_max_length=2048 "
+             "each val batch costs roughly as much as a train step, so 500 batches is not "
+             "free -- lower this for quick/exploratory runs.",
     )
     parser.add_argument(
         "--max-decode-tokens", type=int, default=20,
@@ -425,7 +458,7 @@ def main():
             model, train_loader, optimizer, scheduler, device,
             global_step=global_step, max_steps=args.max_steps,
         )
-        val_loss = eval_epoch(model, val_loader, device)
+        val_loss = eval_epoch(model, val_loader, device, max_val_steps=args.max_val_steps)
         logger.info("  train_loss=%.4f  val_loss=%.4f  global_step=%d", train_loss, val_loss, global_step)
 
         # Generation-based Spearman ρ — the real signal for whether the model
@@ -436,6 +469,8 @@ def main():
                 model, val_ds, english_tokenizer, bio_tokenizer, device,
                 n_examples=args.gen_eval_examples,
                 max_decode_tokens=args.max_decode_tokens,
+                max_length=args.max_length,
+                bio_max_length=args.bio_max_length,
             )
             if gen_rho is not None:
                 logger.info("  gen_rho=%.4f  (parsed %d/%d)", gen_rho, gen_n - gen_failed, gen_n)

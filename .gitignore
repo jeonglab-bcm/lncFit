@@ -236,6 +236,12 @@ data/processed/body_sequences.json
 data/processed/body_sequences_transcript.json
 data/processed/body_sequences_genomic_full.json
 data/processed/*.npz
+data/processed/finetune_train.jsonl.gz
+data/processed/finetune_val.jsonl.gz
+data/processed/finetune_test.jsonl.gz
+
+# ChatNT QLoRA checkpoints — large, reproducible via scripts/finetune_chatnt.py
+data/model/chatnt_lora*/
 
 # Claude Code project file
 CLAUDE.md

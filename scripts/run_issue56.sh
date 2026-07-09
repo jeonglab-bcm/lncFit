@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Driver script for issue #56: fine-tune ChatNT on CRISPR-screen guides.
-# Runs from the project root (/home/kellyl/lncFit).
 # Steps:
 #   1. Spike — probe ChatNT trainability (skipped if spike JSON already exists)
-#   2. Build fine-tuning datasets (skipped if output files already exist)
-#   3. Fine-tune with QLoRA
+#   2. Build fine-tuning datasets: guide + lncRNA transcript body, per-record
+#      (skipped if output files already exist) — see build_finetune_data.py
+#   3. Fine-tune with QLoRA, --bio-max-length 2048 (ChatNT NT-encoder ceiling,
+#      up from the pipeline's 512-token default, so the transcript body isn't
+#      silently truncated -- see finetune_chatnt.py)
 #   4. Evaluate fine-tuned model vs zero-shot ChatNT
 set -euo pipefail
 
-cd /home/kellyl/lncFit
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 LOG_DIR="results/issue56"
 mkdir -p "$LOG_DIR"
