@@ -130,6 +130,19 @@ def run_chatnt_zeroshot_classifier(
     english_tokens = model_inputs["english_tokens"]
     bio_tokens = model_inputs["bio_tokens"]
 
+    # pipe.preprocess returns CPU tensors, but the HF pipeline may auto-place the
+    # model on MPS/CUDA and ChatNT's forward does not relocate its inputs — a
+    # device mismatch. Move inputs onto the model's device. Guarded so the mocked
+    # pipeline in tests (no real parameters()) skips the move.
+    try:
+        device = next(pipe.model.parameters()).device
+    except (StopIteration, TypeError, AttributeError):
+        device = None
+    if device is not None:
+        english_tokens = english_tokens.to(device)
+        if bio_tokens is not None:
+            bio_tokens = bio_tokens.to(device)
+
     outs = pipe.model(
         multi_omics_tokens_ids=(english_tokens, bio_tokens),
         projection_english_tokens_ids=english_tokens,

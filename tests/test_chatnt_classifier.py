@@ -131,6 +131,8 @@ def _mock_pipe(answer_logits, vocab=50, reason_text="Likely essential because ..
     english.__getitem__ = lambda self, i: _Ids([7, 8, 0, 0])  # PAD id 0
     pipe.preprocess.return_value = {"english_tokens": english, "bio_tokens": MagicMock()}
     pipe.english_tokenizer.pad_token_id = 0
+    # No real parameters() -> device detection raises StopIteration -> input move skipped.
+    pipe.model.parameters.return_value = iter([])
 
     # logits shape (1, seq=4, vocab); row at answer_pos=1 is answer_logits
     logits = np.zeros((1, 4, vocab))
