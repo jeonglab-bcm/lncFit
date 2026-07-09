@@ -255,12 +255,12 @@ def _(mo):
 
 @app.cell
 def _(RESULTS, mo):
-    _plot_path = RESULTS / "auroc_auprc_sweep.png"
+    _plot_path = RESULTS / "roc_curves.png"
     if _plot_path.exists():
         mo.image(str(_plot_path))
     else:
         mo.md(
-            "Plot not found — run `uv run python scripts/plot_lncrna_auc_sweep.py` "
+            "Plot not found — run `uv run python scripts/plot_lncrna_roc.py` "
             "after the tuning sweep completes."
         )
     return

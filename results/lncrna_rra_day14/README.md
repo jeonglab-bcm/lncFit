@@ -73,12 +73,11 @@ early-stop slice has only 19 positives). A 4-tree model landing on the best AUPR
 sweep is plausible but not something to over-trust; a follow-up should revisit the
 early-stopping chromosome choice or patience for low-capacity k values.
 
-![Untuned vs tuned AUROC/AUPRC across k](auroc_auprc_sweep.png)
+![ROC curves for the tuned k=3,4,5 models on the held-out chr1 test set](roc_curves.png)
 
-`scripts/plot_lncrna_auc_sweep.py` regenerates this from the committed metrics CSVs
-(`metrics_k<K>.csv` for untuned, `tune_k<K>/final_eval_*/metrics.csv` for tuned — a k
-with no completed tuned run, like k=6 here, is labeled "not completed" instead of
-plotted).
+`scripts/plot_lncrna_roc.py` regenerates this from each completed tuning run's
+`tune_k<K>/final_eval_*/predictions.csv`. k=6 has no curve — its tuning sweep was
+stopped early (see above) and has no held-out predictions to plot.
 
 ## Per-cell-line breakdown, k=3 tuned (best AUPRC)
 
