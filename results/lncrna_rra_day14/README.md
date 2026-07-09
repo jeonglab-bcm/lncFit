@@ -64,6 +64,11 @@ a few dozen positives each is enough to rank configs directionally but not enoug
 trust the single best trial without checking the held-out set, which is exactly what
 happened here. Full per-trial CV scores are in `tune_k<K>/cv_scores.csv`.
 
+![Untuned vs tuned AUROC/AUPRC across k](auroc_auprc_sweep.png)
+
+`scripts/plot_lncrna_auc_sweep.py` regenerates this from the committed metrics CSVs
+(`metrics_k<K>.csv` for untuned, `tune_k<K>/final_eval_*/metrics.csv` for tuned).
+
 ## Per-cell-line breakdown, k=4 tuned (best config)
 
 | cell line | AUROC | AUPRC |
