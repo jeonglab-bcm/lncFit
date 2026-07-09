@@ -60,6 +60,51 @@ _ANNOT_COLS = {
     "Distance to closest protein-coding gene": "distance_to_closest_pc_gene",
 }
 
+_RRA_SHEET_TO_CELL_LINE: dict[str, str] = {
+    "S2F": "HAP1",
+    "S2G": "HEK293FT",
+    "S2H": "K562",
+    "S2I": "MDA-MB-231",
+    "S2J": "THP1",
+}
+
+LNCRNA_TARGET_GROUP = "long non-coding RNA"
+
+
+@dataclass(frozen=True, slots=True)
+class LncRnaRecord:
+    """One lncRNA x cell_line x day RRA result, aggregated across that lncRNA's guides.
+
+    label is 1 when the lncRNA is a significant depletion hit for this cell line/day
+    (rra_pvalue < 0.05 and fold_change < 0), else 0.
+    """
+
+    target: str
+    cell_line: str
+    day: int
+    rra_pvalue: float
+    fold_change: float
+    label: int
+    guide_sequences: tuple[str, ...] = ()
+    chrom: str = ""
+    strand: str = ""
+    closest_pc_gene: str = ""
+    distance_to_closest_pc_gene: int | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> LncRnaRecord:
+        """Construct from a dict, ignoring unknown keys and applying defaults for missing fields."""
+        known = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in known}
+        for name in ("day", "label"):
+            if name in filtered and filtered[name] is not None:
+                filtered[name] = int(filtered[name])
+        if filtered.get("distance_to_closest_pc_gene") is not None:
+            filtered["distance_to_closest_pc_gene"] = int(filtered["distance_to_closest_pc_gene"])
+        if "guide_sequences" in filtered and filtered["guide_sequences"] is not None:
+            filtered["guide_sequences"] = tuple(filtered["guide_sequences"])
+        return cls(**filtered)
+
 
 def _find_header_row(path, sheet_name: str, marker: str = "ID") -> int:
     """Return the 0-indexed row where the first cell equals marker (skips title/blank rows)."""
@@ -79,6 +124,33 @@ def load_targets(path: Path | str) -> dict[str, tuple[str, str]]:
         for _, row in df.iterrows()
         if pd.notna(row[id_col]) and str(row[id_col]).strip()
     }
+
+
+def load_target_groups(path: Path | str) -> dict[str, str]:
+    """Parse S1B sheet from mmc2.xlsx. Returns {target: target_group}.
+
+    target_group is one of "long non-coding RNA", "protein-coding gene",
+    "essential protein-coding gene", "non-targeting".
+    """
+    df = pd.read_excel(path, sheet_name="S1B", header=_find_header_row(path, "S1B"), dtype=str)
+    if df.shape[1] < 4:
+        return {}
+    target_col, group_col = df.columns[1], df.columns[3]
+    result: dict[str, str] = {}
+    for _, row in df.iterrows():
+        t = str(row[target_col]).strip()
+        if not t or t.lower() == "nan":
+            continue
+        result[t] = str(row[group_col]).strip()
+    return result
+
+
+def guides_by_target(targets: dict[str, tuple[str, str]]) -> dict[str, list[str]]:
+    """Invert load_targets() output. Returns {target: [guide_sequence, ...]}."""
+    result: dict[str, list[str]] = {}
+    for _, (t, seq) in targets.items():
+        result.setdefault(t, []).append(seq)
+    return result
 
 
 def load_annotations(
@@ -162,7 +234,66 @@ def load_screen(
     return records
 
 
-def save_jsonl(records: list[ScreenRecord], path: Path | str) -> None:
+def load_rra(
+    s2_path: Path | str,
+    day: int,
+    targets: dict[str, tuple[str, str]],
+    target_groups: dict[str, str],
+    annotations: dict[str, tuple[str, str, str, int | None]] | None = None,
+) -> list[LncRnaRecord]:
+    """Parse RRA sheets S2F-S2J from mmc3.xlsx into lncRNA-level hit records for one day.
+
+    Restricts to targets whose target_groups entry is "long non-coding RNA" (see
+    LNCRNA_TARGET_GROUP) — the RRA sheets' Gene column mixes lncRNA loci with
+    protein-coding gene and control rows, same as the guide-level S2A-S2E sheets.
+    A record's label is 1 when rra_pvalue < 0.05 and fold_change < 0 (a significant
+    depletion hit), else 0.
+    """
+    guide_seqs_by_target = guides_by_target(targets)
+    records: list[LncRnaRecord] = []
+    xl = pd.ExcelFile(s2_path)
+    for sheet_name, cell_line in _RRA_SHEET_TO_CELL_LINE.items():
+        if sheet_name not in xl.sheet_names:
+            continue
+        df = pd.read_excel(
+            xl, sheet_name=sheet_name, header=_find_header_row(xl, sheet_name, marker="Gene"), dtype=str
+        )
+        pval_col = f"Day {day} - P value"
+        fc_col = f"Day {day} - Fold-change (log2)"
+        if pval_col not in df.columns or fc_col not in df.columns:
+            continue
+        for _, row in df.iterrows():
+            gene = str(row["Gene"]).strip()
+            if not gene or gene.lower() == "nan":
+                continue
+            if target_groups.get(gene) != LNCRNA_TARGET_GROUP:
+                continue
+            pval_raw, fc_raw = row[pval_col], row[fc_col]
+            if pd.isna(pval_raw) or pd.isna(fc_raw):
+                continue
+            pval, fc = float(pval_raw), float(fc_raw)
+            chrom, strand, closest, dist = ("", "", "", None)
+            if annotations is not None:
+                chrom, strand, closest, dist = annotations.get(gene, ("", "", "", None))
+            records.append(
+                LncRnaRecord(
+                    target=gene,
+                    cell_line=cell_line,
+                    day=day,
+                    rra_pvalue=pval,
+                    fold_change=fc,
+                    label=int(pval < 0.05 and fc < 0),
+                    guide_sequences=tuple(guide_seqs_by_target.get(gene, ())),
+                    chrom=chrom,
+                    strand=strand,
+                    closest_pc_gene=closest,
+                    distance_to_closest_pc_gene=dist,
+                )
+            )
+    return records
+
+
+def save_jsonl(records: list, path: Path | str) -> None:
     """Write records to a gzip-compressed JSONL file, one JSON object per line, stamped with schema version."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -173,14 +304,17 @@ def save_jsonl(records: list[ScreenRecord], path: Path | str) -> None:
             f.write(json.dumps(d) + "\n")
 
 
-def load_jsonl(path: Path | str) -> list[ScreenRecord]:
-    """Load records from a gzip-compressed JSONL file produced by save_jsonl."""
-    records: list[ScreenRecord] = []
+def load_jsonl(path: Path | str, record_cls: type = ScreenRecord) -> list:
+    """Load records from a gzip-compressed JSONL file produced by save_jsonl.
+
+    record_cls must implement a from_dict classmethod (ScreenRecord and LncRnaRecord both do).
+    """
+    records: list = []
     with gzip.open(path, "rt", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
-                records.append(ScreenRecord.from_dict(json.loads(line)))
+                records.append(record_cls.from_dict(json.loads(line)))
     return records
 
 

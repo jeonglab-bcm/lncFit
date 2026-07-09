@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from lncfit.constants import CELL_LINES, DAYS
-from lncfit.metrics import compute_metrics
+from lncfit.metrics import compute_classification_metrics, compute_metrics
 
 
 def build_xgb_params(
@@ -76,5 +76,32 @@ def evaluate_by_group(
                 if mask.sum() == 0:
                     continue
                 rows.append(compute_metrics(f"{cl} Day {day}", y_true[mask], y_pred[mask]))
+
+    return rows
+
+
+def evaluate_lncrna_by_group(
+    records,
+    y_true: np.ndarray,
+    y_pred_proba: np.ndarray,
+    cell_lines: list[str] | None = None,
+) -> list[dict]:
+    """Compute classification metrics overall and per cell line for lncRNA-level records.
+
+    No day breakdown: LncRnaRecord datasets are built for a single day (Day 14).
+    """
+    if cell_lines is None:
+        cell_lines = CELL_LINES
+
+    y_true = np.asarray(y_true, dtype=int)
+    y_pred_proba = np.asarray(y_pred_proba, dtype=float)
+
+    rows = [compute_classification_metrics("Overall", y_true, y_pred_proba)]
+
+    for cl in cell_lines:
+        mask = np.array([r.cell_line == cl for r in records])
+        if mask.sum() == 0:
+            continue
+        rows.append(compute_classification_metrics(cl, y_true[mask], y_pred_proba[mask]))
 
     return rows

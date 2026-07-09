@@ -1,7 +1,7 @@
 import math
 import pytest
 import numpy as np
-from lncfit.metrics import compute_metrics
+from lncfit.metrics import compute_classification_metrics, compute_metrics
 
 
 def test_perfect_predictions():
@@ -51,3 +51,46 @@ def test_constant_target_r2_is_nan():
     y_pred = np.array([1.0, 2.0, 3.0])
     result = compute_metrics("test", y_true, y_pred)
     assert math.isnan(result["r2"])
+
+
+def test_classification_perfect_predictions():
+    y_true = np.array([0, 0, 1, 1])
+    y_proba = np.array([0.1, 0.2, 0.8, 0.9])
+    result = compute_classification_metrics("test", y_true, y_proba)
+    assert result["auroc"] == pytest.approx(1.0)
+    assert result["auprc"] == pytest.approx(1.0)
+    assert result["f1"] == pytest.approx(1.0)
+    assert result["accuracy"] == pytest.approx(1.0)
+
+
+def test_classification_returns_correct_keys():
+    y_true = np.array([0, 1])
+    y_proba = np.array([0.3, 0.7])
+    result = compute_classification_metrics("test", y_true, y_proba)
+    assert set(result.keys()) == {
+        "split", "n", "n_pos", "pos_rate", "auroc", "auprc", "f1", "precision", "recall", "accuracy",
+    }
+
+
+def test_classification_n_pos_and_pos_rate():
+    y_true = np.array([0, 0, 0, 1])
+    y_proba = np.array([0.1, 0.2, 0.3, 0.9])
+    result = compute_classification_metrics("test", y_true, y_proba)
+    assert result["n_pos"] == 1
+    assert result["pos_rate"] == pytest.approx(0.25)
+
+
+def test_classification_single_class_auc_is_nan():
+    y_true = np.array([0, 0, 0, 0])
+    y_proba = np.array([0.1, 0.2, 0.3, 0.4])
+    result = compute_classification_metrics("test", y_true, y_proba)
+    assert math.isnan(result["auroc"])
+    assert math.isnan(result["auprc"])
+    assert result["accuracy"] == pytest.approx(1.0)
+
+
+def test_classification_threshold_applied():
+    y_true = np.array([0, 1])
+    y_proba = np.array([0.4, 0.6])
+    high_thresh = compute_classification_metrics("test", y_true, y_proba, threshold=0.9)
+    assert high_thresh["recall"] == pytest.approx(0.0)
