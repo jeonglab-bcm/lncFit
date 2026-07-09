@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lncfit.screen_data import load_annotations, load_rra, load_target_groups, load_targets, save_jsonl
+from lncfit.screen_data import load_annotations, load_rra, load_target_groups, save_jsonl
 
 RAW = Path("data/raw")
 OUT = Path("data/processed/lncrna_rra_day14.jsonl.gz")
@@ -17,10 +17,6 @@ DAY = 14
 
 
 def main() -> None:
-    print("Loading targets...")
-    targets = load_targets(RAW / "mmc2.xlsx")
-    print(f"  {len(targets):,} guides")
-
     print("Loading target groups...")
     target_groups = load_target_groups(RAW / "mmc2.xlsx")
     print(f"  {len(target_groups):,} targets")
@@ -31,7 +27,7 @@ def main() -> None:
 
     print(f"Loading Day {DAY} RRA records...")
     records = load_rra(
-        RAW / "mmc3.xlsx", day=DAY, targets=targets, target_groups=target_groups, annotations=annots,
+        RAW / "mmc3.xlsx", day=DAY, target_groups=target_groups, annotations=annots,
     )
     print(f"  {len(records):,} records")
     n_pos = sum(r.label for r in records)

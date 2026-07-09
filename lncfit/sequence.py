@@ -1,8 +1,16 @@
-"""Extract body sequences for each lncRNA gene from a GTF + FASTA."""
+"""Extract body sequences for each lncRNA gene from a GTF + FASTA.
+
+Genome build is hg19/GRCh37, matching the lncRNA GTF's source (Sarropoulos et al.
+2019, PMC6660317). A prior version of this module defaulted to an hg38 FASTA
+(GDC GRCh38.d1.vd1) paired with this same hg19-coordinate GTF — a genome-build
+mismatch that silently produces wrong sequences (see issue #66). hg38 support
+was removed rather than kept as an option, to avoid reintroducing that mismatch.
+"""
 from __future__ import annotations
 
+import gzip
 import re
-import tarfile
+import shutil
 from collections import defaultdict
 from pathlib import Path
 
@@ -12,27 +20,27 @@ _GENE_ID_RE = re.compile(r'gene_id\s+(\S+?);')
 _TRANSCRIPT_ID_RE = re.compile(r'transcript_id\s+(\S+?);')
 _COMPLEMENT = str.maketrans("ACGTacgtNn", "TGCAtgcaNn")
 
-_DEFAULT_GTF = Path("data/raw/human.lncRNA.hg38.gtf")
-_DEFAULT_FASTA_TARGZ = Path("data/raw/genome/GRCh38.d1.vd1.fa.tar.gz")
-_DEFAULT_FASTA = Path("data/raw/genome/GRCh38.d1.vd1.fa")
+_DEFAULT_GTF = Path("data/raw/human.lncRNA.hg19.gtf")
+_DEFAULT_FASTA_GZ = Path("data/raw/genome/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz")
+_DEFAULT_FASTA = Path("data/raw/genome/Homo_sapiens.GRCh37.dna.primary_assembly.fa")
 
 
 def _revcomp(seq: str) -> str:
     return seq.translate(_COMPLEMENT)[::-1]
 
 
-def _ensure_fasta(fasta_targz: Path, fasta: Path) -> Path:
-    """Extract FASTA from tar.gz if not already extracted."""
+def _ensure_fasta(fasta_gz: Path, fasta: Path) -> Path:
+    """Decompress the plain-gzipped Ensembl FASTA if not already extracted."""
     if fasta.exists():
         return fasta
-    if not fasta_targz.exists():
+    if not fasta_gz.exists():
         raise FileNotFoundError(
-            f"FASTA not found at {fasta} and tar.gz not found at {fasta_targz}. "
+            f"FASTA not found at {fasta} and .gz not found at {fasta_gz}. "
             "Run: uv run python scripts/download_genome.py"
         )
-    print(f"Extracting {fasta_targz} → {fasta} (this may take a few minutes) …")
-    with tarfile.open(fasta_targz, "r:gz") as tar:
-        tar.extractall(path=fasta.parent)
+    print(f"Extracting {fasta_gz} → {fasta} (this may take a few minutes) …")
+    with gzip.open(fasta_gz, "rb") as f_in, open(fasta, "wb") as f_out:
+        shutil.copyfileobj(f_in, f_out)
     print("Extraction complete.")
     return fasta
 
@@ -68,7 +76,7 @@ def parse_gtf(gtf_path: Path | str = _DEFAULT_GTF) -> dict[str, tuple[str, int, 
 def extract_body_sequences(
     gene_bounds: dict[str, tuple[str, int, int, str]],
     fasta_path: Path | str = _DEFAULT_FASTA,
-    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+    fasta_gz: Path | str = _DEFAULT_FASTA_GZ,
     window: int = 1000,
 ) -> dict[str, tuple[str, str]]:
     """Extract first and last `window` bp of each gene's genomic span.
@@ -81,7 +89,7 @@ def extract_body_sequences(
         Sequences are on the sense strand (reverse-complemented for minus-strand genes).
         Windows are trimmed to chromosome boundaries when the gene is near a contig edge.
     """
-    fasta_path = _ensure_fasta(Path(fasta_targz), Path(fasta_path))
+    fasta_path = _ensure_fasta(Path(fasta_gz), Path(fasta_path))
 
     print(f"Loading FASTA index from {fasta_path} …")
     fa = Fasta(str(fasta_path), sequence_always_upper=True, as_raw=True)
@@ -140,7 +148,7 @@ def extract_body_sequences(
 def load_body_sequences(
     gtf_path: Path | str = _DEFAULT_GTF,
     fasta_path: Path | str = _DEFAULT_FASTA,
-    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+    fasta_gz: Path | str = _DEFAULT_FASTA_GZ,
     window: int = 1000,
 ) -> dict[str, tuple[str, str]]:
     """Parse GTF and extract body windows in one call.
@@ -150,13 +158,13 @@ def load_body_sequences(
     """
     gene_bounds = parse_gtf(gtf_path)
     print(f"Parsed {len(gene_bounds)} genes from GTF.")
-    return extract_body_sequences(gene_bounds, fasta_path, fasta_targz, window)
+    return extract_body_sequences(gene_bounds, fasta_path, fasta_gz, window)
 
 
 def extract_full_genomic_sequences(
     gene_bounds: dict[str, tuple[str, int, int, str]],
     fasta_path: Path | str = _DEFAULT_FASTA,
-    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+    fasta_gz: Path | str = _DEFAULT_FASTA_GZ,
 ) -> dict[str, tuple[str, str]]:
     """Extract the full genomic span for each gene (no window truncation).
 
@@ -164,7 +172,7 @@ def extract_full_genomic_sequences(
         {gene_id: (full_seq, "")} — full span on the sense strand; second element
         is empty so the return type is compatible with body_sequences consumers.
     """
-    fasta_path = _ensure_fasta(Path(fasta_targz), Path(fasta_path))
+    fasta_path = _ensure_fasta(Path(fasta_gz), Path(fasta_path))
 
     print(f"Loading FASTA index from {fasta_path} …")
     fa = Fasta(str(fasta_path), sequence_always_upper=True, as_raw=True)
@@ -202,7 +210,7 @@ def extract_full_genomic_sequences(
 def extract_spliced_sequences(
     gtf_path: Path | str = _DEFAULT_GTF,
     fasta_path: Path | str = _DEFAULT_FASTA,
-    fasta_targz: Path | str = _DEFAULT_FASTA_TARGZ,
+    fasta_gz: Path | str = _DEFAULT_FASTA_GZ,
 ) -> dict[str, tuple[str, str]]:
     """Extract spliced transcript sequence for each gene using the longest transcript.
 
@@ -233,7 +241,7 @@ def extract_spliced_sequences(
             txs.values(), key=lambda exons: sum(e - s + 1 for _, s, e, _ in exons)
         )
 
-    fasta_path = _ensure_fasta(Path(fasta_targz), Path(fasta_path))
+    fasta_path = _ensure_fasta(Path(fasta_gz), Path(fasta_path))
     print(f"Loading FASTA index from {fasta_path} …")
     fa = Fasta(str(fasta_path), sequence_always_upper=True, as_raw=True)
     fasta_chroms = set(fa.keys())
@@ -286,7 +294,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gtf", type=Path, default=_DEFAULT_GTF)
     parser.add_argument("--fasta", type=Path, default=_DEFAULT_FASTA)
-    parser.add_argument("--fasta-targz", type=Path, default=_DEFAULT_FASTA_TARGZ)
+    parser.add_argument("--fasta-gz", type=Path, default=_DEFAULT_FASTA_GZ)
     parser.add_argument("--sequence-type", choices=["windowed", "genomic", "transcript"],
                         default="windowed",
                         help="windowed=first/last 1000 bp (default), genomic=full span, transcript=spliced exons")
@@ -299,13 +307,13 @@ if __name__ == "__main__":
     output = args.output or Path(_DEFAULTS[args.sequence_type])
 
     if args.sequence_type == "windowed":
-        seqs = load_body_sequences(args.gtf, args.fasta, args.fasta_targz, args.window)
+        seqs = load_body_sequences(args.gtf, args.fasta, args.fasta_gz, args.window)
     elif args.sequence_type == "genomic":
         gene_bounds = parse_gtf(args.gtf)
         print(f"Parsed {len(gene_bounds)} genes from GTF.")
-        seqs = extract_full_genomic_sequences(gene_bounds, args.fasta, args.fasta_targz)
+        seqs = extract_full_genomic_sequences(gene_bounds, args.fasta, args.fasta_gz)
     else:
-        seqs = extract_spliced_sequences(args.gtf, args.fasta, args.fasta_targz)
+        seqs = extract_spliced_sequences(args.gtf, args.fasta, args.fasta_gz)
 
     print(f"Extracted sequences for {len(seqs)} genes.")
     output.parent.mkdir(parents=True, exist_ok=True)

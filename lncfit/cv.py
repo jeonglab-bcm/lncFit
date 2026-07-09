@@ -88,6 +88,7 @@ def build_folds(
 
 def build_lncrna_folds(
     train_records: list,
+    transcript_sequences: dict[str, str],
     k: int,
     include_distance: bool = False,
     verbose: bool = True,
@@ -95,8 +96,9 @@ def build_lncrna_folds(
     """Build per-fold feature matrices for chromosome LOCO-CV over LncRnaRecords.
 
     Same fold structure as build_folds (rotating early-stop chromosome, everything
-    else in train), but vocab is fit on each fold's pooled guide_sequences and
-    features come from build_lncrna_features (binary label y, no day dimension).
+    else in train), but vocab is fit on each fold's targets' own transcript_sequences
+    (not guide sequences — see issue #65) and features come from build_lncrna_features
+    (binary label y, no day dimension).
 
     Returns (cv_chroms, fold_data, feature_cols).
     fold_data maps val_chrom -> (X_tr, y_tr, X_val, y_val, X_es, y_es).
@@ -123,17 +125,21 @@ def build_lncrna_folds(
         val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
         es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
 
-        guide_seqs = [seq for r in train_recs_fold for seq in r.guide_sequences]
-        fold_vocab = fit_vocab(guide_seqs, k)
+        fold_targets = {r.target for r in train_recs_fold}
+        fold_seqs = [transcript_sequences[t] for t in fold_targets if t in transcript_sequences]
+        fold_vocab = fit_vocab(fold_seqs, k)
 
         X_tr, y_tr, cols = build_lncrna_features(
-            train_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+            train_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
         )
         X_val, y_val, _ = build_lncrna_features(
-            val_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+            val_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
         )
         X_es, y_es, _ = build_lncrna_features(
-            es_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+            es_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
         )
         fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
         if not feature_cols:

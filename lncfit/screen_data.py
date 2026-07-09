@@ -73,10 +73,13 @@ LNCRNA_TARGET_GROUP = "long non-coding RNA"
 
 @dataclass(frozen=True, slots=True)
 class LncRnaRecord:
-    """One lncRNA x cell_line x day RRA result, aggregated across that lncRNA's guides.
+    """One lncRNA x cell_line x day RRA result.
 
     label is 1 when the lncRNA is a significant depletion hit for this cell line/day
-    (rra_pvalue < 0.05 and fold_change < 0), else 0.
+    (rra_pvalue < 0.05 and fold_change < 0), else 0. Has no sequence of its own —
+    feature builders look up r.target in a separate {target: sequence} mapping (the
+    lncRNA's own transcript/genomic sequence, e.g. from lncfit.sequence), not guide
+    spacer sequences (see issue #65: guide sequences are not the lncRNA's sequence).
     """
 
     target: str
@@ -85,7 +88,6 @@ class LncRnaRecord:
     rra_pvalue: float
     fold_change: float
     label: int
-    guide_sequences: tuple[str, ...] = ()
     chrom: str = ""
     strand: str = ""
     closest_pc_gene: str = ""
@@ -101,8 +103,6 @@ class LncRnaRecord:
                 filtered[name] = int(filtered[name])
         if filtered.get("distance_to_closest_pc_gene") is not None:
             filtered["distance_to_closest_pc_gene"] = int(filtered["distance_to_closest_pc_gene"])
-        if "guide_sequences" in filtered and filtered["guide_sequences"] is not None:
-            filtered["guide_sequences"] = tuple(filtered["guide_sequences"])
         return cls(**filtered)
 
 
@@ -142,14 +142,6 @@ def load_target_groups(path: Path | str) -> dict[str, str]:
         if not t or t.lower() == "nan":
             continue
         result[t] = str(row[group_col]).strip()
-    return result
-
-
-def guides_by_target(targets: dict[str, tuple[str, str]]) -> dict[str, list[str]]:
-    """Invert load_targets() output. Returns {target: [guide_sequence, ...]}."""
-    result: dict[str, list[str]] = {}
-    for _, (t, seq) in targets.items():
-        result.setdefault(t, []).append(seq)
     return result
 
 
@@ -237,7 +229,6 @@ def load_screen(
 def load_rra(
     s2_path: Path | str,
     day: int,
-    targets: dict[str, tuple[str, str]],
     target_groups: dict[str, str],
     annotations: dict[str, tuple[str, str, str, int | None]] | None = None,
 ) -> list[LncRnaRecord]:
@@ -247,9 +238,9 @@ def load_rra(
     LNCRNA_TARGET_GROUP) — the RRA sheets' Gene column mixes lncRNA loci with
     protein-coding gene and control rows, same as the guide-level S2A-S2E sheets.
     A record's label is 1 when rra_pvalue < 0.05 and fold_change < 0 (a significant
-    depletion hit), else 0.
+    depletion hit), else 0. Records carry no sequence of their own — see
+    LncRnaRecord's docstring.
     """
-    guide_seqs_by_target = guides_by_target(targets)
     records: list[LncRnaRecord] = []
     xl = pd.ExcelFile(s2_path)
     for sheet_name, cell_line in _RRA_SHEET_TO_CELL_LINE.items():
@@ -283,7 +274,6 @@ def load_rra(
                     rra_pvalue=pval,
                     fold_change=fc,
                     label=int(pval < 0.05 and fc < 0),
-                    guide_sequences=tuple(guide_seqs_by_target.get(gene, ())),
                     chrom=chrom,
                     strand=strand,
                     closest_pc_gene=closest,

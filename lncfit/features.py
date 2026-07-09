@@ -342,27 +342,30 @@ def build_features(
     return X_dense, y, columns
 
 
-def _pool_guide_kmers(
-    records: list[LncRnaRecord], k: int, vocab_index: dict[str, int]
+def _lncrna_kmer_freqs(
+    records: list[LncRnaRecord], transcript_sequences: dict[str, str], k: int, vocab_index: dict[str, int]
 ) -> dict[str, dict[int, float]]:
-    """Pool k-mer frequencies over all of a target's guide_sequences, once per unique target."""
+    """k-mer frequency vector for each unique target's own transcript sequence.
+
+    Targets absent from transcript_sequences get an empty dict (zero columns) —
+    same convention as build_features' body_sequences handling.
+    """
     cache: dict[str, dict[int, float]] = {}
     for r in records:
         if r.target in cache:
             continue
-        combined: dict[int, int] = {}
-        total = 0
-        for seq in r.guide_sequences:
-            counts, t = _count_kmers(seq, k, vocab_index)
-            for idx, cnt in counts.items():
-                combined[idx] = combined.get(idx, 0) + cnt
-            total += t
-        cache[r.target] = {idx: cnt / total for idx, cnt in combined.items()} if total > 0 else {}
+        seq = transcript_sequences.get(r.target)
+        if not seq:
+            cache[r.target] = {}
+            continue
+        counts, total = _count_kmers(seq, k, vocab_index)
+        cache[r.target] = {idx: cnt / total for idx, cnt in counts.items()} if total > 0 else {}
     return cache
 
 
 def build_lncrna_features(
     records: list[LncRnaRecord],
+    transcript_sequences: dict[str, str],
     k: int = 6,
     include_distance: bool = False,
     vocab: list[str] | None = None,
@@ -370,13 +373,12 @@ def build_lncrna_features(
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, binary label vector y, and column names from LncRnaRecords.
 
-    A lncRNA record has no single spacer sequence (unlike ScreenRecord) — it is targeted
-    by several guides. Each target's guide k-mer frequency vectors are pooled (summed
-    counts, then renormalised) across all of its guide_sequences, so every cell_line row
-    for the same lncRNA shares one pooled sequence-feature vector. Columns are
-    vocab k-mers + cell one-hot [+ distance]; no day one-hot (records are single-day).
-
-    y is the binary hit label (r.label), not a continuous fold-change.
+    transcript_sequences maps target (lncRNA gene_id) -> its own spliced transcript
+    sequence (e.g. from lncfit.sequence.extract_spliced_sequences) — NOT guide spacer
+    sequences (see issue #65). Every cell_line row for the same lncRNA shares one
+    k-mer frequency vector, since the lncRNA's sequence doesn't vary by cell line.
+    Columns are vocab k-mers + cell one-hot [+ distance]; no day one-hot (records
+    are single-day). y is the binary hit label (r.label), not a continuous fold-change.
     """
     if vocab is None:
         vocab = all_kmers(k)
@@ -392,14 +394,14 @@ def build_lncrna_features(
     n = len(records)
     n_cols = len(columns)
     y = np.empty(n, dtype=np.float32)
-    pooled = _pool_guide_kmers(records, k, vocab_index)
+    freqs = _lncrna_kmer_freqs(records, transcript_sequences, k, vocab_index)
 
     if sparse:
         row_idx: list[int] = []
         col_idx: list[int] = []
         vals: list[float] = []
         for i, r in enumerate(records):
-            for col, freq in pooled[r.target].items():
+            for col, freq in freqs[r.target].items():
                 row_idx.append(i)
                 col_idx.append(col)
                 vals.append(freq)
@@ -423,7 +425,7 @@ def build_lncrna_features(
 
     X_dense = np.zeros((n, n_cols), dtype=np.float32)
     for i, r in enumerate(records):
-        for col, freq in pooled[r.target].items():
+        for col, freq in freqs[r.target].items():
             X_dense[i, col] = freq
         for j, c in enumerate(_CELL_LINES):
             if r.cell_line == c:
