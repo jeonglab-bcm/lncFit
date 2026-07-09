@@ -128,26 +128,29 @@ def _(BASES, Counter, KS, itertools, sequences):
 
 
 @app.cell
-def _(KS, kmer_counts_by_k, mticker, plt):
+def _(KS, kmer_counts_by_k, mticker, np, plt):
     # Categorical palette, fixed order (blue/aqua/yellow/violet) — one hue per k.
     _colors = {3: "#2a78d6", 4: "#1baf7a", 5: "#eda100", 6: "#4a3aa7"}
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 8))
     for _ax, _k in zip(axes.flat, KS):
-        _counts = list(kmer_counts_by_k[_k].values())
+        _vals = np.array(list(kmer_counts_by_k[_k].values()))
         _n_possible = 4**_k
-        _n_observed = sum(1 for c in _counts if c > 0)
-        _ax.hist(_counts, bins=40, color=_colors[_k])
+        _n_observed = int((_vals > 0).sum())
+        _bins = np.logspace(np.log10(_vals[_vals > 0].min()), np.log10(_vals.max()), 25)
+        _ax.hist(_vals, bins=_bins, color=_colors[_k])
+        _ax.set_xscale("log")
         _ax.set_yscale("log")
+        _ax.xaxis.set_major_formatter(mticker.ScalarFormatter())
         _ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
         _ax.yaxis.set_minor_formatter(mticker.NullFormatter())
         _ax.set_title(f"k={_k}  ({_n_observed:,}/{_n_possible:,} k-mers observed)", fontsize=10)
-        _ax.set_xlabel("count across corpus", fontsize=9)
+        _ax.set_xlabel("count across corpus (log scale)", fontsize=9)
         _ax.set_ylabel("# of k-mers (log scale)", fontsize=9)
         for _spine in ("top", "right"):
             _ax.spines[_spine].set_visible(False)
 
-    fig.suptitle("k-mer count distribution across the lncRNA transcript corpus", fontsize=12)
+    fig.suptitle("k-mer count distribution across the lncRNA transcript corpus (log-log)", fontsize=12)
     plt.tight_layout()
     fig
     return (fig,)
