@@ -39,6 +39,7 @@ def _():
     from pathlib import Path
 
     import matplotlib.pyplot as plt
+    import matplotlib.ticker as mticker
     import numpy as np
 
     REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +58,7 @@ def _():
         gzip,
         itertools,
         json,
+        mticker,
         np,
         plt,
     )
@@ -122,7 +124,7 @@ def _(BASES, Counter, KS, itertools, sequences):
 
 
 @app.cell
-def _(KS, kmer_counts_by_k, plt):
+def _(KS, kmer_counts_by_k, mticker, plt):
     # Categorical palette, fixed order (blue/aqua/yellow/violet) — one hue per k.
     _colors = {3: "#2a78d6", 4: "#1baf7a", 5: "#eda100", 6: "#4a3aa7"}
 
@@ -133,6 +135,8 @@ def _(KS, kmer_counts_by_k, plt):
         _n_observed = sum(1 for c in _counts if c > 0)
         _ax.hist(_counts, bins=40, color=_colors[_k])
         _ax.set_yscale("log")
+        _ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
+        _ax.yaxis.set_minor_formatter(mticker.NullFormatter())
         _ax.set_title(f"k={_k}  ({_n_observed:,}/{_n_possible:,} k-mers observed)", fontsize=10)
         _ax.set_xlabel("count across corpus", fontsize=9)
         _ax.set_ylabel("# of k-mers (log scale)", fontsize=9)
