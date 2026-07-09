@@ -1,9 +1,13 @@
-"""Plot ROC curves for the tuned lncRNA RRA-hit classifiers (issue #65 corrected features).
+"""Plot ROC curves for the tuned lncRNA RRA-hit classifiers (issue #65 corrected features)
+plus the zero-shot ChatNT classifier (PR #71 follow-up), all on the same held-out chr1
+test set.
 
-Uses the held-out chr1 test set predictions saved by scripts/tune_lncrna_xgboost.py
+XGBoost curves use predictions saved by scripts/tune_lncrna_xgboost.py
 (results/lncrna_rra_day14/tune_k<K>/final_eval_*/predictions.csv). Only k values with a
 completed tuning run are plotted — k=6's sweep was stopped early by request and has no
-held-out predictions (see results/lncrna_rra_day14/README.md).
+held-out predictions (see results/lncrna_rra_day14/README.md). The ChatNT curve uses
+predictions saved by scripts/evaluate_chatnt_classifier.py
+(results/lncrna_rra_day14/chatnt_eval/run_*/predictions.csv).
 """
 import sys
 from pathlib import Path
@@ -20,11 +24,17 @@ KS = [3, 4, 5, 6]
 
 # Categorical palette, fixed order (blue/aqua/yellow/violet) — one hue per k, never cycled.
 COLORS = {3: "#2a78d6", 4: "#1baf7a", 5: "#eda100", 6: "#4a3aa7"}
+COLOR_CHATNT = "#d6486e"
 COLOR_CHANCE = "#8a8a86"
 
 
 def _predictions_csv(k: int) -> Path | None:
     matches = sorted((RESULTS_DIR / f"tune_k{k}").glob("final_eval_*/predictions.csv"))
+    return matches[-1] if matches else None
+
+
+def _chatnt_predictions_csv() -> Path | None:
+    matches = sorted((RESULTS_DIR / "chatnt_eval").glob("run_*/predictions.csv"))
     return matches[-1] if matches else None
 
 
@@ -45,6 +55,16 @@ def main() -> None:
     if skipped:
         print(f"Skipped k={skipped} — no completed tuning run (missing predictions.csv).")
 
+    chatnt_csv = _chatnt_predictions_csv()
+    if chatnt_csv is not None:
+        df = pd.read_csv(chatnt_csv)
+        fpr, tpr, _ = roc_curve(df["y_true"], df["y_pred_proba"])
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, color=COLOR_CHATNT, linewidth=2, linestyle=":",
+                label=f"ChatNT zero-shot (AUC={roc_auc:.3f})")
+    else:
+        print("Skipped ChatNT — no completed evaluation run (missing predictions.csv).")
+
     ax.plot([0, 1], [0, 1], color=COLOR_CHANCE, linestyle="--", linewidth=1.2, label="Chance (AUC=0.500)")
 
     ax.set_xlim(0, 1)
@@ -53,7 +73,7 @@ def main() -> None:
     ax.set_ylabel("True positive rate", fontsize=10)
     ax.set_title(
         "lncRNA RRA-hit classifier: ROC, held-out chr1 test set\n"
-        "(transcript-sequence features, issue #65)",
+        "(transcript-sequence features, issue #65; ChatNT zero-shot, PR #71)",
         fontsize=11,
     )
     ax.legend(fontsize=9, loc="lower right", frameon=False)

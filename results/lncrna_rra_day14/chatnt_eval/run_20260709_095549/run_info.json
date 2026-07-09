@@ -1,0 +1,11 @@
+{
+  "model": "InstaDeepAI/ChatNT",
+  "eval": "zero-shot classifier, full chr1 held-out test set (PR #71 follow-up)",
+  "with_reason": false,
+  "threshold": 0.5,
+  "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
+  "n_test_total": 2470,
+  "n_missing_sequence": 0,
+  "n_scored": 2470,
+  "git_commit": "98d50a5"
+}
