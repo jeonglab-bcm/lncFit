@@ -1,0 +1,18 @@
+{
+  "k": 5,
+  "include_distance": false,
+  "seed": 42,
+  "cv_mean_auprc": 0.1273417581559648,
+  "cv_std_auprc": 0.032289200990702954,
+  "n_estimators_cv_median": 46,
+  "learning_rate": 0.015890033533000083,
+  "max_depth": 7,
+  "subsample": 0.8022960577531799,
+  "colsample_bytree": 0.821719803111874,
+  "min_child_weight": 5,
+  "reg_alpha": 0.004069853766455734,
+  "reg_lambda": 6.070543611683502,
+  "scale_pos_weight_mult": 0.6352265325725578,
+  "n_estimators_final_model": 35,
+  "final_scale_pos_weight": 13.466802490538225
+}

@@ -7,7 +7,7 @@ from collections import Counter
 import numpy as np
 
 from lncfit.constants import MIN_FOLD_RECORDS
-from lncfit.features import build_features, fit_vocab
+from lncfit.features import build_features, build_lncrna_features, fit_vocab
 
 
 def build_folds(
@@ -81,6 +81,69 @@ def build_folds(
         if verbose:
             print(f"  fold chr{val_chrom}: {len(fold_vocab)}/{4**k} k-mers  "
                   f"train={X_tr.shape[0]:,}  val={X_val.shape[0]:,}  es={X_es.shape[0]:,}")
+        gc.collect()
+
+    return cv_chroms, fold_data, feature_cols
+
+
+def build_lncrna_folds(
+    train_records: list,
+    k: int,
+    include_distance: bool = False,
+    verbose: bool = True,
+) -> tuple[list[str], dict[str, tuple], list[str]]:
+    """Build per-fold feature matrices for chromosome LOCO-CV over LncRnaRecords.
+
+    Same fold structure as build_folds (rotating early-stop chromosome, everything
+    else in train), but vocab is fit on each fold's pooled guide_sequences and
+    features come from build_lncrna_features (binary label y, no day dimension).
+
+    Returns (cv_chroms, fold_data, feature_cols).
+    fold_data maps val_chrom -> (X_tr, y_tr, X_val, y_val, X_es, y_es).
+    """
+    chrom_arr = np.array([r.chrom for r in train_records])
+    chrom_counts = Counter(chrom_arr)
+    cv_chroms = sorted(
+        [str(c) for c, n in chrom_counts.items() if c and n >= MIN_FOLD_RECORDS],
+        key=lambda x: (len(x), x),
+    )
+
+    if verbose:
+        print(f"Fitting per-fold vocabularies and building lncRNA feature matrices ...")
+
+    fold_data: dict[str, tuple] = {}
+    feature_cols: list[str] = []
+    for i, val_chrom in enumerate(cv_chroms):
+        es_chrom = cv_chroms[(i + 1) % len(cv_chroms)]
+        val_mask = chrom_arr == val_chrom
+        es_mask = chrom_arr == es_chrom
+        train_mask = ~val_mask & ~es_mask
+
+        train_recs_fold = [r for r, m in zip(train_records, train_mask) if m]
+        val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
+        es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
+
+        guide_seqs = [seq for r in train_recs_fold for seq in r.guide_sequences]
+        fold_vocab = fit_vocab(guide_seqs, k)
+
+        X_tr, y_tr, cols = build_lncrna_features(
+            train_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+        )
+        X_val, y_val, _ = build_lncrna_features(
+            val_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+        )
+        X_es, y_es, _ = build_lncrna_features(
+            es_recs_fold, k=k, include_distance=include_distance, vocab=fold_vocab, sparse=True,
+        )
+        fold_data[val_chrom] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
+        if not feature_cols:
+            feature_cols = cols
+        if verbose:
+            n_pos_tr = int(y_tr.sum())
+            n_pos_val = int(y_val.sum())
+            print(f"  fold chr{val_chrom}: {len(fold_vocab)}/{4**k} k-mers  "
+                  f"train={X_tr.shape[0]:,} (pos={n_pos_tr})  "
+                  f"val={X_val.shape[0]:,} (pos={n_pos_val})  es={X_es.shape[0]:,}")
         gc.collect()
 
     return cv_chroms, fold_data, feature_cols
