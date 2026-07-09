@@ -57,13 +57,13 @@ def test_dry_run(monkeypatch, capsys):
 
 def test_run_chatnt_inference_returns_float():
     mock_pipe = MagicMock(return_value=[{"generated_text": "The log2FC is 1.44"}])
-    with patch("lncfit.inference.pipeline", return_value=mock_pipe):
+    with patch("lncfit.inference._load_pipeline", return_value=mock_pipe):
         result = run_chatnt_inference("some prompt", ["ACGT"])
     assert result == pytest.approx(1.44)
 
 
 def test_run_chatnt_inference_no_numeric():
     mock_pipe = MagicMock(return_value=[{"generated_text": "No numeric prediction."}])
-    with patch("lncfit.inference.pipeline", return_value=mock_pipe):
+    with patch("lncfit.inference._load_pipeline", return_value=mock_pipe):
         result = run_chatnt_inference("some prompt", ["ACGT"])
     assert result is None
