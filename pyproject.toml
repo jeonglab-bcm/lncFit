@@ -24,6 +24,11 @@ dependencies = [
     "optuna>=4.9.0",
     "pyfaidx>=0.9.0.4",
     "einops>=0.8.2",
+    # Fine-tuning dependencies (issue #56)
+    "peft>=0.10",
+    "bitsandbytes>=0.43",
+    "accelerate>=0.29",
+    "datasets>=2.19",
 ]
 
 [dependency-groups]
