@@ -29,7 +29,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.classifiers import available_classifiers, build_classifier
-from lncfit.features import build_lncrna_features, fit_vocab
+from lncfit.embeddings import load_embeddings
+from lncfit.features import build_lncrna_embedding_features, build_lncrna_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
@@ -60,9 +61,16 @@ def main():
                         help="Registered classifier to run.")
     parser.add_argument("--train", default="data/processed/train_lncrna_day14_chrom1.jsonl.gz")
     parser.add_argument("--test", default="data/processed/test_lncrna_day14_chrom1.jsonl.gz")
+    parser.add_argument("--features", choices=["kmer", "dnabert2"], default="kmer",
+                        help="Feature type: 'kmer' = transcript k-mer frequencies (default); "
+                             "'dnabert2' = precomputed DNABERT-2 transcript embeddings (--embeddings).")
     parser.add_argument("--transcript-sequences", default="data/processed/body_sequences_transcript.json",
                         help="{target: [spliced_seq, \"\"]} JSON from lncfit/sequence.py "
-                             "(--sequence-type transcript). The lncRNA's own sequence (issue #65).")
+                             "(--sequence-type transcript). The lncRNA's own sequence (issue #65). "
+                             "Used by --features kmer.")
+    parser.add_argument("--embeddings", default="data/processed/dnabert2_transcript_full.npz",
+                        help="Precomputed embedding .npz from scripts/embed_sequences.py. "
+                             "Used by --features dnabert2.")
     parser.add_argument("--k", type=int, choices=[3, 4, 5, 6], default=3)
     parser.add_argument("--include-distance", action="store_true")
     parser.add_argument("--param", action="append", type=_parse_param, default=[],
@@ -81,30 +89,42 @@ def main():
     test_records = load_jsonl(args.test, record_cls=LncRnaRecord)
     print(f"  {len(test_records):,} records")
 
-    print(f"Loading transcript sequences from {args.transcript_sequences} ...")
-    transcript_sequences = _load_transcript_sequences(args.transcript_sequences)
-    print(f"  {len(transcript_sequences):,} lncRNAs")
-
-    print(f"\nFitting k={args.k} vocabulary on training transcript sequences ...")
-    train_targets = {r.target for r in train_records}
-    train_seqs = [transcript_sequences[t] for t in train_targets if t in transcript_sequences]
-    vocab = fit_vocab(train_seqs, args.k)
-    print(f"  {len(vocab)} / {4**args.k} k-mers observed")
-
-    print(f"Building features (k={args.k}, include_distance={args.include_distance}) ...")
-    # Dense on purpose: XGBoost treats a CSR matrix's implicit zeros as *missing*, but a
-    # dense array's zeros as present. A zero k-mer frequency means "this k-mer does not
-    # occur" — a real, informative value, not missing data — so dense is the semantically
-    # correct choice and also matches scripts/train_lncrna_xgboost.py's established path.
-    X_train, y_train, _ = build_lncrna_features(
-        train_records, transcript_sequences, k=args.k,
-        include_distance=args.include_distance, vocab=vocab, sparse=False,
-    )
-    X_test, y_test, _ = build_lncrna_features(
-        test_records, transcript_sequences, k=args.k,
-        include_distance=args.include_distance, vocab=vocab, sparse=False,
-    )
-    print(f"  Feature matrix: {X_train.shape[1]} columns")
+    if args.features == "dnabert2":
+        print(f"Loading DNABERT-2 embeddings from {args.embeddings} ...")
+        emb = load_embeddings(args.embeddings)
+        print(f"  {emb[0].shape[0]:,} lncRNAs x {emb[0].shape[1]} dims")
+        print(f"Building DNABERT-2 features (include_distance={args.include_distance}) ...")
+        X_train, y_train, _ = build_lncrna_embedding_features(
+            train_records, emb, include_distance=args.include_distance,
+        )
+        X_test, y_test, _ = build_lncrna_embedding_features(
+            test_records, emb, include_distance=args.include_distance,
+        )
+        feature_desc = f"dnabert2 ({emb[0].shape[1]} dims + cell one-hot)"
+    else:
+        print(f"Loading transcript sequences from {args.transcript_sequences} ...")
+        transcript_sequences = _load_transcript_sequences(args.transcript_sequences)
+        print(f"  {len(transcript_sequences):,} lncRNAs")
+        print(f"\nFitting k={args.k} vocabulary on training transcript sequences ...")
+        train_targets = {r.target for r in train_records}
+        train_seqs = [transcript_sequences[t] for t in train_targets if t in transcript_sequences]
+        vocab = fit_vocab(train_seqs, args.k)
+        print(f"  {len(vocab)} / {4**args.k} k-mers observed")
+        print(f"Building k-mer features (k={args.k}, include_distance={args.include_distance}) ...")
+        # Dense on purpose: XGBoost treats a CSR matrix's implicit zeros as *missing*, but a
+        # dense array's zeros as present. A zero k-mer frequency means "this k-mer does not
+        # occur" — a real, informative value, not missing data — so dense is the semantically
+        # correct choice and also matches scripts/train_lncrna_xgboost.py's established path.
+        X_train, y_train, _ = build_lncrna_features(
+            train_records, transcript_sequences, k=args.k,
+            include_distance=args.include_distance, vocab=vocab, sparse=False,
+        )
+        X_test, y_test, _ = build_lncrna_features(
+            test_records, transcript_sequences, k=args.k,
+            include_distance=args.include_distance, vocab=vocab, sparse=False,
+        )
+        feature_desc = f"kmer (k={args.k})"
+    print(f"  Feature matrix: {X_train.shape[1]} columns  [{feature_desc}]")
 
     n_pos = int(y_train.sum())
     print(f"  Train label balance: {n_pos:,} hits / {len(y_train) - n_pos:,} non-hits")
@@ -136,7 +156,9 @@ def main():
     run_info = {
         "model": args.model,
         "params": {k: v for k, v in model.params.items()},
-        "k": args.k,
+        "features": args.features,
+        "embeddings_file": args.embeddings if args.features == "dnabert2" else None,
+        "k": args.k if args.features == "kmer" else None,
         "include_distance": args.include_distance,
         "n_features": int(X_train.shape[1]),
         "train_file": str(args.train),

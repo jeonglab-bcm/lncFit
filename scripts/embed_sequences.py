@@ -35,6 +35,25 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+def _patch_out_triton_import_check() -> None:
+    """Drop 'triton' from transformers' static import check (localized to this process).
+
+    DNABERT-2's modeling file imports triton (CUDA/Linux-only) but try/excepts it and
+    falls back to a PyTorch attention implementation, so it runs fine on CPU/MPS/Mac.
+    Only transformers' static check_imports refuses to load it; strip triton from the
+    required list so the model's own graceful fallback takes over. A global stub module
+    is NOT used — it corrupts transformers' lazy imports.
+    """
+    import transformers.dynamic_module_utils as dmu
+
+    _orig = dmu.get_imports
+
+    def _get_imports(filename):
+        return [m for m in _orig(filename) if m != "triton"]
+
+    dmu.get_imports = _get_imports
+
+
 def _embed_batch(model, tokenizer, seqs: list[str], device: str) -> np.ndarray:
     """Mean-pool last hidden states over non-padding tokens -> (batch, n_dims)."""
     import torch
@@ -53,6 +72,42 @@ def _embed_batch(model, tokenizer, seqs: list[str], device: str) -> np.ndarray:
     hidden = out[0] if isinstance(out, tuple) else out.last_hidden_state
     vecs = (hidden * mask).sum(1) / mask.sum(1)
     return vecs.cpu().numpy().astype(np.float32)
+
+
+def _embed_full_transcripts(
+    model, tokenizer, seqs: list[str], device: str, chunk_tokens: int = 510
+) -> np.ndarray:
+    """Embed each FULL sequence with no truncation, via token-windowed mean-pooling.
+
+    A sequence longer than the model's 512-token limit is split into consecutive
+    `chunk_tokens`-token windows; every window is embedded (mean-pooled over its
+    tokens) and the window vectors are averaged into one per-sequence vector. Short
+    sequences (the majority — median transcript ~1.4 kb) are a single window and are
+    embedded whole. This genuinely covers the entire transcript rather than dropping
+    everything past the first ~512 tokens.
+    """
+    import torch
+
+    n_dims = int(model.config.hidden_size)
+    out = np.zeros((len(seqs), n_dims), dtype=np.float32)
+    for i, seq in enumerate(seqs):
+        ids = tokenizer(seq, add_special_tokens=False).input_ids
+        if len(ids) == 0:
+            continue
+        windows = [ids[j : j + chunk_tokens] for j in range(0, len(ids), chunk_tokens)]
+        chunk_vecs = []
+        for win in windows:
+            input_ids = torch.tensor([[tokenizer.cls_token_id, *win, tokenizer.sep_token_id]], device=device)
+            attn = torch.ones_like(input_ids)
+            with torch.no_grad():
+                res = model(input_ids=input_ids, attention_mask=attn)
+            hidden = res[0] if isinstance(res, tuple) else res.last_hidden_state
+            chunk_vecs.append(hidden[0].mean(0).cpu().numpy().astype(np.float32))
+        out[i] = np.mean(chunk_vecs, axis=0)
+        done = i + 1
+        if done % 200 == 0 or done == len(seqs):
+            print(f"  {done:,}/{len(seqs):,}", flush=True)
+    return out
 
 
 def _embed_all(model, tokenizer, seqs: list[str], device: str, batch_size: int) -> np.ndarray:
@@ -99,14 +154,18 @@ def main() -> None:
         help="'cuda' or 'cpu'. Auto-detected when not specified.",
     )
     parser.add_argument(
-        "--window", choices=["first", "last", "mean"], default="first",
-        help="Which body window to embed (--source=body only). "
-             "first/last use a single 1000 bp window; mean averages both. Default: first.",
+        "--window", choices=["first", "last", "mean", "full"], default="first",
+        help="Which body window to embed (--source=body only). first/last use a single "
+             "1000 bp window; mean averages both; full embeds the ENTIRE sequence "
+             "(element 0, e.g. the spliced transcript) via token-windowed mean-pooling, "
+             "no truncation. Default: first.",
     )
     args = parser.parse_args()
 
     import torch
     from transformers import AutoModel, AutoTokenizer
+
+    _patch_out_triton_import_check()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -139,6 +198,12 @@ def main() -> None:
             print(f"Embedding last windows ...")
             emb_last  = _embed_all(model, tokenizer, seqs_last,  device, args.batch_size)
             embeddings = (emb_first + emb_last) / 2.0
+        elif args.window == "full":
+            seqs = [raw[g][0] for g in gene_ids]
+            lens = [len(s) for s in seqs]
+            print(f"Embedding {len(seqs):,} FULL sequences (token-windowed mean-pool, no truncation); "
+                  f"median len {int(np.median(lens)):,} bp, max {max(lens):,} bp ...")
+            embeddings = _embed_full_transcripts(model, tokenizer, seqs, device)
         else:
             window_idx = 0 if args.window == "first" else 1
             seqs = [raw[g][window_idx] for g in gene_ids]
