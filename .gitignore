@@ -239,3 +239,4 @@ data/processed/*.npz
 
 # Claude Code project file
 CLAUDE.md
+results/lncrna_rra_day14/classifier_runs/

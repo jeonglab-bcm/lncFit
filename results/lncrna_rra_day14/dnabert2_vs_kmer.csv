@@ -1,0 +1,6 @@
+features,model,auroc,auprc
+none,null,0.5000,0.0526
+kmer_k3,logreg,0.5939,0.1005
+kmer_k3,xgboost,0.6051,0.0846
+dnabert2,logreg,0.6381,0.1008
+dnabert2,xgboost,0.6268,0.1169
