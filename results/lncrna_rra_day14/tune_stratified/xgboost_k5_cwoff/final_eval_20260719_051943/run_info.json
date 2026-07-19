@@ -1,0 +1,18 @@
+{
+  "model": "xgboost",
+  "class_weight": "off",
+  "cv_scheme": "stratified_row_level",
+  "train_file": "data/processed/train_lncrna_day14_chrom1.jsonl.gz",
+  "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
+  "k": 5,
+  "include_distance": false,
+  "n_splits": 5,
+  "n_trials_requested": 50,
+  "n_trials_completed": 32,
+  "best_trial": 38,
+  "cv_mean_auprc": 0.17173901388800744,
+  "cv_std_auprc": 0.022114074368167515,
+  "n_test_records": 2470,
+  "timestamp": "20260719_051943",
+  "git_commit": "e6fa050"
+}

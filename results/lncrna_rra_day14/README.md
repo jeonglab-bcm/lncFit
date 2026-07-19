@@ -96,6 +96,72 @@ follow-up on whether that's a real biological signal specific to K562 or a datas
 artifact. Precision/recall at the default 0.5 threshold are ~0 across the board (still
 a ~5%-positive-rate problem; precision-at-k would be a better fit than F1@0.5).
 
+## Row-level stratified CV comparison (chromosome-agnostic; xgboost + logreg; k=3-6)
+
+A second tuning pass, `scripts/tune_lncrna_stratified.py`, answers a different
+question from the LOCO-CV sweep above: what if hyperparameter search uses a plain
+`StratifiedKFold(n_splits=5)` over the binary label instead of chromosome-grouped
+folds? **This is deliberately not leak-free**: every cell-line row for a given
+lncRNA shares one k-mer vector (only the cell-line one-hot differs), so the same
+lncRNA's sequence can appear in both a fold's train and validation split via its
+other cell-line rows. Kept this way on request, for direct comparison against the
+chromosome-grouped numbers above — not because it's a sound generalization
+estimate. The tell: CV mean AUPRC runs ~0.17 for xgboost vs. the true chr1
+held-out AUPRC of ~0.12-0.15. Trust the held-out column, not the CV column.
+
+Also swept a class-weight on/off toggle (xgboost: tuned `scale_pos_weight_mult` vs.
+fixed at 1; logreg: `class_weight="balanced"` vs. `None`) and, for xgboost, a
+`VarianceThreshold` filter on k-mer columns (fit per fold / per final-train split,
+never on val/test) to make k=6's 4,096-column space more tractable.
+
+**chr1 held-out test results** (best class-weight variant per k, by AUPRC):
+
+| k | model | class weight | n features | AUROC | AUPRC |
+|---|---|---|---|---|---|
+| 3 | xgboost | off | 69 | 0.6623 | 0.1293 |
+| 4 | xgboost | off | 261 | 0.6631 | 0.1227 |
+| **5** | **xgboost** | **off** | 1,029 | 0.6628 | **0.1446** |
+| 6 | xgboost | off (variance filter, threshold=2e-7) | 2,468 / 4,101 | 0.5987 | 0.1209 |
+| 3-6 | logreg | on/off (barely differs) | 69-2,468 | ~0.578 | ~0.109-0.110 |
+
+k=5 (off) is the best AUPRC found anywhere in this project's history on the real
+chr1 test set. k=6 underperforms k=3-5 on 4 of 5 cell lines (HAP1, HEK293FT,
+MDA-MB-231, THP1) despite the variance filter, while being the *best* single
+cell-line result anywhere (K562, AUPRC 0.315 with class-weight on) — consistent
+with a dimensionality problem, not a k=6-is-just-worse conclusion. The final
+90/10-split XGBoost training set has only ~1,007 positives; k=6's 2,468 post-filter
+features means ~2.5 features per positive example (k=5 sits right at ~1:1, k=3 is
+~0.07:1) — past the point where a model can reliably distinguish real signal from
+per-fold noise, especially under CV that's already leaking lncRNA identity across
+folds. The variance filter itself (fit on train-fold frequency variance) only cut
+xgboost's k=6 per-trial wall-clock by ~14% (4:38 -> 4:00) since `tree_method="hist"`
+with `colsample_bytree≈0.8` is bottlenecked by tree depth and row count, not raw
+column count — it's a legitimate noise-reduction step, not a speed fix.
+
+Class-weight reweighting doesn't clearly help xgboost (off wins on AUPRC at k=3,
+4, and 5) and is a rounding error for logreg. logreg stays flat at ~0.578 AUROC
+across every k and class-weight setting -- k-mer counts alone don't give it more
+to work with as k grows.
+
+A follow-up one-off (`tune_stratified/k4_depth9_comparison.json`) tested whether
+forcing `max_depth=9` (matching k=3's tuned depth) onto k=4's Optuna-tuned
+class-weight-on config (originally depth=6) would help: it didn't -- AUROC
+dropped 0.6577 -> 0.6365, since depth interacts with the *other* hyperparameters
+Optuna had already co-adapted around the shallower tree (early stopping cut the
+ensemble from 58 to 37 trees once depth changed). Forcing depth=9 on the plain
+**untuned** k=4 defaults (`scripts/run_lncrna_classifier.py`, no Optuna
+involved) told the opposite story: AUROC improved 0.6352 -> 0.6578, AUPRC
+0.1050 -> 0.1228, because nothing else was co-adapted to the shallower depth in
+that setup. Net: `max_depth` isn't a free knob to crank in isolation once other
+hyperparameters have already been tuned around a particular value.
+
+Files: `tune_stratified/<model>_k<K>_cw<on|off>/` (`cv_scores.csv`,
+`final_eval_<timestamp>/{metrics,predictions,run_info}`), `tune_stratified/summary.csv`
+(aggregated via `scripts/summarize_stratified_tuning.py`), and
+`data/model/<model>_lncrna_stratified_k<K>_cw<on|off>_{best_params,vocab}.json`
+(+ `_variance_mask.json` for k=6). `logreg_k6_cwoff` was stopped mid-run by
+request and is not included (no completed held-out evaluation).
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned

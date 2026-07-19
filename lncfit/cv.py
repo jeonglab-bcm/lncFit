@@ -153,3 +153,104 @@ def build_lncrna_folds(
         gc.collect()
 
     return cv_chroms, fold_data, feature_cols
+
+
+def build_lncrna_stratified_folds(
+    train_records: list,
+    transcript_sequences: dict[str, str],
+    k: int,
+    n_splits: int = 5,
+    include_distance: bool = False,
+    seed: int = 42,
+    variance_threshold: float = 0.0,
+    verbose: bool = True,
+) -> tuple[list[int], dict[int, tuple], list[str]]:
+    """Build per-fold feature matrices for row-level stratified K-fold CV.
+
+    Unlike build_lncrna_folds (chromosome LOCO-CV), folds are plain
+    StratifiedKFold splits over the binary label, ignoring chromosome
+    entirely. Every cell-line row for a given lncRNA shares one k-mer
+    frequency vector (only the cell-line one-hot differs), so the same
+    lncRNA's sequence can appear in both a fold's train and validation split
+    via its other cell-line rows. That's a real leakage risk relative to
+    build_lncrna_folds's chromosome grouping -- kept here on request, for a
+    direct comparison against the chromosome-grouped CV numbers, not because
+    it's leak-free.
+
+    variance_threshold: if > 0, drop feature columns whose variance on the
+    fold's *training* split is at or below this value (fit per fold, applied
+    to that fold's train/val/es -- never fit on val/es, to avoid leaking the
+    selection itself). K-mer frequency columns are heavily right-skewed in
+    variance (most barely vary row to row); this is mainly useful for large
+    k (e.g. k=6's 4096 columns) where most columns carry near-zero signal
+    and dropping them cuts compute without touching the informative ones.
+    The 5 cell-line one-hot columns have too much variance to ever be
+    dropped by any threshold worth using here, so this only prunes k-mers.
+
+    Returns (fold_ids, fold_data, feature_cols).
+    fold_data maps fold_id -> (X_tr, y_tr, X_val, y_val, X_es, y_es).
+    """
+    from sklearn.feature_selection import VarianceThreshold
+    from sklearn.model_selection import StratifiedKFold
+
+    y_all = np.array([r.label for r in train_records])
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    val_mask_by_fold = [np.zeros(len(train_records), dtype=bool) for _ in range(n_splits)]
+    for i, (_, val_idx) in enumerate(skf.split(np.zeros(len(y_all)), y_all)):
+        val_mask_by_fold[i][val_idx] = True
+
+    if verbose:
+        print(f"Fitting per-fold vocabularies and building lncRNA feature matrices "
+              f"(stratified {n_splits}-fold, chromosome-agnostic) ...")
+
+    fold_ids = list(range(n_splits))
+    fold_data: dict[int, tuple] = {}
+    feature_cols: list[str] = []
+    for i in fold_ids:
+        es_i = (i + 1) % n_splits
+        val_mask = val_mask_by_fold[i]
+        es_mask = val_mask_by_fold[es_i]
+        train_mask = ~val_mask & ~es_mask
+
+        train_recs_fold = [r for r, m in zip(train_records, train_mask) if m]
+        val_recs_fold   = [r for r, m in zip(train_records, val_mask)   if m]
+        es_recs_fold    = [r for r, m in zip(train_records, es_mask)    if m]
+
+        fold_targets = {r.target for r in train_recs_fold}
+        fold_seqs = [transcript_sequences[t] for t in fold_targets if t in transcript_sequences]
+        fold_vocab = fit_vocab(fold_seqs, k)
+
+        X_tr, y_tr, cols = build_lncrna_features(
+            train_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
+        )
+        X_val, y_val, _ = build_lncrna_features(
+            val_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
+        )
+        X_es, y_es, _ = build_lncrna_features(
+            es_recs_fold, transcript_sequences, k=k, include_distance=include_distance,
+            vocab=fold_vocab, sparse=True,
+        )
+
+        n_cols_before = X_tr.shape[1]
+        if variance_threshold > 0:
+            selector = VarianceThreshold(threshold=variance_threshold).fit(X_tr)
+            X_tr = selector.transform(X_tr)
+            X_val = selector.transform(X_val)
+            X_es = selector.transform(X_es)
+            cols = [c for c, keep in zip(cols, selector.get_support()) if keep]
+
+        fold_data[i] = (X_tr, y_tr, X_val, y_val, X_es, y_es)
+        if not feature_cols:
+            feature_cols = cols
+        if verbose:
+            n_pos_tr = int(y_tr.sum())
+            n_pos_val = int(y_val.sum())
+            vt_note = f"  vt: {X_tr.shape[1]}/{n_cols_before} cols kept" if variance_threshold > 0 else ""
+            print(f"  fold {i}: {len(fold_vocab)}/{4**k} k-mers  "
+                  f"train={X_tr.shape[0]:,} (pos={n_pos_tr})  "
+                  f"val={X_val.shape[0]:,} (pos={n_pos_val})  es={X_es.shape[0]:,}{vt_note}")
+        gc.collect()
+
+    return fold_ids, fold_data, feature_cols

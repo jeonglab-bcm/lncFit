@@ -1,0 +1,18 @@
+{
+  "model": "logreg",
+  "class_weight": "on",
+  "cv_scheme": "stratified_row_level",
+  "train_file": "data/processed/train_lncrna_day14_chrom1.jsonl.gz",
+  "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
+  "k": 4,
+  "include_distance": false,
+  "n_splits": 5,
+  "n_trials_requested": 50,
+  "n_trials_completed": 35,
+  "best_trial": 44,
+  "cv_mean_auprc": 0.12183799921204738,
+  "cv_std_auprc": 0.020332971863892272,
+  "n_test_records": 2470,
+  "timestamp": "20260719_052426",
+  "git_commit": "e6fa050"
+}

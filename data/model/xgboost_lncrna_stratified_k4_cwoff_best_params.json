@@ -1,0 +1,19 @@
+{
+  "model": "xgboost",
+  "class_weight": "off",
+  "k": 4,
+  "include_distance": false,
+  "n_splits": 5,
+  "seed": 42,
+  "cv_mean_auprc": 0.17643578198832272,
+  "cv_std_auprc": 0.026227347767205967,
+  "learning_rate": 0.005676262589955587,
+  "max_depth": 9,
+  "subsample": 0.6293899908000085,
+  "colsample_bytree": 0.831261142176991,
+  "min_child_weight": 4,
+  "reg_alpha": 0.0004793052550782129,
+  "reg_lambda": 0.0008325158565947969,
+  "n_estimators_final_model": 135,
+  "final_scale_pos_weight": 1.0
+}
