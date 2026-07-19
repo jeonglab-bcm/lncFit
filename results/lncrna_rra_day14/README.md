@@ -125,7 +125,9 @@ never on val/test) to make k=6's 4,096-column space more tractable.
 | 3-6 | logreg | on/off (barely differs) | 69-2,468 | ~0.578 | ~0.109-0.110 |
 
 k=5 (off) is the best AUPRC found anywhere in this project's history on the real
-chr1 test set. k=6 underperforms k=3-5 on 4 of 5 cell lines (HAP1, HEK293FT,
+chr1 test set among the Optuna-tuned configs above -- but see the `max_depth`
+follow-up below, which pushes both records (AUROC and AUPRC) further still.
+k=6 underperforms k=3-5 on 4 of 5 cell lines (HAP1, HEK293FT,
 MDA-MB-231, THP1) despite the variance filter, while being the *best* single
 cell-line result anywhere (K562, AUPRC 0.315 with class-weight on) — consistent
 with a dimensionality problem, not a k=6-is-just-worse conclusion. The final
@@ -143,21 +145,49 @@ Class-weight reweighting doesn't clearly help xgboost (off wins on AUPRC at k=3,
 across every k and class-weight setting -- k-mer counts alone don't give it more
 to work with as k grows.
 
-A follow-up one-off (`tune_stratified/k4_depth9_comparison.json`) tested whether
-forcing `max_depth=9` (matching k=3's tuned depth) onto k=4's Optuna-tuned
-class-weight-on config (originally depth=6) would help: it didn't -- AUROC
-dropped 0.6577 -> 0.6365, since depth interacts with the *other* hyperparameters
-Optuna had already co-adapted around the shallower tree (early stopping cut the
-ensemble from 58 to 37 trees once depth changed). Forcing depth=9 on the plain
-**untuned** k=4 defaults (`scripts/run_lncrna_classifier.py`, no Optuna
-involved) told the opposite story: AUROC improved 0.6352 -> 0.6578, AUPRC
-0.1050 -> 0.1228, because nothing else was co-adapted to the shallower depth in
-that setup. Net: `max_depth` isn't a free knob to crank in isolation once other
-hyperparameters have already been tuned around a particular value.
+### max_depth follow-up: forcing depth=9 onto tuned configs
+
+Two one-off probes (`tune_stratified/k4_depth9_comparison.json`,
+`tune_stratified/k5_depth9_comparison.json`) tested forcing `max_depth=9`
+(matching k=3's tuned depth) onto k=4's and k=5's Optuna-tuned configs, keeping
+every other hyperparameter unchanged:
+
+| k | class weight | original depth | AUROC (orig -> depth=9) | AUPRC (orig -> depth=9) | n_estimators (orig -> depth=9) |
+|---|---|---|---|---|---|
+| 4 | on | 6 | 0.6577 -> 0.6365 (worse) | 0.1120 -> 0.1155 | 58 -> 37 |
+| 5 | on | 5 | 0.6482 -> 0.6190 (worse) | 0.1268 -> 0.1104 (worse) | 72 -> 33 |
+| 5 | off | 4 | 0.6628 -> **0.6801 (new best AUROC)** | 0.1446 -> **0.1460 (new best AUPRC)** | 495 -> 106 |
+
+A clear, replicated pattern: **forcing depth=9 helps the class-weight=off
+configs but hurts class-weight=on ones.** Both reweighted (`on`) configs
+collapse to very few trees once forced deeper (58->37, 72->33) --
+`scale_pos_weight` pushes predictions toward positives faster, so early
+stopping triggers sooner once trees can also go deeper, cutting the ensemble
+down before it benefits from the extra depth. The non-reweighted (`off`)
+configs don't have that interaction; k=5/off/depth=9 gets a straightforward
+capacity boost and is now **the best AUROC and AUPRC found anywhere in this
+project's history** (previous records: AUROC 0.6757 at k=3/on, AUPRC 0.1446 at
+k=5/off/depth=4). Per-cell-line, k=5/off/depth=9 improves HAP1 and THP1
+substantially (AUPRC 0.127->0.184, 0.160->0.261) while K562 stays strong
+(AUROC 0.757) and MDA-MB-231 dips slightly (0.268->0.215).
+
+A separate probe on the plain **untuned** k=4 defaults
+(`scripts/run_lncrna_classifier.py`, no Optuna involved, no class-weight
+reweighting) told a version of the same story: AUROC improved 0.6352 -> 0.6578,
+AUPRC 0.1050 -> 0.1228 when forced to depth=9, consistent with "no reweighting
++ more depth" being the combination that benefits.
+
+Net: `max_depth` isn't a free knob to crank in isolation -- it interacts with
+`scale_pos_weight`/early stopping, not just with the other tree-shape
+hyperparameters. The one-off comparison JSONs only test the two hyperparameter
+combinations described above; they are not a re-run of the full Optuna search
+at depth=9, so there may be an even better config than k=5/off/depth=9 that
+a proper search around fixed depth=9 would find.
 
 Files: `tune_stratified/<model>_k<K>_cw<on|off>/` (`cv_scores.csv`,
 `final_eval_<timestamp>/{metrics,predictions,run_info}`), `tune_stratified/summary.csv`
-(aggregated via `scripts/summarize_stratified_tuning.py`), and
+(aggregated via `scripts/summarize_stratified_tuning.py`), the `k4_depth9_comparison.json`
+/ `k5_depth9_comparison.json` one-off probes above, and
 `data/model/<model>_lncrna_stratified_k<K>_cw<on|off>_{best_params,vocab}.json`
 (+ `_variance_mask.json` for k=6). `logreg_k6_cwoff` was stopped mid-run by
 request and is not included (no completed held-out evaluation).
