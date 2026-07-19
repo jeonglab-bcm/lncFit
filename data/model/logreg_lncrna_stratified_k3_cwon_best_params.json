@@ -1,0 +1,11 @@
+{
+  "model": "logreg",
+  "class_weight": "on",
+  "k": 3,
+  "include_distance": false,
+  "n_splits": 5,
+  "seed": 42,
+  "cv_mean_auprc": 0.12084890809918288,
+  "cv_std_auprc": 0.020418988652639886,
+  "C": 0.00022267661713104572
+}
