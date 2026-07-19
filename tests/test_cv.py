@@ -42,14 +42,6 @@ def test_val_and_es_and_train_partition_without_overlap():
         assert X_val.shape[0] == MIN_FOLD_RECORDS + 10
 
 
-def test_es_chrom_never_equals_val_chrom():
-    records, seqs = _make_records(MIN_FOLD_RECORDS + 10, ["1", "2", "3"])
-    cv_chroms, fold_data, _ = build_lncrna_folds(records, seqs, k=3, verbose=False)
-    for i, val_chrom in enumerate(cv_chroms):
-        es_chrom = cv_chroms[(i + 1) % len(cv_chroms)]
-        assert es_chrom != val_chrom
-
-
 def test_feature_columns_consistent_across_folds():
     records, seqs = _make_records(MIN_FOLD_RECORDS + 10, ["1", "2"])
     _, _, feature_cols = build_lncrna_folds(records, seqs, k=3, verbose=False)

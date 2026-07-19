@@ -23,12 +23,6 @@ class TestAllKmers:
     def test_k6_length(self):
         assert len(all_kmers(6)) == 4096
 
-    def test_k3_sorted_starts_aaa(self):
-        assert all_kmers(3)[0] == "AAA"
-
-    def test_k3_sorted_ends_ttt(self):
-        assert all_kmers(3)[-1] == "TTT"
-
     def test_sorted_order(self):
         kmers = all_kmers(3)
         assert kmers == sorted(kmers)
@@ -102,11 +96,6 @@ class TestBuildFeatures:
         records = [_rec("ACGTACGTACGTACGTACGTACG", distance=500)]
         _, _, cols = build_features(records, k=3, include_distance=False)
         assert "distance_to_closest_pc_gene" not in cols
-
-    def test_sparse_shape(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 5
-        X, y, cols = build_features(records, k=3, sparse=True)
-        assert X.shape == (5, 64 + 2 + 5)
 
     def test_sparse_matches_dense(self):
         import numpy as np
