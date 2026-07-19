@@ -1,0 +1,24 @@
+{
+  "model": "xgboost",
+  "params": {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "scale_pos_weight": null,
+    "seed": 42,
+    "nthread": -1
+  },
+  "features": "kmer",
+  "embeddings_file": null,
+  "k": 3,
+  "include_distance": false,
+  "n_features": 69,
+  "train_file": "data/processed/train_lncrna_day14_chrom1.jsonl.gz",
+  "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
+  "n_train": 25010,
+  "n_test": 2470,
+  "timestamp": "20260709_202635",
+  "git_commit": "db9c415"
+}
