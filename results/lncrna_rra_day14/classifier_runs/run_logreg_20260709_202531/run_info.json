@@ -1,0 +1,19 @@
+{
+  "model": "logreg",
+  "params": {
+    "C": 1.0,
+    "max_iter": 1000,
+    "seed": 42
+  },
+  "features": "dnabert2",
+  "embeddings_file": "data/processed/dnabert2_transcript_full.npz",
+  "k": null,
+  "include_distance": false,
+  "n_features": 773,
+  "train_file": "data/processed/train_lncrna_day14_chrom1.jsonl.gz",
+  "test_file": "data/processed/test_lncrna_day14_chrom1.jsonl.gz",
+  "n_train": 25010,
+  "n_test": 2470,
+  "timestamp": "20260709_202531",
+  "git_commit": "db9c415"
+}
