@@ -1,5 +1,7 @@
 import sys
 import os
+import gzip
+import json
 
 import openpyxl
 import pytest
@@ -7,7 +9,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from lncfit.screen_data import (
-    LncRnaRecord, load_target_groups, load_rra,
+    LncRnaRecord, load_target_groups, load_rra, load_annotations,
     load_jsonl, save_jsonl, SCHEMA_VERSION,
 )
 
@@ -84,11 +86,13 @@ def test_load_rra_filters_to_lncrna_only(tmp_path):
     mmc2 = _make_mmc2(tmp_path)
     groups = load_target_groups(mmc2)
     records = load_rra(_make_mmc3(tmp_path), day=14, target_groups=groups)
-    # 2 lncRNAs x 5 cell lines = 10; TP53 rows are dropped entirely
+    # 2 lncRNAs x 5 cell lines = 10; TP53 rows are dropped entirely, not relabeled
     assert len(records) == 10
     assert {r.target for r in records} == {"Hum_XLOC_000001", "Hum_XLOC_000002"}
 
 
+# The 3 branches of the compound hit condition (p<0.05 AND log2FC<0) are each
+# independently tested -- flipping either half of the AND is a classic bug.
 def test_load_rra_label_significant_and_negative_is_hit(tmp_path):
     mmc2 = _make_mmc2(tmp_path)
     groups = load_target_groups(mmc2)
@@ -124,36 +128,23 @@ def test_load_rra_day_selection_reads_correct_columns(tmp_path):
     day14 = load_rra(mmc3, day=14, target_groups=groups)
     r7 = next(r for r in day7 if r.target == "Hum_XLOC_000001" and r.cell_line == "HAP1")
     r14 = next(r for r in day14 if r.target == "Hum_XLOC_000001" and r.cell_line == "HAP1")
-    assert r7.day == 7
-    assert r7.rra_pvalue == pytest.approx(0.01)
-    assert r7.fold_change == pytest.approx(-1.2)
-    assert r14.day == 14
-    assert r14.rra_pvalue == pytest.approx(0.02)
-    assert r14.fold_change == pytest.approx(-0.9)
+    assert r7.day == 7 and r7.rra_pvalue == pytest.approx(0.01) and r7.fold_change == pytest.approx(-1.2)
+    assert r14.day == 14 and r14.rra_pvalue == pytest.approx(0.02) and r14.fold_change == pytest.approx(-0.9)
 
 
-def test_load_rra_joins_annotations(tmp_path):
+def test_load_rra_annotation_join_and_missing_defaults(tmp_path):
     mmc2 = _make_mmc2(tmp_path)
     groups = load_target_groups(mmc2)
-    from lncfit.screen_data import load_annotations
     annots = load_annotations(mmc2)
     records = load_rra(_make_mmc3(tmp_path), day=14, target_groups=groups, annotations=annots)
     r = next(r for r in records if r.target == "Hum_XLOC_000001" and r.cell_line == "HAP1")
-    assert r.chrom == "1"
-    assert r.strand == "+"
-    assert r.closest_pc_gene == "GENE_A"
+    assert r.chrom == "1" and r.strand == "+" and r.closest_pc_gene == "GENE_A"
     assert r.distance_to_closest_pc_gene == 18435
 
-
-def test_load_rra_missing_annotation_defaults(tmp_path):
-    mmc2 = _make_mmc2(tmp_path)
-    groups = load_target_groups(mmc2)
-    records = load_rra(_make_mmc3(tmp_path), day=14, target_groups=groups, annotations={})
-    r = records[0]
-    assert r.chrom == ""
-    assert r.strand == ""
-    assert r.closest_pc_gene == ""
-    assert r.distance_to_closest_pc_gene is None
+    no_annot_records = load_rra(_make_mmc3(tmp_path), day=14, target_groups=groups, annotations={})
+    r2 = no_annot_records[0]
+    assert r2.chrom == "" and r2.strand == "" and r2.closest_pc_gene == ""
+    assert r2.distance_to_closest_pc_gene is None
 
 
 def test_load_rra_skips_missing_pvalue_or_fc(tmp_path):
@@ -164,7 +155,7 @@ def test_load_rra_skips_missing_pvalue_or_fc(tmp_path):
     assert records == []
 
 
-def test_save_load_lncrna_jsonl_round_trip(tmp_path):
+def test_lncrna_jsonl_round_trip_and_schema_version(tmp_path):
     mmc2 = _make_mmc2(tmp_path)
     groups = load_target_groups(mmc2)
     records = load_rra(_make_mmc3(tmp_path), day=14, target_groups=groups)
@@ -173,37 +164,18 @@ def test_save_load_lncrna_jsonl_round_trip(tmp_path):
     loaded = load_jsonl(path, record_cls=LncRnaRecord)
     assert len(loaded) == len(records)
     assert loaded[0] == records[0]
-
-
-def test_lncrna_jsonl_stamped_with_schema_version(tmp_path):
-    import gzip
-    import json
-    record = LncRnaRecord("Hum_XLOC_1", "HAP1", 14, 0.01, -1.0, 1)
-    path = tmp_path / "lncrna.jsonl.gz"
-    save_jsonl([record], path)
     with gzip.open(path, "rt", encoding="utf-8") as f:
-        line = json.loads(f.read().strip())
-    assert line["_v"] == SCHEMA_VERSION
+        assert json.loads(f.readline())["_v"] == SCHEMA_VERSION
 
 
-def test_lncrna_from_dict_ignores_unknown_keys():
-    d = {
-        "target": "Hum_XLOC_1", "cell_line": "HAP1", "day": 14,
-        "rra_pvalue": 0.01, "fold_change": -1.0, "label": 1,
-        "future_field": "ignored",
-    }
-    r = LncRnaRecord.from_dict(d)
-    assert r.target == "Hum_XLOC_1"
-    assert r.chrom == ""
-
-
-def test_lncrna_from_dict_missing_optional_fields_use_defaults():
-    d = {
+def test_lncrna_from_dict_unknown_and_missing_fields():
+    base = {
         "target": "Hum_XLOC_1", "cell_line": "HAP1", "day": 14,
         "rra_pvalue": 0.01, "fold_change": -1.0, "label": 1,
     }
-    r = LncRnaRecord.from_dict(d)
-    assert r.chrom == ""
-    assert r.strand == ""
-    assert r.closest_pc_gene == ""
+    r = LncRnaRecord.from_dict({**base, "future_field": "ignored"})
+    assert r.target == "Hum_XLOC_1" and r.chrom == ""  # unknown key ignored, default applied
+
+    r = LncRnaRecord.from_dict(base)  # all optional fields omitted entirely
+    assert r.chrom == "" and r.strand == "" and r.closest_pc_gene == ""
     assert r.distance_to_closest_pc_gene is None

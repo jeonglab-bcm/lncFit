@@ -17,19 +17,14 @@ def _rec(target, cell_line="HAP1", label=0, distance=None):
     )
 
 
-def test_shape_matches_vocab_plus_cell_columns():
+def test_shape_and_binary_label():
     vocab = all_kmers(3)
-    records = [_rec("T1")]
-    X, y, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=vocab)
-    assert X.shape == (1, len(vocab) + 5)
-    assert len(cols) == len(vocab) + 5
-
-
-def test_y_is_binary_label_not_fold_change():
     records = [_rec("T1", label=1), _rec("T2", label=0)]
     seqs = {"T1": "AAACCC", "T2": "GGGTTT"}
-    _, y, _ = build_lncrna_features(records, seqs, k=3)
-    assert list(y) == [1.0, 0.0]
+    X, y, cols = build_lncrna_features(records, seqs, k=3, vocab=vocab)
+    assert X.shape == (2, len(vocab) + 5)
+    assert len(cols) == len(vocab) + 5
+    assert list(y) == [1.0, 0.0]  # binary label, not continuous fold-change
 
 
 def test_kmer_freq_computed_from_own_transcript_sequence():
@@ -54,17 +49,12 @@ def test_same_target_shares_feature_vector_across_cell_lines():
     assert X[0, aaa_idx] == X[1, aaa_idx] == pytest.approx(1.0)
 
 
-def test_no_day_column_present():
-    records = [_rec("T1")]
-    _, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"])
-    assert not any(c.startswith("day_") for c in cols)
-
-
-def test_include_distance_uses_negative_one_sentinel_when_missing():
+def test_no_day_column_and_distance_sentinel():
     records = [_rec("T1", distance=None)]
     X, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"], include_distance=True)
+    assert not any(c.startswith("day_") for c in cols)  # Day-14-only task, no day dimension
     assert cols[-1] == "distance_to_closest_pc_gene"
-    assert X[0, -1] == -1.0
+    assert X[0, -1] == -1.0  # missing distance -> sentinel, not NaN/0
 
 
 def test_target_missing_from_transcript_sequences_gets_zero_kmer_vector():

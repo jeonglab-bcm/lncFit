@@ -30,8 +30,8 @@ def records():
 
 
 # split_by_chrom and split_by_cell_line are independently implemented but must
-# satisfy the same 4 invariants -- parametrized across both rather than
-# duplicating the same 4 test bodies under two class names.
+# satisfy the same invariants -- parametrized across both rather than
+# duplicating the same test bodies under two class names.
 SPLIT_CASES = [
     pytest.param(split_by_chrom, "chrom", "1", "99", id="by_chrom"),
     pytest.param(split_by_cell_line, "cell_line", "THP1", "UNKNOWN", id="by_cell_line"),
@@ -40,16 +40,10 @@ SPLIT_CASES = [
 
 @pytest.mark.parametrize("split_fn, attr, target_value, unknown_value", SPLIT_CASES)
 class TestSplitInvariants:
-    def test_test_set_contains_only_target(self, records, split_fn, attr, target_value, unknown_value):
-        _, test = split_fn(records, target_value)
-        assert all(getattr(r, attr) == target_value for r in test)
-
-    def test_train_set_excludes_target(self, records, split_fn, attr, target_value, unknown_value):
-        train, _ = split_fn(records, target_value)
-        assert all(getattr(r, attr) != target_value for r in train)
-
-    def test_partition_is_complete(self, records, split_fn, attr, target_value, unknown_value):
+    def test_split_is_correct_and_complete(self, records, split_fn, attr, target_value, unknown_value):
         train, test = split_fn(records, target_value)
+        assert all(getattr(r, attr) == target_value for r in test)
+        assert all(getattr(r, attr) != target_value for r in train)
         assert sorted(train + test, key=lambda r: r.guide_id) == sorted(records, key=lambda r: r.guide_id)
 
     def test_unknown_value_yields_empty_test(self, records, split_fn, attr, target_value, unknown_value):
