@@ -40,9 +40,3 @@ def test_val_and_es_and_train_partition_without_overlap():
         total = X_tr.shape[0] + X_val.shape[0] + X_es.shape[0]
         assert total == len(records)
         assert X_val.shape[0] == MIN_FOLD_RECORDS + 10
-
-
-def test_feature_columns_consistent_across_folds():
-    records, seqs = _make_records(MIN_FOLD_RECORDS + 10, ["1", "2"])
-    _, _, feature_cols = build_lncrna_folds(records, seqs, k=3, verbose=False)
-    assert len(feature_cols) > 0

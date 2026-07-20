@@ -29,39 +29,30 @@ def records():
     ]
 
 
-class TestSplitByChrom:
-    def test_test_set_contains_only_target_chrom(self, records):
-        _, test = split_by_chrom(records, "1")
-        assert all(r.chrom == "1" for r in test)
+# split_by_chrom and split_by_cell_line are independently implemented but must
+# satisfy the same 4 invariants -- parametrized across both rather than
+# duplicating the same 4 test bodies under two class names.
+SPLIT_CASES = [
+    pytest.param(split_by_chrom, "chrom", "1", "99", id="by_chrom"),
+    pytest.param(split_by_cell_line, "cell_line", "THP1", "UNKNOWN", id="by_cell_line"),
+]
 
-    def test_train_set_contains_no_target_chrom(self, records):
-        train, _ = split_by_chrom(records, "1")
-        assert all(r.chrom != "1" for r in train)
 
-    def test_partition_is_complete(self, records):
-        train, test = split_by_chrom(records, "1")
+@pytest.mark.parametrize("split_fn, attr, target_value, unknown_value", SPLIT_CASES)
+class TestSplitInvariants:
+    def test_test_set_contains_only_target(self, records, split_fn, attr, target_value, unknown_value):
+        _, test = split_fn(records, target_value)
+        assert all(getattr(r, attr) == target_value for r in test)
+
+    def test_train_set_excludes_target(self, records, split_fn, attr, target_value, unknown_value):
+        train, _ = split_fn(records, target_value)
+        assert all(getattr(r, attr) != target_value for r in train)
+
+    def test_partition_is_complete(self, records, split_fn, attr, target_value, unknown_value):
+        train, test = split_fn(records, target_value)
         assert sorted(train + test, key=lambda r: r.guide_id) == sorted(records, key=lambda r: r.guide_id)
 
-    def test_unknown_chrom_yields_empty_test(self, records):
-        train, test = split_by_chrom(records, "99")
-        assert test == []
-        assert len(train) == len(records)
-
-
-class TestSplitByCellLine:
-    def test_test_set_contains_only_target_cell_line(self, records):
-        _, test = split_by_cell_line(records, "THP1")
-        assert all(r.cell_line == "THP1" for r in test)
-
-    def test_train_set_contains_no_target_cell_line(self, records):
-        train, _ = split_by_cell_line(records, "THP1")
-        assert all(r.cell_line != "THP1" for r in train)
-
-    def test_partition_is_complete(self, records):
-        train, test = split_by_cell_line(records, "THP1")
-        assert sorted(train + test, key=lambda r: r.guide_id) == sorted(records, key=lambda r: r.guide_id)
-
-    def test_unknown_cell_line_yields_empty_test(self, records):
-        train, test = split_by_cell_line(records, "UNKNOWN")
+    def test_unknown_value_yields_empty_test(self, records, split_fn, attr, target_value, unknown_value):
+        train, test = split_fn(records, unknown_value)
         assert test == []
         assert len(train) == len(records)

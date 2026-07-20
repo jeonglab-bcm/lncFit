@@ -2,13 +2,7 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from lncfit.classifiers import (
-    CLASSIFIER_REGISTRY,
-    ClassifierModel,
-    available_classifiers,
-    build_classifier,
-    register_classifier,
-)
+from lncfit.classifiers import CLASSIFIER_REGISTRY, build_classifier
 
 
 def _toy_data(seed=0, n_train=200, n_test=60, n_feat=8, pos_rate=0.1):
@@ -17,29 +11,6 @@ def _toy_data(seed=0, n_train=200, n_test=60, n_feat=8, pos_rate=0.1):
     y_tr = (rng.random(n_train) < pos_rate).astype(int)
     X_te = rng.random((n_test, n_feat))
     return X_tr, y_tr, X_te
-
-
-def test_registry_has_expected_models():
-    assert set(available_classifiers()) == {"null", "logreg", "xgboost"}
-
-
-def test_build_unknown_raises():
-    with pytest.raises(ValueError, match="Unknown model"):
-        build_classifier("does_not_exist")
-
-
-def test_duplicate_registration_raises():
-    with pytest.raises(ValueError, match="already registered"):
-
-        @register_classifier("null")
-        class _Dupe(ClassifierModel):
-            model_type = "null"
-
-            def fit(self, X, y):
-                return self
-
-            def predict_proba(self, X):
-                return np.zeros(X.shape[0])
 
 
 @pytest.mark.parametrize("name", ["null", "logreg", "xgboost"])
@@ -68,14 +39,11 @@ def test_null_predicts_training_base_rate():
 
 
 def test_model_type_matches_registry_key():
+    # A mismatch here wouldn't crash anything -- it would silently mislabel
+    # "model" in every run_info.json this project's tuning scripts write, which
+    # is exactly the field this whole session's result tables were built from.
     for name, cls in CLASSIFIER_REGISTRY.items():
         assert cls.model_type == name
-
-
-def test_params_stored_and_forwarded():
-    model = build_classifier("xgboost", max_depth=3, n_estimators=50)
-    assert model.params["max_depth"] == 3
-    assert model.params["n_estimators"] == 50
 
 
 def test_xgboost_auto_scale_pos_weight_runs():

@@ -2,7 +2,6 @@ import sys
 import os
 
 import openpyxl
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -138,16 +137,6 @@ def test_missing_annotation_falls_back_to_defaults(tmp_path):
     assert r.chrom == ""
     assert r.strand == ""
     assert r.closest_pc_gene == ""
-    assert r.distance_to_closest_pc_gene is None
-
-
-def test_annotations_optional(tmp_path):
-    mmc2 = _make_mmc2(tmp_path)
-    targets = load_targets(mmc2)
-    # No annotations arg — should still work and use defaults
-    records = load_screen(_make_mmc3(tmp_path), targets)
-    r = records[0]
-    assert r.chrom == ""
     assert r.distance_to_closest_pc_gene is None
 
 

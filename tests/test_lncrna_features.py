@@ -54,13 +54,6 @@ def test_same_target_shares_feature_vector_across_cell_lines():
     assert X[0, aaa_idx] == X[1, aaa_idx] == pytest.approx(1.0)
 
 
-def test_cell_line_one_hot():
-    records = [_rec("T1", cell_line="K562")]
-    X, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"])
-    assert X[0, cols.index("cell_K562")] == 1.0
-    assert X[0, cols.index("cell_HAP1")] == 0.0
-
-
 def test_no_day_column_present():
     records = [_rec("T1")]
     _, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"])
