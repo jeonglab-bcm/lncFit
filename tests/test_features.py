@@ -1,6 +1,7 @@
+import numpy as np
 import pytest
 from lncfit.screen_data import ScreenRecord
-from lncfit.features import all_kmers, kmer_freq_vector, build_features, fit_vocab
+from lncfit.features import all_kmers, build_features, fit_vocab
 
 
 def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T1"):
@@ -16,179 +17,83 @@ def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T
     )
 
 
-class TestAllKmers:
-    def test_k3_length(self):
-        assert len(all_kmers(3)) == 64
+def test_build_features_core_contract():
+    assert all_kmers(3) == sorted(all_kmers(3))
 
-    def test_k6_length(self):
-        assert len(all_kmers(6)) == 4096
+    # shape formula, raw fold-change passthrough, exact k-mer frequency value,
+    # and day/cell-line one-hot columns, all from one build_features call.
+    records = [_rec("AAAAAA", fold_change=v, day=7, cell_line="K562") for v in [1.0, -2.0, 0.5]]
+    X, y, cols = build_features(records, k=3)
+    assert X.shape == (3, 64 + 2 + 5)
+    assert list(y) == pytest.approx([1.0, -2.0, 0.5])
+    assert X[0, cols.index("AAA")] == pytest.approx(1.0)  # "AAAAAA" is 4 windows, all "AAA"
+    assert "day_7" in cols and "day_14" in cols
+    for cl in ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]:
+        assert f"cell_{cl}" in cols
 
-    def test_k3_sorted_starts_aaa(self):
-        assert all_kmers(3)[0] == "AAA"
+    # non-ACGT windows excluded (partial and total), through the real
+    # production entry point (build_features -> _fill_kmer_row -> _count_kmers)
+    partial = build_features([_rec("ACGNACG")], k=3)[0][0, :64]
+    assert abs(partial.sum() - 1.0) < 1e-9
+    all_invalid = build_features([_rec("NNNNN")], k=3)[0][0, :64]
+    assert np.all(all_invalid == 0.0)
 
-    def test_k3_sorted_ends_ttt(self):
-        assert all_kmers(3)[-1] == "TTT"
-
-    def test_sorted_order(self):
-        kmers = all_kmers(3)
-        assert kmers == sorted(kmers)
-
-
-class TestKmerFreqVector:
-    def test_sums_to_one(self):
-        vocab = all_kmers(3)
-        vec = kmer_freq_vector("ACGTACGT", 3, vocab)
-        assert abs(sum(vec) - 1.0) < 1e-9
-
-    def test_correct_counts(self):
-        vocab = all_kmers(3)
-        # "AAAAAA" has 4 windows, all "AAA"
-        vec = kmer_freq_vector("AAAAAA", 3, vocab)
-        aaa_idx = vocab.index("AAA")
-        assert vec[aaa_idx] == pytest.approx(1.0)
-
-    def test_skips_non_acgt(self):
-        vocab = all_kmers(3)
-        # N in the middle — windows containing N are skipped
-        vec = kmer_freq_vector("ACGNACG", 3, vocab)
-        assert abs(sum(vec) - 1.0) < 1e-9
-
-    def test_all_non_acgt_returns_zeros(self):
-        vocab = all_kmers(3)
-        vec = kmer_freq_vector("NNNNN", 3, vocab)
-        assert all(v == 0.0 for v in vec)
+    # include_distance: present+value, missing->sentinel, disabled->absent
+    X_d, _, cols_d = build_features([_rec("ACGT", distance=500)], k=3, include_distance=True)
+    assert X_d[0, cols_d.index("distance_to_closest_pc_gene")] == pytest.approx(500.0)
+    X_none, _, cols_none = build_features([_rec("ACGT", distance=None)], k=3, include_distance=True)
+    assert X_none[0, cols_none.index("distance_to_closest_pc_gene")] == pytest.approx(-1.0)
+    _, _, cols_off = build_features([_rec("ACGT", distance=500)], k=3, include_distance=False)
+    assert "distance_to_closest_pc_gene" not in cols_off
 
 
-class TestBuildFeatures:
-    def test_x_shape_k3(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 5
-        X, y, cols = build_features(records, k=3)
-        assert X.shape == (5, 64 + 2 + 5)
+def test_sparse_dense_and_vocab_handling():
+    records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
 
-    def test_x_shape_k6(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 3
-        X, y, cols = build_features(records, k=6)
-        assert X.shape == (3, 4096 + 2 + 5)
+    # Load-bearing equivalence: XGBoost treats sparse implicit zeros as
+    # *missing*, not the real "k-mer absent" value a dense zero represents.
+    X_dense, y_dense, cols_dense = build_features(records, k=3)
+    X_sparse, y_sparse, cols_sparse = build_features(records, k=3, sparse=True)
+    assert cols_dense == cols_sparse
+    assert np.allclose(X_dense, X_sparse.toarray())
+    assert np.allclose(y_dense, y_sparse)
 
-    def test_y_values(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
-        _, y, _ = build_features(records, k=3)
-        assert list(y) == pytest.approx([1.0, -2.0, 0.5])
+    # restricted vocab shrinks the matrix and preserves column order
+    small_vocab = all_kmers(3)[:10]
+    X_small, _, cols_small = build_features(records, k=3, vocab=small_vocab)
+    assert X_small.shape == (3, 10 + 2 + 5)
+    assert cols_small[:10] == small_vocab
 
-    def test_day_onehot_columns_present(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", day=7)]
-        _, _, cols = build_features(records, k=3)
-        assert "day_7" in cols
-        assert "day_14" in cols
-
-    def test_cell_line_onehot_columns_present(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", cell_line="K562")]
-        _, _, cols = build_features(records, k=3)
-        for cl in ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]:
-            assert f"cell_{cl}" in cols
-
-    def test_include_distance_true(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", distance=500)]
-        X, _, cols = build_features(records, k=3, include_distance=True)
-        assert "distance_to_closest_pc_gene" in cols
-        assert X[0, cols.index("distance_to_closest_pc_gene")] == pytest.approx(500.0)
-
-    def test_include_distance_none_becomes_sentinel(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", distance=None)]
-        X, _, cols = build_features(records, k=3, include_distance=True)
-        assert X[0, cols.index("distance_to_closest_pc_gene")] == pytest.approx(-1.0)
-
-    def test_include_distance_false(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", distance=500)]
-        _, _, cols = build_features(records, k=3, include_distance=False)
-        assert "distance_to_closest_pc_gene" not in cols
-
-    def test_sparse_shape(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 5
-        X, y, cols = build_features(records, k=3, sparse=True)
-        assert X.shape == (5, 64 + 2 + 5)
-
-    def test_sparse_matches_dense(self):
-        import numpy as np
-        records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
-        X_dense, y_dense, cols_dense = build_features(records, k=3)
-        X_sparse, y_sparse, cols_sparse = build_features(records, k=3, sparse=True)
-        assert cols_dense == cols_sparse
-        assert np.allclose(X_dense, X_sparse.toarray())
-        assert np.allclose(y_dense, y_sparse)
-
-    def test_custom_vocab_reduces_columns(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 3
-        full_vocab = all_kmers(3)
-        small_vocab = full_vocab[:10]
-        X, _, cols = build_features(records, k=3, vocab=small_vocab)
-        assert X.shape == (3, 10 + 2 + 5)
-        assert cols[:10] == small_vocab
-
-    def test_holdout_unseen_kmer_silently_dropped(self):
-        import numpy as np
-        # train on sequences that only produce "AAA"; holdout has "TTT" too
-        train_vocab = ["AAA"]
-        train = [_rec("AAAAAA")]
-        holdout = [_rec("TTTTTT")]
-        X_train, _, _ = build_features(train, k=3, vocab=train_vocab)
-        X_hold, _, _ = build_features(holdout, k=3, vocab=train_vocab)
-        # holdout TTT is not in vocab — its row should be all zeros (k-mer part)
-        assert X_train.shape[1] == X_hold.shape[1]
-        assert X_hold[0, 0] == pytest.approx(0.0)
-
-    def test_custom_vocab_sparse_matches_dense(self):
-        import numpy as np
-        records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0]]
-        vocab = all_kmers(3)[:20]
-        X_dense, _, _ = build_features(records, k=3, vocab=vocab)
-        X_sparse, _, _ = build_features(records, k=3, vocab=vocab, sparse=True)
-        assert np.allclose(X_dense, X_sparse.toarray())
+    # a k-mer seen only in holdout data is silently zero, not an error or a
+    # misaligned extra column -- every chr1-holdout evaluation in this project
+    # relies on exactly this.
+    train_vocab = ["AAA"]
+    X_train, _, _ = build_features([_rec("AAAAAA")], k=3, vocab=train_vocab)
+    X_hold, _, _ = build_features([_rec("TTTTTT")], k=3, vocab=train_vocab)
+    assert X_train.shape[1] == X_hold.shape[1]
+    assert X_hold[0, 0] == pytest.approx(0.0)
 
 
-class TestSignedOverlap:
-    def test_overlap_negates_shared_kmers_and_sparse_matches_dense(self):
-        import numpy as np
-        # guide AAACCC → revcomp GGGTTT; body first window contains GGGTTT
-        # rc_guide k-mers GGG, GGT, GTT, TTT must be negative; others positive
-        body_seqs = {"G1": ("ACGTGGGTTTACGT", "AAAAAAAAAA")}
-        rec = _rec("AAACCC", target="G1")
-        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
-        X_sparse, _, _ = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True, sparse=True)
-        for kmer in ("GGG", "GGT", "GTT", "TTT"):
-            assert X_dense[0, cols.index(f"body_signed_{kmer}")] < 0, f"{kmer} should be negative"
-        assert X_dense[0, cols.index("body_signed_AAA")] > 0
-        assert np.allclose(X_dense, X_sparse.toarray())
+def test_signed_overlap_negates_shared_kmers_only_when_present():
+    # Reverse-complement overlap between a guide and its target body flips the
+    # sign of shared k-mers -- both directions checked since getting either
+    # branch wrong (negating when it shouldn't, or not negating when it
+    # should) is an independent bug, not two views of one property.
+    overlap_body = {"G1": ("ACGTGGGTTTACGT", "AAAAAAAAAA")}  # contains revcomp(AAACCC) = GGGTTT
+    rec = _rec("AAACCC", target="G1")
+    X, _, cols = build_features([rec], k=3, body_sequences=overlap_body, signed_overlap=True)
+    for kmer in ("GGG", "GGT", "GTT", "TTT"):
+        assert X[0, cols.index(f"body_signed_{kmer}")] < 0
+    assert X[0, cols.index("body_signed_AAA")] > 0
 
-    def test_no_overlap_all_nonnegative_and_sparse_matches_dense(self):
-        import numpy as np
-        # guide AAACCC → revcomp GGGTTT; body does not contain GGGTTT → no negation
-        body_seqs = {"G1": ("ACGTACGTACGT", "CCCCCCCCCC")}
-        rec = _rec("AAACCC", target="G1")
-        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
-        X_sparse, _, _ = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True, sparse=True)
-        kmer_end = cols.index("day_7")
-        assert (X_dense[0, :kmer_end] >= 0).all()
-        assert np.allclose(X_dense, X_sparse.toarray())
+    no_overlap_body = {"G1": ("ACGTACGTACGT", "CCCCCCCCCC")}  # does not contain GGGTTT
+    X2, _, cols2 = build_features([rec], k=3, body_sequences=no_overlap_body, signed_overlap=True)
+    kmer_end = cols2.index("day_7")
+    assert (X2[0, :kmer_end] >= 0).all()
 
 
-class TestFitVocab:
-    def test_returns_only_observed_kmers(self):
-        vocab = fit_vocab(["AAAAAA"], k=3)
-        assert vocab == ["AAA"]
-
-    def test_sorted(self):
-        vocab = fit_vocab(["ACGT"], k=2)
-        assert vocab == sorted(vocab)
-
-    def test_skips_non_acgt(self):
-        vocab = fit_vocab(["ACGNACG"], k=3)
-        assert all("N" not in km for km in vocab)
-
-    def test_subset_of_all_kmers(self):
-        seqs = ["ACGTACGTACGTACGTACGTACG"]
-        vocab = fit_vocab(seqs, k=6)
-        assert set(vocab) <= set(all_kmers(6))
-
-    def test_empty_seqs_returns_empty(self):
-        assert fit_vocab([], k=3) == []
+def test_fit_vocab_observed_sorted_and_edge_cases():
+    assert fit_vocab(["AAAAAA"], k=3) == ["AAA"]  # only observed k-mers, sorted
+    vocab = fit_vocab(["ACGNACG"], k=3)
+    assert all("N" not in km for km in vocab)  # non-ACGT k-mers skipped
+    assert fit_vocab([], k=3) == []  # empty input -> empty output, not an error

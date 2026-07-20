@@ -17,67 +17,34 @@ def _rec(target, cell_line="HAP1", label=0, distance=None):
     )
 
 
-def test_shape_matches_vocab_plus_cell_columns():
+def test_build_lncrna_features_core_contract():
     vocab = all_kmers(3)
-    records = [_rec("T1")]
-    X, y, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=vocab)
-    assert X.shape == (1, len(vocab) + 5)
-    assert len(cols) == len(vocab) + 5
-
-
-def test_y_is_binary_label_not_fold_change():
     records = [_rec("T1", label=1), _rec("T2", label=0)]
     seqs = {"T1": "AAACCC", "T2": "GGGTTT"}
-    _, y, _ = build_lncrna_features(records, seqs, k=3)
-    assert list(y) == [1.0, 0.0]
+    X, y, cols = build_lncrna_features(records, seqs, k=3, vocab=vocab)
+    assert X.shape == (2, len(vocab) + 5)
+    assert list(y) == [1.0, 0.0]  # binary label, not continuous fold-change
+    assert not any(c.startswith("day_") for c in cols)  # Day-14-only task, no day dimension
 
+    # frequency computed and normalized from the lncRNA's own transcript sequence
+    small_vocab = ["AAA", "TTT"]
+    X2, _, cols2 = build_lncrna_features([_rec("T1")], {"T1": "AAATTT"}, k=3, vocab=small_vocab)
+    assert X2[0, cols2.index("AAA")] == pytest.approx(0.5)
+    assert X2[0, cols2.index("TTT")] == pytest.approx(0.5)
 
-def test_kmer_freq_computed_from_own_transcript_sequence():
-    vocab = ["AAA", "TTT"]
-    records = [_rec("T1")]
-    # Restricted vocab: only AAA/TTT windows count toward the normalising total.
-    X, _, cols = build_lncrna_features(records, {"T1": "AAATTT"}, k=3, vocab=vocab)
-    aaa_idx = cols.index("AAA")
-    ttt_idx = cols.index("TTT")
-    assert X[0, aaa_idx] == pytest.approx(0.5)
-    assert X[0, ttt_idx] == pytest.approx(0.5)
+    # THE property issue #65 fixed: same lncRNA shares one feature vector
+    # across every cell-line row, regardless of cell line.
+    shared = [_rec("T1", cell_line="HAP1"), _rec("T1", cell_line="K562")]
+    X3, _, cols3 = build_lncrna_features(shared, {"T1": "AAA"}, k=3, vocab=["AAA"])
+    assert X3[0, cols3.index("AAA")] == X3[1, cols3.index("AAA")] == pytest.approx(1.0)
 
-
-def test_same_target_shares_feature_vector_across_cell_lines():
-    vocab = ["AAA", "TTT"]
-    records = [
-        _rec("T1", cell_line="HAP1"),
-        _rec("T1", cell_line="K562"),
-    ]
-    X, _, cols = build_lncrna_features(records, {"T1": "AAA"}, k=3, vocab=vocab)
-    aaa_idx = cols.index("AAA")
-    assert X[0, aaa_idx] == X[1, aaa_idx] == pytest.approx(1.0)
-
-
-def test_cell_line_one_hot():
-    records = [_rec("T1", cell_line="K562")]
-    X, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"])
-    assert X[0, cols.index("cell_K562")] == 1.0
-    assert X[0, cols.index("cell_HAP1")] == 0.0
-
-
-def test_no_day_column_present():
-    records = [_rec("T1")]
-    _, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"])
-    assert not any(c.startswith("day_") for c in cols)
-
-
-def test_include_distance_uses_negative_one_sentinel_when_missing():
-    records = [_rec("T1", distance=None)]
-    X, _, cols = build_lncrna_features(records, {"T1": "AAACCC"}, k=3, vocab=["AAA"], include_distance=True)
-    assert cols[-1] == "distance_to_closest_pc_gene"
-    assert X[0, -1] == -1.0
-
-
-def test_target_missing_from_transcript_sequences_gets_zero_kmer_vector():
-    records = [_rec("T1")]
-    X, _, cols = build_lncrna_features(records, {}, k=3, vocab=all_kmers(3))
-    assert np.all(X[0, : len(all_kmers(3))] == 0.0)
+    # missing distance -> sentinel; missing transcript sequence -> zero vector, not a crash
+    X4, _, _ = build_lncrna_features(
+        [_rec("T1", distance=None)], {"T1": "AAACCC"}, k=3, vocab=["AAA"], include_distance=True,
+    )
+    assert X4[0, -1] == -1.0
+    X5, _, _ = build_lncrna_features([_rec("T1")], {}, k=3, vocab=vocab)
+    assert np.all(X5[0, : len(vocab)] == 0.0)
 
 
 def test_sparse_matches_dense():

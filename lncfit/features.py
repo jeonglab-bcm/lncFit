@@ -48,18 +48,6 @@ def _count_kmers(seq: str, k: int, vocab_index: dict[str, int]) -> tuple[dict[in
     return counts, total
 
 
-def kmer_freq_vector(seq: str, k: int, vocab: list[str]) -> list[float]:
-    """Normalized k-mer frequency vector for seq. Non-ACGT characters are skipped."""
-    vocab_index = {kmer: i for i, kmer in enumerate(vocab)}
-    counts, total = _count_kmers(seq, k, vocab_index)
-    if total == 0:
-        return [0.0] * len(vocab)
-    result = [0.0] * len(vocab)
-    for idx, count in counts.items():
-        result[idx] = count / total
-    return result
-
-
 def _fill_kmer_row(row: np.ndarray, seq: str, k: int, vocab_index: dict[str, int]) -> None:
     """Fill a pre-allocated float32 row with normalised k-mer frequencies in-place."""
     counts, total = _count_kmers(seq, k, vocab_index)
