@@ -17,112 +17,79 @@ def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T
     )
 
 
-def test_all_kmers_sorted_order():
-    # Length (4**k) has no standalone test: build_features's shape check below
-    # uses all_kmers(k) as its default vocab, so a wrong-length bug there would
-    # already fail here. Sortedness isn't exercised by anything downstream, so
-    # it has no downstream substitute and stays as its own check.
-    kmers = all_kmers(3)
-    assert kmers == sorted(kmers)
+def test_build_features_core_contract():
+    assert all_kmers(3) == sorted(all_kmers(3))
+
+    # shape formula, raw fold-change passthrough, exact k-mer frequency value,
+    # and day/cell-line one-hot columns, all from one build_features call.
+    records = [_rec("AAAAAA", fold_change=v, day=7, cell_line="K562") for v in [1.0, -2.0, 0.5]]
+    X, y, cols = build_features(records, k=3)
+    assert X.shape == (3, 64 + 2 + 5)
+    assert list(y) == pytest.approx([1.0, -2.0, 0.5])
+    assert X[0, cols.index("AAA")] == pytest.approx(1.0)  # "AAAAAA" is 4 windows, all "AAA"
+    assert "day_7" in cols and "day_14" in cols
+    for cl in ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]:
+        assert f"cell_{cl}" in cols
+
+    # non-ACGT windows excluded (partial and total), through the real
+    # production entry point (build_features -> _fill_kmer_row -> _count_kmers)
+    partial = build_features([_rec("ACGNACG")], k=3)[0][0, :64]
+    assert abs(partial.sum() - 1.0) < 1e-9
+    all_invalid = build_features([_rec("NNNNN")], k=3)[0][0, :64]
+    assert np.all(all_invalid == 0.0)
+
+    # include_distance: present+value, missing->sentinel, disabled->absent
+    X_d, _, cols_d = build_features([_rec("ACGT", distance=500)], k=3, include_distance=True)
+    assert X_d[0, cols_d.index("distance_to_closest_pc_gene")] == pytest.approx(500.0)
+    X_none, _, cols_none = build_features([_rec("ACGT", distance=None)], k=3, include_distance=True)
+    assert X_none[0, cols_none.index("distance_to_closest_pc_gene")] == pytest.approx(-1.0)
+    _, _, cols_off = build_features([_rec("ACGT", distance=500)], k=3, include_distance=False)
+    assert "distance_to_closest_pc_gene" not in cols_off
 
 
-class TestBuildFeatures:
-    def test_shape_label_and_exact_kmer_value(self):
-        # One combined "core contract" check: shape formula, raw fold-change
-        # passthrough, and a specific k-mer frequency landing in the right
-        # column, all from one build_features call on a known sequence.
-        records = [_rec("AAAAAA", fold_change=v) for v in [1.0, -2.0, 0.5]]
-        X, y, cols = build_features(records, k=3)
-        assert X.shape == (3, 64 + 2 + 5)
-        assert list(y) == pytest.approx([1.0, -2.0, 0.5])
-        # "AAAAAA" has 4 windows, all "AAA" -> that column must be exactly 1.0.
-        assert X[0, cols.index("AAA")] == pytest.approx(1.0)
+def test_sparse_dense_and_vocab_handling():
+    records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
 
-    @pytest.mark.parametrize("seq, all_invalid", [("ACGNACG", False), ("NNNNN", True)])
-    def test_non_acgt_windows_excluded(self, seq, all_invalid):
-        # Exercises the shared _count_kmers logic through the real production
-        # entry point (build_features -> _fill_kmer_row -> _count_kmers).
-        X, _, _ = build_features([_rec(seq)], k=3)
-        kmer_row = X[0, :64]
-        if all_invalid:
-            assert np.all(kmer_row == 0.0)
-        else:
-            assert abs(kmer_row.sum() - 1.0) < 1e-9
+    # Load-bearing equivalence: XGBoost treats sparse implicit zeros as
+    # *missing*, not the real "k-mer absent" value a dense zero represents.
+    X_dense, y_dense, cols_dense = build_features(records, k=3)
+    X_sparse, y_sparse, cols_sparse = build_features(records, k=3, sparse=True)
+    assert cols_dense == cols_sparse
+    assert np.allclose(X_dense, X_sparse.toarray())
+    assert np.allclose(y_dense, y_sparse)
 
-    def test_day_and_cell_line_onehot_columns_present(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", day=7, cell_line="K562")]
-        _, _, cols = build_features(records, k=3)
-        assert "day_7" in cols and "day_14" in cols
-        for cl in ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]:
-            assert f"cell_{cl}" in cols
+    # restricted vocab shrinks the matrix and preserves column order
+    small_vocab = all_kmers(3)[:10]
+    X_small, _, cols_small = build_features(records, k=3, vocab=small_vocab)
+    assert X_small.shape == (3, 10 + 2 + 5)
+    assert cols_small[:10] == small_vocab
 
-    @pytest.mark.parametrize(
-        "include_distance, distance, expect_present, expect_value",
-        [
-            (True, 500, True, 500.0),
-            (True, None, True, -1.0),  # missing distance -> sentinel, not NaN/0
-            (False, 500, False, None),
-        ],
-    )
-    def test_include_distance(self, include_distance, distance, expect_present, expect_value):
-        records = [_rec("ACGTACGTACGTACGTACGTACG", distance=distance)]
-        X, _, cols = build_features(records, k=3, include_distance=include_distance)
-        assert ("distance_to_closest_pc_gene" in cols) == expect_present
-        if expect_present:
-            assert X[0, cols.index("distance_to_closest_pc_gene")] == pytest.approx(expect_value)
-
-    def test_sparse_matches_dense(self):
-        # This equivalence matters for real: XGBoost treats a CSR matrix's implicit
-        # zeros as *missing*, not as the real "k-mer absent" value a dense zero
-        # represents -- lncfit/classifiers/xgboost_clf.py builds dense specifically
-        # because of this.
-        records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
-        X_dense, y_dense, cols_dense = build_features(records, k=3)
-        X_sparse, y_sparse, cols_sparse = build_features(records, k=3, sparse=True)
-        assert cols_dense == cols_sparse
-        assert np.allclose(X_dense, X_sparse.toarray())
-        assert np.allclose(y_dense, y_sparse)
-
-    def test_custom_vocab_reduces_columns_and_preserves_order(self):
-        records = [_rec("ACGTACGTACGTACGTACGTACG")] * 3
-        small_vocab = all_kmers(3)[:10]
-        X, _, cols = build_features(records, k=3, vocab=small_vocab)
-        assert X.shape == (3, 10 + 2 + 5)
-        assert cols[:10] == small_vocab
-
-    def test_holdout_unseen_kmer_silently_dropped(self):
-        # Real scenario, not a hypothetical: every chr1-holdout evaluation in this
-        # project reuses a vocab fit on train-only sequences. A k-mer that only
-        # appears in holdout data must be silently ignored (zero contribution),
-        # not raise or silently add an extra column that would break alignment.
-        train_vocab = ["AAA"]
-        X_train, _, _ = build_features([_rec("AAAAAA")], k=3, vocab=train_vocab)
-        X_hold, _, _ = build_features([_rec("TTTTTT")], k=3, vocab=train_vocab)
-        assert X_train.shape[1] == X_hold.shape[1]
-        assert X_hold[0, 0] == pytest.approx(0.0)
+    # a k-mer seen only in holdout data is silently zero, not an error or a
+    # misaligned extra column -- every chr1-holdout evaluation in this project
+    # relies on exactly this.
+    train_vocab = ["AAA"]
+    X_train, _, _ = build_features([_rec("AAAAAA")], k=3, vocab=train_vocab)
+    X_hold, _, _ = build_features([_rec("TTTTTT")], k=3, vocab=train_vocab)
+    assert X_train.shape[1] == X_hold.shape[1]
+    assert X_hold[0, 0] == pytest.approx(0.0)
 
 
-class TestSignedOverlap:
-    # Reverse-complement overlap between a guide and its target body flips the sign
-    # of shared k-mers -- both directions of this conditional need their own test,
-    # since getting either branch wrong (negating when it shouldn't, or not negating
-    # when it should) is an independent bug, not two views of the same property.
-    def test_overlap_negates_shared_kmers(self):
-        # guide AAACCC -> revcomp GGGTTT; body contains GGGTTT -> those k-mers negate
-        body_seqs = {"G1": ("ACGTGGGTTTACGT", "AAAAAAAAAA")}
-        rec = _rec("AAACCC", target="G1")
-        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
-        for kmer in ("GGG", "GGT", "GTT", "TTT"):
-            assert X_dense[0, cols.index(f"body_signed_{kmer}")] < 0, f"{kmer} should be negative"
-        assert X_dense[0, cols.index("body_signed_AAA")] > 0
+def test_signed_overlap_negates_shared_kmers_only_when_present():
+    # Reverse-complement overlap between a guide and its target body flips the
+    # sign of shared k-mers -- both directions checked since getting either
+    # branch wrong (negating when it shouldn't, or not negating when it
+    # should) is an independent bug, not two views of one property.
+    overlap_body = {"G1": ("ACGTGGGTTTACGT", "AAAAAAAAAA")}  # contains revcomp(AAACCC) = GGGTTT
+    rec = _rec("AAACCC", target="G1")
+    X, _, cols = build_features([rec], k=3, body_sequences=overlap_body, signed_overlap=True)
+    for kmer in ("GGG", "GGT", "GTT", "TTT"):
+        assert X[0, cols.index(f"body_signed_{kmer}")] < 0
+    assert X[0, cols.index("body_signed_AAA")] > 0
 
-    def test_no_overlap_all_nonnegative(self):
-        # guide AAACCC -> revcomp GGGTTT; body does not contain it -> no negation
-        body_seqs = {"G1": ("ACGTACGTACGT", "CCCCCCCCCC")}
-        rec = _rec("AAACCC", target="G1")
-        X_dense, _, cols = build_features([rec], k=3, body_sequences=body_seqs, signed_overlap=True)
-        kmer_end = cols.index("day_7")
-        assert (X_dense[0, :kmer_end] >= 0).all()
+    no_overlap_body = {"G1": ("ACGTACGTACGT", "CCCCCCCCCC")}  # does not contain GGGTTT
+    X2, _, cols2 = build_features([rec], k=3, body_sequences=no_overlap_body, signed_overlap=True)
+    kmer_end = cols2.index("day_7")
+    assert (X2[0, :kmer_end] >= 0).all()
 
 
 def test_fit_vocab_observed_sorted_and_edge_cases():

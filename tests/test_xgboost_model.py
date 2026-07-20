@@ -10,19 +10,10 @@ def _rec(cell_line):
     )
 
 
-def test_evaluate_lncrna_by_group_overall_plus_per_cell_line():
+def test_evaluate_lncrna_by_group():
     records = [_rec("HAP1"), _rec("HAP1"), _rec("K562"), _rec("K562")]
     y_true = np.array([0, 1, 0, 1])
     y_pred = np.array([0.1, 0.9, 0.2, 0.8])
-    rows = evaluate_lncrna_by_group(records, y_true, y_pred, cell_lines=["HAP1", "K562"])
+    rows = evaluate_lncrna_by_group(records, y_true, y_pred, cell_lines=["HAP1", "K562", "THP1"])
     labels = {r["split"] for r in rows}
-    assert labels == {"Overall", "HAP1", "K562"}
-
-
-def test_evaluate_lncrna_by_group_skips_absent_cell_lines():
-    records = [_rec("HAP1"), _rec("HAP1")]
-    y_true = np.array([0, 1])
-    y_pred = np.array([0.1, 0.9])
-    rows = evaluate_lncrna_by_group(records, y_true, y_pred, cell_lines=["HAP1", "THP1"])
-    labels = {r["split"] for r in rows}
-    assert labels == {"Overall", "HAP1"}
+    assert labels == {"Overall", "HAP1", "K562"}  # THP1 absent from data -> silently skipped, not a spurious NaN row
