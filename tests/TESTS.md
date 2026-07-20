@@ -25,9 +25,9 @@ failure" — the second pass (128 -> 112 tests) applied a sharper bar:
 - **Found one real gap while reviewing**, not previously known: see
   "A finding worth knowing about" below.
 
-**Scale for context**: `lncfit/` (the reusable library) is ~2,020 lines;
+**Scale for context**: `lncfit/` (the reusable library) is ~2,015 lines;
 `scripts/` (one-off tuning/training CLIs) is ~3,624 lines; these tests are now
-~900 lines / 89 tests. Coverage is concentrated on `lncfit/` — the scripts get
+~850 lines / 86 tests. Coverage is concentrated on `lncfit/` — the scripts get
 two small helper-function tests each and are otherwise untested by design,
 since a bug there just makes one analysis run wrong, not something that
 silently corrupts every downstream use the way a library bug would.
@@ -35,6 +35,37 @@ silently corrupts every downstream use the way a library bug would.
 `test_chatnt.py` and `test_chatnt_classifier.py` (the two ChatNT-pipeline test
 files, 23 tests between them) were removed outright on request rather than
 trimmed — not a redundancy finding, a scope call.
+
+### Third pass: real call-graph dependencies, not just similar-looking tests
+
+On feedback that the suite was still too big, and specifically to check for
+tests where one is *downstream* of another (A's function is called by B's
+function under test, so B's test would already catch A's bugs) — traced the
+actual call graph for every function under test, not just visual similarity:
+
+- **Found one real hit**: `kmer_freq_vector` in `lncfit/features.py` turned
+  out to be dead code — defined, but called by nothing except its own tests
+  (`build_features` uses the separate `_fill_kmer_row`, which happens to share
+  the same underlying `_count_kmers` helper). Removed the function entirely
+  and folded its value-correctness checks (sums-to-one, exact frequency for a
+  known sequence, non-ACGT window exclusion) into `TestBuildFeatures`, which
+  now exercises the same shared `_count_kmers` logic through the real,
+  production-used entry point instead of through an orphaned wrapper. Net: one
+  dead function removed from the library, one redundant test class removed,
+  zero coverage lost (the underlying logic is still checked, just through the
+  path that's actually used).
+- **Checked every other real call relationship and found no further cuts**:
+  e.g. `build_lncrna_folds` (test_cv.py) calls `build_lncrna_features`
+  (test_lncrna_features.py) internally, but test_cv.py's assertions only check
+  fold *partitioning* (no overlap, correct exclusion by chromosome size) and
+  never touch feature *values* — so it can't stand in for
+  test_lncrna_features.py's value-correctness tests despite the call
+  dependency. Same story for `fit_vocab` (heavily used by real tuning
+  scripts) vs. anything in test_cv.py or test_features.py: no test in this
+  suite chains fit_vocab's output into a build_features/build_lncrna_features
+  call to check the composition, so there's no downstream substitute to
+  collapse into. Cutting these would have meant losing real coverage under a
+  cut that only sounds justified, not one that actually is.
 
 ## A finding worth knowing about
 
@@ -107,19 +138,18 @@ the suite: a wrong label here is a wrong scientific conclusion, not a crash.
 | `test_lncrna_from_dict_ignores_unknown_keys` | Forward-compatible `from_dict`. |
 | `test_lncrna_from_dict_missing_optional_fields_use_defaults` | Backward-compatible `from_dict`. |
 
-## test_features.py — guide-level feature engineering (23 tests)
+## test_features.py — guide-level feature engineering (20 tests)
 
-`all_kmers`, `kmer_freq_vector`, `fit_vocab`, `build_features`. Heavily
-consolidated in the second pass via `@pytest.mark.parametrize`.
+`all_kmers`, `fit_vocab`, `build_features`. `kmer_freq_vector` and its
+standalone test class were removed (see "third pass" above — dead code, no
+caller). Heavily consolidated via `@pytest.mark.parametrize`.
 
 | Test | Verifies |
 |---|---|
-| `test_length_is_4_pow_k[3/6]` | `all_kmers(k)` returns `4**k` entries at two k values (was 2 separate functions). |
-| `test_sorted_order` | Vocabulary is lexicographically sorted. |
-| `test_sums_to_one` | A frequency vector sums to 1. |
-| `test_correct_counts` | A homopolymer sequence gives the exact expected count at the right index. |
-| `test_non_acgt_windows_excluded[partial/all]` | Windows with a non-ACGT base are excluded, whether some or all windows are affected (was 2 separate functions). |
-| `test_x_shape_matches_vocab_plus_day_plus_cell_columns[3/6]` | Feature matrix shape formula holds at two k values (was 2 separate functions). |
+| `test_sorted_order` | Vocabulary is lexicographically sorted (length is checked via the shape test below instead of standalone — see third pass). |
+| `test_x_shape_matches_vocab_plus_day_plus_cell_columns[3/6]` | Feature matrix shape formula holds at two k values (was 2 separate functions; also covers `all_kmers(k)`'s length as a side effect). |
+| `test_kmer_frequencies_correct_and_non_acgt_windows_excluded[partial/all]` | A frequency row sums to 1, and non-ACGT windows are excluded whether partially or entirely present — now checked through `build_features` itself rather than the removed `kmer_freq_vector` wrapper. |
+| `test_kmer_frequency_exact_value_for_homopolymer` | A homopolymer sequence gives the exact expected frequency at the right column. |
 | `test_y_values_are_raw_fold_change` | Label vector is the raw fold-change. |
 | `test_day_and_cell_line_onehot_columns_present` | Both categorical column sets exist (was 2 separate functions). |
 | `test_include_distance[3 cases]` | Present+correct-value, missing->sentinel, and disabled->absent, in one parametrized test (was 3 separate functions). |

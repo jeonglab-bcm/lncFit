@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from lncfit.screen_data import ScreenRecord
-from lncfit.features import all_kmers, kmer_freq_vector, build_features, fit_vocab
+from lncfit.features import all_kmers, build_features, fit_vocab
 
 
 def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T1"):
@@ -18,39 +18,14 @@ def _rec(seq, cell_line="HAP1", day=7, fold_change=1.0, distance=None, target="T
 
 
 class TestAllKmers:
-    @pytest.mark.parametrize("k, expected_len", [(3, 64), (6, 4096)])
-    def test_length_is_4_pow_k(self, k, expected_len):
-        assert len(all_kmers(k)) == expected_len
-
     def test_sorted_order(self):
+        # Length (4**k) is not tested standalone: build_features's shape test
+        # below uses all_kmers(k) as its default vocab, so a wrong-length bug
+        # here would already fail there. Sortedness isn't exercised by anything
+        # downstream (no test depends on the default vocab's column order), so
+        # it has no downstream substitute and stays here.
         kmers = all_kmers(3)
         assert kmers == sorted(kmers)
-
-
-class TestKmerFreqVector:
-    def test_sums_to_one(self):
-        vocab = all_kmers(3)
-        vec = kmer_freq_vector("ACGTACGT", 3, vocab)
-        assert abs(sum(vec) - 1.0) < 1e-9
-
-    def test_correct_counts(self):
-        vocab = all_kmers(3)
-        # "AAAAAA" has 4 windows, all "AAA"
-        vec = kmer_freq_vector("AAAAAA", 3, vocab)
-        aaa_idx = vocab.index("AAA")
-        assert vec[aaa_idx] == pytest.approx(1.0)
-
-    @pytest.mark.parametrize("seq, all_invalid", [("ACGNACG", False), ("NNNNN", True)])
-    def test_non_acgt_windows_excluded(self, seq, all_invalid):
-        # Windows containing a non-ACGT base are skipped entirely, not counted as a
-        # phantom k-mer -- whether some windows are still valid (partial N) or none
-        # are (all N), the remaining/zero mass must still be accounted for correctly.
-        vocab = all_kmers(3)
-        vec = kmer_freq_vector(seq, 3, vocab)
-        if all_invalid:
-            assert all(v == 0.0 for v in vec)
-        else:
-            assert abs(sum(vec) - 1.0) < 1e-9
 
 
 class TestBuildFeatures:
@@ -59,6 +34,26 @@ class TestBuildFeatures:
         records = [_rec("ACGTACGTACGTACGTACGTACG")] * 5
         X, _, _ = build_features(records, k=k)
         assert X.shape == (5, 4**k + 2 + 5)
+
+    @pytest.mark.parametrize("seq, all_invalid", [("ACGNACG", False), ("NNNNN", True)])
+    def test_kmer_frequencies_correct_and_non_acgt_windows_excluded(self, seq, all_invalid):
+        # Exercises the shared _count_kmers logic through the real production
+        # entry point (build_features -> _fill_kmer_row -> _count_kmers) rather
+        # than through kmer_freq_vector, which was a second public wrapper
+        # around the same helper with no actual caller anywhere in this
+        # codebase -- removed as dead code alongside its standalone tests.
+        records = [_rec(seq)]
+        X, _, _ = build_features(records, k=3)
+        kmer_row = X[0, :64]
+        if all_invalid:
+            assert np.all(kmer_row == 0.0)
+        else:
+            assert abs(kmer_row.sum() - 1.0) < 1e-9
+
+    def test_kmer_frequency_exact_value_for_homopolymer(self):
+        # "AAAAAA" has 4 windows, all "AAA" -> that column must be exactly 1.0.
+        X, _, cols = build_features([_rec("AAAAAA")], k=3)
+        assert X[0, cols.index("AAA")] == pytest.approx(1.0)
 
     def test_y_values_are_raw_fold_change(self):
         records = [_rec("ACGTACGTACGTACGTACGTACG", fold_change=v) for v in [1.0, -2.0, 0.5]]
