@@ -1,0 +1,9 @@
+features,model,auroc,auprc,param_max_depth,param_learning_rate,param_subsample,param_colsample_bytree,param_n_estimators,param_min_samples_leaf,param_seed,param_C,param_n_neighbors
+kmer,xgboost,0.6251,0.1329,9.0,0.02,0.5,0.9,,,,,
+kmer,randomforest,0.6356,0.0944,,,,,500.0,2.0,42.0,,
+kmer,logreg,0.5753,0.109,,,,,,,42.0,1.0,
+kmer,knn,0.5918,0.1055,,,,,,,42.0,,25.0
+dnabert2,xgboost,0.6829,0.1648,9.0,0.01,0.5,0.5,,,,,
+dnabert2,randomforest,0.6796,0.1207,,,,,500.0,2.0,42.0,,
+dnabert2,logreg,0.6416,0.1106,,,,,,,42.0,1.0,
+dnabert2,knn,0.6456,0.1357,,,,,,,42.0,,25.0

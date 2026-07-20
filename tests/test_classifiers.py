@@ -14,7 +14,7 @@ def _toy_data(seed=0, n_train=200, n_test=60, n_feat=8, pos_rate=0.1):
 
 def test_classifier_wrappers_share_the_fit_predict_contract():
     X_tr, y_tr, X_te = _toy_data()
-    for name in ["null", "logreg", "xgboost"]:
+    for name in ["null", "logreg", "xgboost", "randomforest", "knn"]:
         # xgboost's scale_pos_weight is left at its default (None -> auto-computed
         # from y inside fit()), so this covers that path too.
         model = build_classifier(name)

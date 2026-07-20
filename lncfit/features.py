@@ -423,3 +423,46 @@ def build_lncrna_features(
             X_dense[i, n_cols - 1] = float(dist)
         y[i] = r.label
     return X_dense, y, columns
+
+
+def build_lncrna_embedding_features(
+    records: list[LncRnaRecord],
+    embeddings: tuple[np.ndarray, dict[str, int]],
+    include_cell_line: bool = True,
+    include_distance: bool = False,
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Build features from precomputed per-lncRNA embeddings (e.g. DNABERT-2).
+
+    embeddings = (matrix, index) from lncfit.embeddings.load_embeddings(): matrix is
+    (n_lncRNAs, n_dims) float32, index maps target (lncRNA gene_id) -> row. Each
+    record's feature vector is its target's embedding row + optional cell-line
+    one-hot [+ distance]. A target absent from the index gets a zero embedding
+    (same convention as the k-mer builder). Returns dense (X, y, columns); y is the
+    binary hit label.
+    """
+    matrix, index = embeddings
+    n_dims = matrix.shape[1]
+    emb_cols = [f"dnabert_{j}" for j in range(n_dims)]
+    cell_cols = [f"cell_{c}" for c in _CELL_LINES] if include_cell_line else []
+    columns = emb_cols + cell_cols
+    if include_distance:
+        columns.append("distance_to_closest_pc_gene")
+
+    n = len(records)
+    X = np.zeros((n, len(columns)), dtype=np.float32)
+    y = np.empty(n, dtype=np.float32)
+    cell_offset = n_dims
+    for i, r in enumerate(records):
+        row = index.get(r.target)
+        if row is not None:
+            X[i, :n_dims] = matrix[row]
+        if include_cell_line:
+            for j, c in enumerate(_CELL_LINES):
+                if r.cell_line == c:
+                    X[i, cell_offset + j] = 1.0
+                    break
+        if include_distance:
+            dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
+            X[i, -1] = float(dist)
+        y[i] = r.label
+    return X, y, columns
