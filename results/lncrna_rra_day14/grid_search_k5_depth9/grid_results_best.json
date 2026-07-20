@@ -1,0 +1,39 @@
+{
+  "k": 5,
+  "fixed": {
+    "max_depth": 9,
+    "min_child_weight": 3,
+    "reg_alpha": 3.188749808609341,
+    "reg_lambda": 3.078336708769974e-06,
+    "scale_pos_weight": 1.0
+  },
+  "grid": {
+    "learning_rate": [
+      0.005,
+      0.01,
+      0.02,
+      0.05
+    ],
+    "subsample": [
+      0.5,
+      0.7,
+      0.9
+    ],
+    "colsample_bytree": [
+      0.5,
+      0.7,
+      0.9
+    ]
+  },
+  "n_combos": 36,
+  "best": {
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.5,
+    "n_estimators": 33.0,
+    "auroc": 0.656,
+    "auprc": 0.1776
+  },
+  "timestamp": "20260720_090339",
+  "git_commit": "7417219"
+}

@@ -192,6 +192,62 @@ Files: `tune_stratified/<model>_k<K>_cw<on|off>/` (`cv_scores.csv`,
 (+ `_variance_mask.json` for k=6). `logreg_k6_cwoff` was stopped mid-run by
 request and is not included (no completed held-out evaluation).
 
+## Feature engineering x model comparison (k-mer vs DNABERT-2, 4 classifiers)
+
+`scripts/run_lncrna_feature_model_comparison.py`: same stratified 90/10 train/early-stop
+carve-out (seed=42) and chr1 held-out test evaluation as the max_depth follow-up above,
+run across two feature sets and four models:
+
+- **k-mer**: transcript k-mer frequencies (k=5, the established best k) + cell-line
+  one-hot (`build_lncrna_features`), 1029 columns.
+- **dnabert2**: precomputed DNABERT-2 transcript embeddings + cell-line one-hot
+  (`build_lncrna_embedding_features`), 773 columns (768 dims + 5 cell one-hot).
+- **xgboost**: grid search over `learning_rate` x `subsample` x `colsample_bytree` (36
+  combos), `max_depth` fixed at 9 and every other hyperparameter anchored at the
+  k=5/class-weight-off tuned config above (`min_child_weight=3`, `reg_alpha=3.19`,
+  `reg_lambda=3.08e-6`) — the *same* anchors and grid applied to both feature sets, no
+  Optuna.
+- **randomforest, logreg, knn**: single fixed-hyperparameter fit each (registered
+  wrappers in `lncfit/classifiers/`), no grid search: random forest (500 trees,
+  `class_weight="balanced_subsample"`), logistic regression (`C=1.0`,
+  `class_weight="balanced"`), kNN (`n_neighbors=25`, distance-weighted).
+
+| features | model | AUROC | AUPRC |
+|---|---|---|---|
+| k-mer | logreg | 0.5753 | 0.1090 |
+| k-mer | knn | 0.5918 | 0.1055 |
+| k-mer | xgboost | 0.6251 | 0.1329 |
+| k-mer | randomforest | 0.6356 | 0.0944 |
+| dnabert2 | logreg | 0.6416 | 0.1106 |
+| dnabert2 | randomforest | 0.6796 | 0.1207 |
+| dnabert2 | knn | 0.6456 | 0.1357 |
+| **dnabert2** | **xgboost** | **0.6829** | **0.1648** |
+
+Best xgboost combo, k-mer: `learning_rate=0.02, subsample=0.5, colsample_bytree=0.9`.
+Best xgboost combo, dnabert2: `learning_rate=0.01, subsample=0.5, colsample_bytree=0.5`.
+
+![ROC and PR curves, k-mer vs DNABERT-2, 4 classifiers](feature_model_comparison/roc_pr_curves.png)
+
+**DNABERT-2 embeddings beat k-mer frequencies for every one of the 4 models**, on both
+AUROC and AUPRC — the richer sequence representation carries real signal that raw k-mer
+counts don't capture, and xgboost is the best model on either feature set. The
+dnabert2/xgboost AUROC (0.6829) is essentially tied with this project's previous overall
+best (0.6801, the k=5/off/depth=9 one-off probe above) despite using a totally different
+feature representation, and its AUPRC (0.1648) is below that probe's follow-up grid best
+(0.1776) but ahead of the probe itself (0.1460).
+
+> **Note on comparing against `grid_search_k5_depth9/`:** that earlier grid used *sparse*
+> k-mer features, while this comparison rebuilds k-mer features *dense* (matching
+> `scripts/run_lncrna_classifier.py`'s established convention). XGBoost treats a sparse
+> matrix's implicit zeros as *missing* but a dense matrix's zeros as *present* — for
+> k-mer frequencies a zero is a real, informative value ("this k-mer does not occur"),
+> so dense is the correct choice, but it means the two grids' numbers for the same
+> hyperparameter combo are not identical (e.g. best k-mer AUPRC here is 0.1329 vs 0.1776
+> there). Treat the dense numbers in this section as the more correct ones going forward.
+
+Files: `feature_model_comparison/summary.csv` (this table), `predictions_<features>_<model>.csv`,
+`xgboost_grid_<features>.csv` (full 36-row grids), `roc_pr_curves.png`, `run_info.json`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned

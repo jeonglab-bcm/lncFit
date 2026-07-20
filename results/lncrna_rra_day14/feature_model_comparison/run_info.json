@@ -1,0 +1,44 @@
+{
+  "k": 5,
+  "seed": 42,
+  "xgb_fixed": {
+    "max_depth": 9,
+    "min_child_weight": 3,
+    "reg_alpha": 3.188749808609341,
+    "reg_lambda": 3.078336708769974e-06,
+    "scale_pos_weight": 1.0
+  },
+  "xgb_grid": {
+    "learning_rate": [
+      0.005,
+      0.01,
+      0.02,
+      0.05
+    ],
+    "subsample": [
+      0.5,
+      0.7,
+      0.9
+    ],
+    "colsample_bytree": [
+      0.5,
+      0.7,
+      0.9
+    ]
+  },
+  "rf_params": {
+    "n_estimators": 500,
+    "max_depth": null,
+    "min_samples_leaf": 2,
+    "seed": 42
+  },
+  "knn_params": {
+    "n_neighbors": 25,
+    "seed": 42
+  },
+  "logreg_params": {
+    "C": 1.0,
+    "seed": 42
+  },
+  "git_commit": "7417219"
+}
