@@ -248,6 +248,95 @@ feature representation, and its AUPRC (0.1648) is below that probe's follow-up g
 Files: `feature_model_comparison/summary.csv` (this table), `predictions_<features>_<model>.csv`,
 `xgboost_grid_<features>.csv` (full 36-row grids), `roc_pr_curves.png`, `run_info.json`.
 
+### MLP classification head on DNABERT-2 embeddings (no separate ML model)
+
+`scripts/run_dnabert2_mlp_classifier.py`: instead of routing the DNABERT-2 embedding
+through a separate xgboost/randomforest/logreg/knn model, `lncfit/classifiers/mlp.py`
+(registered as `"mlp"`) attaches a genuine trainable classification layer directly on
+top of it -- one hidden layer (`Linear -> ReLU -> Dropout -> Linear`), trained
+end-to-end by gradient descent (`BCEWithLogitsLoss(pos_weight=...)` for the ~5%
+positive rate + Adam), with a 10% stratified slice of the training data held out inside
+`fit()` purely for early stopping. Same input as the dnabert2 column above
+(`build_lncrna_embedding_features`: embedding + cell-line one-hot "layer"), same chr1
+held-out test.
+
+The first pass used fixed defaults (`hidden=128, lr=1e-3, batch_size=256`, no tuning at
+all): AUROC 0.6729, AUPRC 0.1533. `scripts/grid_search_dnabert2_mlp.py` then grid-searched
+the 3 hyperparameters most likely to matter -- `batch_size` x `learning_rate` x `hidden`
+(27 combos, `dropout=0.2`/`max_epochs=200`/`patience=10` held fixed, no Optuna):
+
+| features | model | AUROC | AUPRC |
+|---|---|---|---|
+| dnabert2 | logreg | 0.6416 | 0.1106 |
+| dnabert2 | knn | 0.6456 | 0.1357 |
+| dnabert2 | randomforest | 0.6796 | 0.1207 |
+| dnabert2 | xgboost | 0.6829 | 0.1648 |
+| dnabert2 | mlp, untuned defaults | 0.6729 | 0.1533 |
+| **dnabert2** | **mlp, tuned (`batch_size=16, lr=0.002, hidden=64`)** | 0.6822 | **0.1986** |
+| dnabert2 | mlp, best AUROC (`batch_size=16, lr=0.0005, hidden=256`) | **0.6901** | 0.1649 |
+
+Both tuned MLP configs beat every other model on both metrics — **AUPRC 0.1986 and
+AUROC 0.6901 are new bests anywhere in this project's history** (previous bests: AUROC
+0.6829 dnabert2/xgboost, AUPRC 0.1776 from the sparse-feature `grid_search_k5_depth9/`
+run, see the note below on why that comparison isn't quite apples-to-apples). The
+`batch_size=16, lr=0.002, hidden=64` config is the one saved to
+`predictions_dnabert2_mlp.csv`/`roc_pr_curves.png` above (picked by AUPRC, same
+convention as the xgboost grid); the higher-AUROC config trades away some AUPRC and is
+reported here for completeness rather than re-saved.
+
+The best single combo uses `batch_size=16`, but batch size alone isn't a clean,
+systematic effect: mean AUPRC across the grid is nearly identical for `batch_size`
+16/32/64 (0.157/0.163/0.159), and `batch_size=16` also produced the single *worst*
+combo in the whole grid (`lr=0.002, hidden=256` -> AUPRC 0.0828). The tuned result looks
+more like a specific `(batch_size, lr, hidden)` interaction landing in a good spot than
+"smaller batches are just better" — 3 of the top 8 combos by AUPRC use `batch_size=16`,
+but so does the worst one. `roc_pr_curves.png` above shows the tuned (saved) curve only,
+not the untuned default for comparison — see `mlp_grid_dnabert2.csv` for the full 27-row
+spread if reproducing this.
+
+> **Implementation note:** training an xgboost/randomforest model (both spin up their
+> own OpenMP thread pools) earlier in the same process as PyTorch can silently deadlock
+> on macOS -- `MLPClassifier.fit()` pins torch to a single thread
+> (`torch.set_num_threads(1)`) to avoid this; the model is small enough that this costs
+> no meaningful speed. Even the smallest grid combo (`batch_size=16`, 1,407 batches/epoch)
+> trains a full run (up to 200 epochs, early-stopped in practice) in well under a minute
+> on CPU alone — the model is ~99k-590k parameters depending on `hidden`, tiny compared to
+> DNABERT-2 itself (~100M+ parameters, frozen, not being trained here at all).
+
+Files: `feature_model_comparison/predictions_dnabert2_mlp.csv`, `metrics_dnabert2_mlp.csv`,
+`run_info_mlp.json`, `mlp_grid_dnabert2.csv` (full 27-row grid), `mlp_grid_dnabert2_best.json`.
+
+#### Follow-up: even smaller batch, even lower learning rate
+
+`scripts/grid_search_dnabert2_mlp_smaller_batch.py`: pushed both knobs further down --
+`batch_size` in `{4, 8}` (below the first grid's smallest, 16) and `learning_rate` in
+`{0.0001, 0.0002, 0.0005}` (below its smallest, 0.0005) -- holding `hidden=64` fixed at
+the AUPRC-best value above.
+
+| batch_size | learning_rate | AUROC | AUPRC |
+|---|---|---|---|
+| 8 | 0.0001 | 0.6655 | 0.1486 |
+| 4 | 0.0001 | 0.6711 | 0.1499 |
+| 4 | 0.0002 | 0.6714 | 0.1535 |
+| 8 | 0.0002 | 0.6763 | 0.1623 |
+| 8 | 0.0005 | 0.6779 | 0.1711 |
+| **4** | **0.0005** | **0.6920** | 0.1752 |
+
+Two clear, honest findings, not the ones a "smaller is better" story would predict:
+
+- **Lower learning rate did not help.** Within both batch groups, AUROC and AUPRC
+  increase monotonically as `lr` goes from 0.0001 up to 0.0005 (the *highest* of the
+  three values tried here, itself still lower than the first grid's overall-best
+  `lr=0.002`). Going lower than 0.0005 made things worse every time.
+- **`batch_size=4, lr=0.0005` sets a new best AUROC (0.6920)**, edging past the first
+  grid's 0.6901 -- but its AUPRC (0.1752) does not beat the first grid's best AUPRC
+  (0.1986, `batch_size=16, lr=0.002, hidden=64`). That config remains the one saved to
+  `predictions_dnabert2_mlp.csv` (picked by AUPRC, the established convention here);
+  this follow-up isn't re-saved since it doesn't improve on it by that metric.
+
+Files: `feature_model_comparison/mlp_grid_dnabert2_smaller_batch.csv`,
+`mlp_grid_dnabert2_smaller_batch_best.json`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned

@@ -25,6 +25,7 @@ from lncfit.classifiers.logreg import LogRegClassifier
 from lncfit.classifiers.xgboost_clf import XGBoostClassifier
 from lncfit.classifiers.randomforest import RandomForestClassifier
 from lncfit.classifiers.knn import KNNClassifier
+from lncfit.classifiers.mlp import MLPClassifier
 
 __all__ = [
     "ClassifierModel",
@@ -37,4 +38,5 @@ __all__ = [
     "XGBoostClassifier",
     "RandomForestClassifier",
     "KNNClassifier",
+    "MLPClassifier",
 ]

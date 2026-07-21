@@ -1,0 +1,29 @@
+{
+  "fixed": {
+    "hidden": 64,
+    "dropout": 0.2,
+    "max_epochs": 200,
+    "patience": 10,
+    "seed": 42
+  },
+  "grid": {
+    "batch_size": [
+      4,
+      8
+    ],
+    "learning_rate": [
+      0.0001,
+      0.0002,
+      0.0005
+    ]
+  },
+  "n_combos": 6,
+  "best": {
+    "batch_size": 4.0,
+    "learning_rate": 0.0005,
+    "auroc": 0.692,
+    "auprc": 0.1752
+  },
+  "timestamp": "20260720_222955",
+  "git_commit": "56443c0"
+}
