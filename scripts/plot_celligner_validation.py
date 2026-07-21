@@ -28,14 +28,9 @@ TARGET_CELL_LINES = {
 HIGHLIGHT_LINEAGES = {
     "Myeloid": "tab:purple", "Breast": "tab:blue", "Lymphoid": "tab:cyan", "Skin": "tab:orange",
 }
-N_NEIGHBORS_CHECKED = 3  # how many nearest CCLE neighbors to check per target
-
-
 def _nearest_neighbor_lineage_pairs(cls):
-    """For each target, return its nearest neighbors' (lineage, target) pairs,
-    deduplicated by lineage and kept in nearest-first order -- e.g. MDA-MB-231's
-    3 nearest neighbors are Pancreas/Cervix/Liver, all different, so it gets 3
-    pairs; K562's 3 nearest are all Myeloid, so it gets just 1."""
+    """For each target, return one (lineage, target) pair -- its single closest
+    CCLE neighbor's lineage. One entry per target, not one per neighbor."""
     coords = cls[["UMAP_1", "UMAP_2"]].to_numpy()
     ids = cls["sampleID"].to_numpy()
     lineages = cls["lineage"].to_numpy()
@@ -48,13 +43,8 @@ def _nearest_neighbor_lineage_pairs(cls):
         if len(matches) == 0:
             continue
         i = matches[0]
-        order = np.argsort(D[i])[:N_NEIGHBORS_CHECKED]
-        seen = set()
-        for j in order:
-            lin = lineages[j]
-            if lin not in seen:
-                seen.add(lin)
-                pairs.append((lin, target_name))
+        j = np.argmin(D[i])
+        pairs.append((lineages[j], target_name))
     return pairs
 
 
@@ -93,10 +83,10 @@ def main():
                     fontsize=12, fontweight="bold", zorder=6,
                     bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="black", alpha=0.85))
 
-    # Proxy (invisible) legend entries: one per (nearest-neighbor lineage, target) pair,
-    # e.g. "(Liver - MDA-MB-231)" -- these aren't separate plotted groups, just labels.
+    # Proxy (invisible) legend entries: one per target, showing its closest neighbor's
+    # tissue, e.g. "Myeloid (K562)" -- these aren't separate plotted groups, just labels.
     for lin, name in neighbor_pairs:
-        ax.scatter([], [], s=0, label=f"({lin} - {name})")
+        ax.scatter([], [], s=0, label=f"{lin} ({name})")
 
     ax.set_xlabel("UMAP_1")
     ax.set_ylabel("UMAP_2")
@@ -104,7 +94,7 @@ def main():
                  "Myeloid / Breast / Lymphoid / Skin highlighted, rest gray; "
                  "target cell lines circled + labeled")
     ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize=8, frameon=False,
-              title=f"Lineage / nearest-neighbor tissue (top {N_NEIGHBORS_CHECKED})")
+              title="Lineage / closest-neighbor tissue")
     fig.tight_layout()
     fig.savefig(args.output, dpi=150, bbox_inches="tight")
     print(f"Saved -> {args.output}")
