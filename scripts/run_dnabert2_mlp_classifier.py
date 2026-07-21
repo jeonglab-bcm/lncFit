@@ -37,6 +37,9 @@ def main():
     parser.add_argument("--embeddings", default="data/processed/dnabert2_transcript_full.npz")
     parser.add_argument("--output-dir", default="results/lncrna_rra_day14/feature_model_comparison")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--hidden", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--batch-size", type=int, default=256)
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -55,7 +58,7 @@ def main():
     X_test, y_test, _ = build_lncrna_embedding_features(test_records, emb)
     print(f"  feature matrix: {X_train.shape[1]} columns (embedding + cell one-hot)")
 
-    model = build_classifier("mlp", seed=args.seed)
+    model = build_classifier("mlp", seed=args.seed, hidden=args.hidden, lr=args.lr, batch_size=args.batch_size)
     print(f"\nFitting {model!r} (internal 90/10 stratified split for early stopping) ...")
     model.fit(X_train, y_train)
 

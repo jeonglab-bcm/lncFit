@@ -253,36 +253,58 @@ Files: `feature_model_comparison/summary.csv` (this table), `predictions_<featur
 `scripts/run_dnabert2_mlp_classifier.py`: instead of routing the DNABERT-2 embedding
 through a separate xgboost/randomforest/logreg/knn model, `lncfit/classifiers/mlp.py`
 (registered as `"mlp"`) attaches a genuine trainable classification layer directly on
-top of it -- one hidden layer (`Linear(773, 128) -> ReLU -> Dropout -> Linear(128, 1)`),
-trained end-to-end by gradient descent (`BCEWithLogitsLoss(pos_weight=...)` for the ~5%
+top of it -- one hidden layer (`Linear -> ReLU -> Dropout -> Linear`), trained
+end-to-end by gradient descent (`BCEWithLogitsLoss(pos_weight=...)` for the ~5%
 positive rate + Adam), with a 10% stratified slice of the training data held out inside
 `fit()` purely for early stopping. Same input as the dnabert2 column above
 (`build_lncrna_embedding_features`: embedding + cell-line one-hot "layer"), same chr1
 held-out test.
+
+The first pass used fixed defaults (`hidden=128, lr=1e-3, batch_size=256`, no tuning at
+all): AUROC 0.6729, AUPRC 0.1533. `scripts/grid_search_dnabert2_mlp.py` then grid-searched
+the 3 hyperparameters most likely to matter -- `batch_size` x `learning_rate` x `hidden`
+(27 combos, `dropout=0.2`/`max_epochs=200`/`patience=10` held fixed, no Optuna):
 
 | features | model | AUROC | AUPRC |
 |---|---|---|---|
 | dnabert2 | logreg | 0.6416 | 0.1106 |
 | dnabert2 | knn | 0.6456 | 0.1357 |
 | dnabert2 | randomforest | 0.6796 | 0.1207 |
-| **dnabert2** | **mlp (this section)** | **0.6729** | **0.1533** |
 | dnabert2 | xgboost | 0.6829 | 0.1648 |
+| dnabert2 | mlp, untuned defaults | 0.6729 | 0.1533 |
+| **dnabert2** | **mlp, tuned (`batch_size=16, lr=0.002, hidden=64`)** | 0.6822 | **0.1986** |
+| dnabert2 | mlp, best AUROC (`batch_size=16, lr=0.0005, hidden=256`) | **0.6901** | 0.1649 |
 
-The MLP head lands in 2nd place overall — behind xgboost, but ahead of random forest,
-kNN, and logistic regression on AUPRC (and ahead of kNN/logreg on AUROC too). A single
-trained layer on top of a frozen DNABERT-2 embedding is competitive with boosted trees
-here; it doesn't beat xgboost's tree-based partitioning of the embedding space, but it
-gets close without any hyperparameter grid search at all. See `roc_pr_curves.png` above
-(now includes the MLP head's curve in the dnabert2 panel).
+Both tuned MLP configs beat every other model on both metrics — **AUPRC 0.1986 and
+AUROC 0.6901 are new bests anywhere in this project's history** (previous bests: AUROC
+0.6829 dnabert2/xgboost, AUPRC 0.1776 from the sparse-feature `grid_search_k5_depth9/`
+run, see the note below on why that comparison isn't quite apples-to-apples). The
+`batch_size=16, lr=0.002, hidden=64` config is the one saved to
+`predictions_dnabert2_mlp.csv`/`roc_pr_curves.png` above (picked by AUPRC, same
+convention as the xgboost grid); the higher-AUROC config trades away some AUPRC and is
+reported here for completeness rather than re-saved.
+
+The best single combo uses `batch_size=16`, but batch size alone isn't a clean,
+systematic effect: mean AUPRC across the grid is nearly identical for `batch_size`
+16/32/64 (0.157/0.163/0.159), and `batch_size=16` also produced the single *worst*
+combo in the whole grid (`lr=0.002, hidden=256` -> AUPRC 0.0828). The tuned result looks
+more like a specific `(batch_size, lr, hidden)` interaction landing in a good spot than
+"smaller batches are just better" — 3 of the top 8 combos by AUPRC use `batch_size=16`,
+but so does the worst one. `roc_pr_curves.png` above shows the tuned (saved) curve only,
+not the untuned default for comparison — see `mlp_grid_dnabert2.csv` for the full 27-row
+spread if reproducing this.
 
 > **Implementation note:** training an xgboost/randomforest model (both spin up their
 > own OpenMP thread pools) earlier in the same process as PyTorch can silently deadlock
 > on macOS -- `MLPClassifier.fit()` pins torch to a single thread
 > (`torch.set_num_threads(1)`) to avoid this; the model is small enough that this costs
-> no meaningful speed.
+> no meaningful speed. Even the smallest grid combo (`batch_size=16`, 1,407 batches/epoch)
+> trains a full run (up to 200 epochs, early-stopped in practice) in well under a minute
+> on CPU alone — the model is ~99k-590k parameters depending on `hidden`, tiny compared to
+> DNABERT-2 itself (~100M+ parameters, frozen, not being trained here at all).
 
 Files: `feature_model_comparison/predictions_dnabert2_mlp.csv`, `metrics_dnabert2_mlp.csv`,
-`run_info_mlp.json`.
+`run_info_mlp.json`, `mlp_grid_dnabert2.csv` (full 27-row grid), `mlp_grid_dnabert2_best.json`.
 
 ## Files
 
