@@ -59,3 +59,16 @@ def test_sparse_matches_dense():
     assert cols_dense == cols_sparse
     assert np.allclose(X_dense, X_sparse.toarray())
     assert np.allclose(y_dense, y_sparse)
+
+    # issue #78: Celligner cell-line embedding, dense/sparse equivalence + the
+    # zero-fill fallback for cell lines Celligner has no coordinates for (HEK293FT)
+    records_hek = records + [_rec("T1", cell_line="HEK293FT", label=0)]
+    Xd, _, cols_d = build_lncrna_features(records_hek, seqs, k=3, vocab=vocab, include_celligner_embedding=True)
+    Xs, _, cols_s = build_lncrna_features(
+        records_hek, seqs, k=3, vocab=vocab, include_celligner_embedding=True, sparse=True,
+    )
+    assert cols_d == cols_s and "cell_umap_1" in cols_d and "cell_umap_2" in cols_d
+    assert np.allclose(Xd, Xs.toarray())
+    umap_cols = slice(cols_d.index("cell_umap_1"), cols_d.index("cell_umap_2") + 1)
+    assert not np.allclose(Xd[0, umap_cols], 0.0)  # HAP1: has real Celligner coordinates
+    assert np.allclose(Xd[2, umap_cols], 0.0)  # HEK293FT: not in CCLE/DepMap, zero-filled

@@ -337,6 +337,58 @@ Two clear, honest findings, not the ones a "smaller is better" story would predi
 Files: `feature_model_comparison/mlp_grid_dnabert2_smaller_batch.csv`,
 `mlp_grid_dnabert2_smaller_batch_best.json`.
 
+## Celligner cell-line embedding (issue #78)
+
+Every model above represents the cell line as a 5-column one-hot
+(`cell_HAP1`, `cell_HEK293FT`, `cell_K562`, `cell_MDA-MB-231`, `cell_THP1`) --
+telling the model *which* cell line a row is, but nothing about how the cell
+lines relate to each other biologically. Issue #78 proposed replacing/augmenting
+this with a real transcriptomic-similarity embedding from
+[Celligner](https://github.com/broadinstitute/celligner) (Warren et al., *Nat
+Commun* 2021), which aligns CCLE cell line and TCGA tumor RNA-seq onto a shared
+2-D UMAP space.
+
+The published Celligner data (all 5 Figshare versions checked) is frozen at
+DepMap 19Q4 and doesn't include HAP1 at all -- so rather than use the stale
+published coordinates, **the full Celligner alignment method was re-run from
+scratch** against current DepMap data (24Q4), faithfully reimplementing the
+original R pipeline (contrastive PCA, mutual-nearest-neighbor batch correction,
+70-D PCA, UMAP) with `irlba`/`uwot`/`igraph`/`FNN`/`limma` instead of
+Seurat/batchelor. See `data/external/README.md` for full methodology, provenance,
+and caveats. Result: HAP1, K562, MDA-MB-231, THP1 now have real 2-D coordinates
+(`data/external/celligner_cell_line_umap.csv`); **HEK293FT still has none** (not
+a cancer cell line, never in CCLE/DepMap under any release) and is zero-filled
+wherever this embedding is used.
+
+Sanity check on the new alignment: K562 and THP1 (both blood/leukemia lineage)
+land much closer to each other (distance 3.6) than either does to MDA-MB-231, a
+breast line (11.5 / 14.2) -- the same qualitative structure as the original
+published alignment. HAP1 lands near MDA-MB-231 rather than the other blood
+lines, which is a genuine (if unverified) finding worth flagging, not
+necessarily a bug -- see `data/external/README.md`'s caveat section.
+
+`build_lncrna_features(..., include_celligner_embedding=True)` appends 2 columns
+(`cell_umap_1`, `cell_umap_2`) alongside (not replacing) the existing cell one-hot.
+`scripts/run_celligner_embedding_comparison.py`: k=5 kmer features, the same
+best-known xgboost hyperparameters from the feature x model comparison above, on
+vs off, same chr1 held-out test:
+
+| celligner embedding | AUROC | AUPRC |
+|---|---|---|
+| off | 0.6251 | 0.1329 |
+| **on** | **0.6395** | **0.1353** |
+
+A modest, real improvement on both metrics (AUROC +2.3%, AUPRC +1.8%) from just 2
+extra columns -- but per-cell-line it's mixed, not a uniform win: MDA-MB-231's
+AUROC jumps (0.681 -> 0.721) while its AUPRC drops considerably (0.284 -> 0.159);
+HAP1 and THP1 both improve on AUROC; HEK293FT is roughly flat as expected (it gets
+no real embedding signal, only zeros). This is a single seed=42 run, not averaged
+over multiple seeds/folds -- a natural next step if pursuing this further, not
+done here given the scope already spent on the realignment itself.
+
+Files: `data/external/celligner_cell_line_umap.csv`, `data/external/README.md`,
+`celligner_embedding_comparison/summary.csv`, `celligner_embedding_comparison/run_info.json`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned
