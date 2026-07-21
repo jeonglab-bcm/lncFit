@@ -1,10 +1,12 @@
 """Validation plot for the from-scratch Celligner realignment (issue #78).
 
-Colors every CCLE cell line by its Oncotree tissue lineage (Model.csv), shows all
-tumor samples as a neutral gray background cloud for context, and highlights +
+Highlights only the tissue lineages relevant to the validation story -- Myeloid
+(K562/THP1/HAP1's true lineage), Breast (MDA-MB-231's true lineage), and Lymphoid
+(the lineage most easily confused with Myeloid by eye) -- with every other CCLE
+cell line and all tumor samples shown as neutral gray background. Highlights +
 labels our 5 target cell lines (K562, MDA-MB-231, THP1, HAP1; HEK293FT excluded --
-not in CCLE/DepMap) so their position relative to the rest of the landscape can be
-checked by eye, not just by the summary distance numbers in the README.
+not in CCLE/DepMap) so their position relative to the highlighted lineages can be
+checked by eye, not just by the summary distance/purity numbers in the README.
 
 Reads a full_umap_coords.csv (all tumor + CL samples: sampleID, type, lineage,
 UMAP_1, UMAP_2) produced by the one-off R realignment script (not checked into
@@ -21,6 +23,9 @@ import pandas as pd
 TARGET_CELL_LINES = {
     "ACH-000551": "K562", "ACH-000768": "MDA-MB-231", "ACH-000146": "THP1", "ACH-002475": "HAP1",
 }
+HIGHLIGHT_LINEAGES = {
+    "Myeloid": "tab:purple", "Breast": "tab:blue", "Lymphoid": "tab:cyan", "Skin": "tab:orange",
+}
 
 
 def main():
@@ -34,18 +39,16 @@ def main():
     cls = df[df["type"] == "CL"].copy()
     cls["lineage"] = cls["lineage"].fillna("Unknown")
 
-    lineage_counts = cls["lineage"].value_counts()
-    lineages = list(lineage_counts.index)
-    cmap = plt.get_cmap("tab20").colors + plt.get_cmap("tab20b").colors + plt.get_cmap("tab20c").colors
-    color_map = {lin: cmap[i % len(cmap)] for i, lin in enumerate(lineages)}
+    other = cls[~cls["lineage"].isin(HIGHLIGHT_LINEAGES)]
 
-    fig, ax = plt.subplots(figsize=(14, 11))
-    ax.scatter(tumors["UMAP_1"], tumors["UMAP_2"], s=4, c="lightgray", alpha=0.4, linewidths=0, label="tumor (background)")
+    fig, ax = plt.subplots(figsize=(11, 9))
+    ax.scatter(tumors["UMAP_1"], tumors["UMAP_2"], s=4, c="lightgray", alpha=0.35, linewidths=0, label="tumor (background)")
+    ax.scatter(other["UMAP_1"], other["UMAP_2"], s=8, c="darkgray", alpha=0.5, linewidths=0,
+               label=f"other CCLE lineages (n={len(other)})")
 
-    for lin in lineages:
+    for lin, color in HIGHLIGHT_LINEAGES.items():
         sub = cls[cls["lineage"] == lin]
-        ax.scatter(sub["UMAP_1"], sub["UMAP_2"], s=10, c=[color_map[lin]], alpha=0.8,
-                   linewidths=0, label=f"{lin} (n={len(sub)})")
+        ax.scatter(sub["UMAP_1"], sub["UMAP_2"], s=16, c=color, alpha=0.85, linewidths=0, label=f"{lin} (n={len(sub)})")
 
     target_rows = df[df["sampleID"].isin(TARGET_CELL_LINES)]
     for _, row in target_rows.iterrows():
@@ -58,11 +61,10 @@ def main():
 
     ax.set_xlabel("UMAP_1")
     ax.set_ylabel("UMAP_2")
-    ax.set_title("Celligner realignment (from-scratch, current DepMap data): "
-                 "all CCLE cell lines colored by tissue lineage, tumors as gray background,\n"
-                 "our 5 target cell lines circled + labeled (HEK293FT absent from CCLE/DepMap)")
-    ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize=6, ncol=2, frameon=False,
-              title=f"CCLE lineage ({len(lineages)} categories)")
+    ax.set_title("Celligner realignment (from-scratch, current DepMap data)\n"
+                 "Myeloid / Breast / Lymphoid / Skin highlighted, rest gray; "
+                 "target cell lines circled + labeled")
+    ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize=9, frameon=False, title="Lineage")
     fig.tight_layout()
     fig.savefig(args.output, dpi=150, bbox_inches="tight")
     print(f"Saved -> {args.output}")

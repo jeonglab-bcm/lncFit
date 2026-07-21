@@ -1,5 +1,5 @@
 Baseline over all 1668 lineage-annotated CCLE lines:
-  mean purity=0.538  median=0.533
+  mean purity=0.534  median=0.533
 
                                mean  count
 lineage                                   
@@ -7,38 +7,38 @@ Adrenal Gland              0.000000      2
 Other                      0.000000      1
 Embryonal                  0.000000      1
 Vulva/Vagina               0.000000      2
-Ampulla of Vater           0.000000      4
-Thyroid                    0.060606     22
+Ampulla of Vater           0.033333      4
+Cervix                     0.056667     20
 Hair                       0.066667      2
-Biliary Tract              0.087879     44
-Prostate                   0.102564     13
-Cervix                     0.143333     20
+Thyroid                    0.069697     22
+Prostate                   0.097436     13
+Biliary Tract              0.122727     44
 Muscle                     0.160000      5
-Bladder/Urinary Tract      0.172973     37
-Esophagus/Stomach          0.214719     77
-Liver                      0.222222     27
-Uterus                     0.297674     43
-Pancreas                   0.307879     55
-Soft Tissue                0.348246     76
-Ovary/Fallopian Tube       0.365174     67
+Esophagus/Stomach          0.204329     77
+Bladder/Urinary Tract      0.227027     37
+Liver                      0.234568     27
+Pancreas                   0.288485     55
+Uterus                     0.291473     43
+Soft Tissue                0.370175     76
+Ovary/Fallopian Tube       0.373134     67
 Testis                     0.373333     10
-Head and Neck              0.445946     74
-Kidney                     0.450000     52
-CNS/Brain                  0.496000    100
+Head and Neck              0.419820     74
+Kidney                     0.444872     52
+CNS/Brain                  0.476000    100
 Eye                        0.501449     23
 Bone                       0.541818     55
-Breast                     0.548571     70
-Lung                       0.575389    214
-Pleura                     0.612121     22
-Bowel                      0.655039     86
-Fibroblast                 0.690598     39
-Peripheral Nervous System  0.748148     45
-Skin                       0.748889    120
-Myeloid                    0.888288     74
-Lymphoid                   0.960932    186
+Breast                     0.557143     70
+Lung                       0.569470    214
+Pleura                     0.572727     22
+Bowel                      0.619380     86
+Fibroblast                 0.630769     39
+Peripheral Nervous System  0.703704     45
+Skin                       0.761667    120
+Myeloid                    0.889189     74
+Lymphoid                   0.970609    186
 
 Target cell lines (k=15 nearest CCLE neighbors):
-  K562         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.888
-  MDA-MB-231   true_lineage=Breast     same_lineage_neighbors=0/15  lineage_own_average_purity=0.549
-  THP1         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.888
-  HAP1         true_lineage=Myeloid    same_lineage_neighbors=0/15  lineage_own_average_purity=0.888
+  K562         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.889
+  MDA-MB-231   true_lineage=Breast     same_lineage_neighbors=0/15  lineage_own_average_purity=0.557
+  THP1         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.889
+  HAP1         true_lineage=Myeloid    same_lineage_neighbors=1/15  lineage_own_average_purity=0.889

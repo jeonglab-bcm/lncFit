@@ -52,10 +52,10 @@ statistic computed for **all 1,668 lineage-annotated CCLE cell lines**, not just
 our 4, as a baseline for what "good" and "bad" purity look like in this specific
 alignment.
 
-**Baseline (all 1,668 CCLE lines):** mean same-lineage purity 53.8%, median
+**Baseline (all 1,668 CCLE lines):** mean same-lineage purity 53.4%, median
 53.3% — well above what 34 categories of very unequal size would give by chance.
 Purity varies a lot by lineage: well-populated ones cluster very cleanly
-(Lymphoid 96.1% n=186, Myeloid 88.8% n=74, Skin 74.9% n=120), while small/rare
+(Lymphoid 97.1% n=186, Myeloid 88.9% n=74, Skin 74.9% n=120), while small/rare
 lineages are noisy (Adrenal Gland, Ampulla of Vater, Vulva/Vagina: 0%, but
 n=1-4 each). This confirms the alignment mechanism itself is sound and
 recovering real biological structure, which is the necessary context for judging
@@ -63,20 +63,20 @@ the 4 target lines below.
 
 | cell line | true lineage | same-lineage neighbors (of 15) | lineage's own average purity | run-to-run coordinate shift |
 |---|---|---|---|---|
-| **K562** | Myeloid | **15/15** | 88.8% (n=74) | 2.51 |
-| **THP1** | Myeloid | **15/15** | 88.8% (n=74) | 1.25 (most stable) |
-| MDA-MB-231 | Breast | 0/15 | 54.9% (n=70) | 3.10 |
-| **HAP1** | Myeloid | **0/15** | 88.8% (n=74) | **7.04 (least stable)** |
+| **K562** | Myeloid | **15/15** | 88.9% (n=74) | 2.51 |
+| **THP1** | Myeloid | **15/15** | 88.9% (n=74) | 1.25 (most stable) |
+| MDA-MB-231 | Breast | 0/15 | 55.7% (n=70) | 3.10 |
+| **HAP1** | Myeloid | 1/15 (0/15 in two other runs) | 88.9% (n=74) | **7.04 (least stable)** |
 
 - **K562, THP1: validated.** Both land with maximal same-lineage purity, in a
   lineage that already clusters very cleanly overall.
-- **MDA-MB-231: 0/15, but plausible.** Breast lines only average 54.9% purity
+- **MDA-MB-231: 0/15, but plausible.** Breast lines only average 55.7% purity
   to begin with (a noisier lineage than Myeloid), and MDA-MB-231 is a
   well-documented mesenchymal-like, triple-negative outlier among breast cancer
   cell lines (unlike more common epithelial/luminal breast lines) — a real
   discrepancy from naive expectation, but with a defensible biological
   explanation. Not confirmed further than that.
-- **HAP1: 0/15, and NOT explained.** Myeloid lines cluster at 88.8% purity
+- **HAP1: 0-1/15 across reruns, and NOT explained.** Myeloid lines cluster at 88.9% purity
   overall — HAP1 is a genuine outlier *within an otherwise very clean lineage*,
   not just "different from 3 comparison points." Checked for an obvious
   technical explanation and found none: HAP1's raw expression has no unusual

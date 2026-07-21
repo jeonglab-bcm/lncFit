@@ -363,14 +363,14 @@ wherever this embedding is used.
 **Validation (not just eyeballing distances among the 4 targets):** computed
 each target's k=15 nearest CCLE neighbors in the aligned space and checked what
 fraction share its true Oncotree lineage, against a baseline computed the same
-way for all 1,668 lineage-annotated CCLE lines (mean purity 53.8%, well above
-chance; Myeloid and Lymphoid lines cluster especially cleanly at 88.8%/96.1%).
+way for all 1,668 lineage-annotated CCLE lines (mean purity ~53-54%, well above
+chance; Myeloid and Lymphoid lines cluster especially cleanly at ~89%/~97%).
 Result: **K562 and THP1 validate cleanly** (15/15 same-lineage neighbors, in
-line with Myeloid's already-high 88.8% average). **MDA-MB-231** scores 0/15,
-but Breast lines only average 54.9% purity to begin with and MDA-MB-231 is a
+line with Myeloid's already-high ~89% average). **MDA-MB-231** scores 0/15 (both reruns this was checked),
+but Breast lines only average ~55% purity to begin with and MDA-MB-231 is a
 documented mesenchymal-like outlier among breast cell lines -- a plausible,
-not confirmed, explanation. **HAP1 scores 0/15 despite sitting in a lineage
-(Myeloid) that otherwise clusters at 88.8%** -- a genuine outlier with no
+not confirmed, explanation. **HAP1 scores 0/15 then 1/15 (the 2 reruns this was checked) despite sitting in a lineage
+(Myeloid) that otherwise clusters at ~89%** -- a genuine outlier with no
 raw-expression QC explanation found, and the least stable of the 4 across
 independent reruns (7.04 UMAP-unit shift vs. 1.25-3.10 for the others).
 **HAP1's specific coordinates should be treated with real skepticism** (flagged
