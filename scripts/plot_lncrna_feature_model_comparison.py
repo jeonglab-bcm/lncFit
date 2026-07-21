@@ -14,9 +14,15 @@ import pandas as pd
 from sklearn.metrics import auc, precision_recall_curve, roc_curve
 
 FEATURE_SETS = ["kmer", "dnabert2"]
-MODELS = ["xgboost", "randomforest", "logreg", "knn"]
+MODELS_BY_FEATURE = {
+    "kmer": ["xgboost", "randomforest", "logreg", "knn"],
+    "dnabert2": ["xgboost", "randomforest", "logreg", "knn", "mlp"],
+}
 FEATURE_LABELS = {"kmer": "k-mer (k=5) + cell one-hot", "dnabert2": "DNABERT-2 embedding + cell one-hot"}
-MODEL_LABELS = {"xgboost": "XGBoost", "randomforest": "Random Forest", "logreg": "Logistic Regression", "knn": "kNN"}
+MODEL_LABELS = {
+    "xgboost": "XGBoost", "randomforest": "Random Forest", "logreg": "Logistic Regression",
+    "knn": "kNN", "mlp": "MLP head",
+}
 
 
 def main():
@@ -32,7 +38,7 @@ def main():
         ax_roc = axes[0, col]
         ax_pr = axes[1, col]
         pos_rate = None
-        for model in MODELS:
+        for model in MODELS_BY_FEATURE[features]:
             df = pd.read_csv(results_dir / f"predictions_{features}_{model}.csv")
             y_true, y_pred = df["y_true"].to_numpy(), df["y_pred_proba"].to_numpy()
             pos_rate = y_true.mean()

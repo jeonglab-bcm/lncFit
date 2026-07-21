@@ -1,0 +1,18 @@
+{
+  "model": "mlp",
+  "params": {
+    "hidden": 128,
+    "dropout": 0.2,
+    "lr": 0.001,
+    "max_epochs": 200,
+    "patience": 10,
+    "batch_size": 256,
+    "seed": 42
+  },
+  "features": "dnabert2",
+  "n_features": 773,
+  "auroc": 0.6729,
+  "auprc": 0.1533,
+  "timestamp": "20260720_205134",
+  "git_commit": "fafc331"
+}

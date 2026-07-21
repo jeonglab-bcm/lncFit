@@ -248,6 +248,42 @@ feature representation, and its AUPRC (0.1648) is below that probe's follow-up g
 Files: `feature_model_comparison/summary.csv` (this table), `predictions_<features>_<model>.csv`,
 `xgboost_grid_<features>.csv` (full 36-row grids), `roc_pr_curves.png`, `run_info.json`.
 
+### MLP classification head on DNABERT-2 embeddings (no separate ML model)
+
+`scripts/run_dnabert2_mlp_classifier.py`: instead of routing the DNABERT-2 embedding
+through a separate xgboost/randomforest/logreg/knn model, `lncfit/classifiers/mlp.py`
+(registered as `"mlp"`) attaches a genuine trainable classification layer directly on
+top of it -- one hidden layer (`Linear(773, 128) -> ReLU -> Dropout -> Linear(128, 1)`),
+trained end-to-end by gradient descent (`BCEWithLogitsLoss(pos_weight=...)` for the ~5%
+positive rate + Adam), with a 10% stratified slice of the training data held out inside
+`fit()` purely for early stopping. Same input as the dnabert2 column above
+(`build_lncrna_embedding_features`: embedding + cell-line one-hot "layer"), same chr1
+held-out test.
+
+| features | model | AUROC | AUPRC |
+|---|---|---|---|
+| dnabert2 | logreg | 0.6416 | 0.1106 |
+| dnabert2 | knn | 0.6456 | 0.1357 |
+| dnabert2 | randomforest | 0.6796 | 0.1207 |
+| **dnabert2** | **mlp (this section)** | **0.6729** | **0.1533** |
+| dnabert2 | xgboost | 0.6829 | 0.1648 |
+
+The MLP head lands in 2nd place overall — behind xgboost, but ahead of random forest,
+kNN, and logistic regression on AUPRC (and ahead of kNN/logreg on AUROC too). A single
+trained layer on top of a frozen DNABERT-2 embedding is competitive with boosted trees
+here; it doesn't beat xgboost's tree-based partitioning of the embedding space, but it
+gets close without any hyperparameter grid search at all. See `roc_pr_curves.png` above
+(now includes the MLP head's curve in the dnabert2 panel).
+
+> **Implementation note:** training an xgboost/randomforest model (both spin up their
+> own OpenMP thread pools) earlier in the same process as PyTorch can silently deadlock
+> on macOS -- `MLPClassifier.fit()` pins torch to a single thread
+> (`torch.set_num_threads(1)`) to avoid this; the model is small enough that this costs
+> no meaningful speed.
+
+Files: `feature_model_comparison/predictions_dnabert2_mlp.csv`, `metrics_dnabert2_mlp.csv`,
+`run_info_mlp.json`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned
