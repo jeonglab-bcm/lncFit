@@ -28,24 +28,38 @@ TARGET_CELL_LINES = {
 HIGHLIGHT_LINEAGES = {
     "Myeloid": "tab:purple", "Breast": "tab:blue", "Lymphoid": "tab:cyan", "Skin": "tab:orange",
 }
-def _nearest_neighbor_lineage_pairs(cls):
-    """For each target, return one (lineage, target) pair -- its single closest
-    CCLE neighbor's lineage. One entry per target, not one per neighbor."""
+TRUE_LINEAGE = {"K562": "Myeloid", "THP1": "Myeloid", "MDA-MB-231": "Breast", "HAP1": "Myeloid"}
+K_PURITY = 15  # matches scripts/validate_celligner_alignment.py's k
+
+
+def _target_summaries(cls):
+    """For each target: its true lineage, its k=15 same-lineage-neighbor fraction
+    (the actual validation strength, NOT just "what's the single closest point"),
+    and its single closest neighbor's lineage (for the plot legend label).
+
+    Showing the closest-neighbor lineage alone is misleading -- e.g. HAP1's single
+    closest neighbor happens to be Myeloid, making "Myeloid (HAP1)" look identical
+    to "Myeloid (K562)" in the legend, even though K562 is 15/15 same-lineage and
+    HAP1 is 0-1/15. The fraction makes that difference visible instead of hiding it.
+    """
     coords = cls[["UMAP_1", "UMAP_2"]].to_numpy()
     ids = cls["sampleID"].to_numpy()
     lineages = cls["lineage"].to_numpy()
     D = cdist(coords, coords)
     np.fill_diagonal(D, np.inf)
 
-    pairs = []
+    summaries = []
     for depmap_id, target_name in TARGET_CELL_LINES.items():
         matches = np.where(ids == depmap_id)[0]
         if len(matches) == 0:
             continue
         i = matches[0]
-        j = np.argmin(D[i])
-        pairs.append((lineages[j], target_name))
-    return pairs
+        order = np.argsort(D[i])
+        closest_lineage = lineages[order[0]]
+        true_lineage = TRUE_LINEAGE[target_name]
+        same = int((lineages[order[:K_PURITY]] == true_lineage).sum())
+        summaries.append((target_name, closest_lineage, same))
+    return summaries
 
 
 def main():
@@ -60,7 +74,7 @@ def main():
     cls = df[df["type"] == "CL"].copy()
     cls["lineage"] = cls["lineage"].fillna("Unknown")
 
-    neighbor_pairs = _nearest_neighbor_lineage_pairs(cls)
+    summaries = _target_summaries(cls)
 
     other = cls[~cls["lineage"].isin(HIGHLIGHT_LINEAGES)]
 
@@ -74,19 +88,25 @@ def main():
         label = f"{lin} (n={len(sub)})"
         ax.scatter(sub["UMAP_1"], sub["UMAP_2"], s=16, c=color, alpha=0.85, linewidths=0, label=label)
 
+    # Distinct label offsets per target so nearby points (MDA-MB-231, HAP1 sit close
+    # together) don't get overlapping text boxes.
+    label_offsets = {"K562": (10, 10), "THP1": (10, -14), "MDA-MB-231": (-14, 12), "HAP1": (12, -14)}
     target_rows = df[df["sampleID"].isin(TARGET_CELL_LINES)]
     for _, row in target_rows.iterrows():
         name = TARGET_CELL_LINES[row["sampleID"]]
         ax.scatter(row["UMAP_1"], row["UMAP_2"], s=260, facecolors="none", edgecolors="black",
                    linewidths=2.2, marker="o", zorder=5)
-        ax.annotate(name, (row["UMAP_1"], row["UMAP_2"]), xytext=(8, 8), textcoords="offset points",
+        ax.annotate(name, (row["UMAP_1"], row["UMAP_2"]), xytext=label_offsets[name], textcoords="offset points",
                     fontsize=12, fontweight="bold", zorder=6,
-                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="black", alpha=0.85))
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="black", alpha=0.9),
+                    arrowprops=dict(arrowstyle="-", color="black", linewidth=0.8))
 
-    # Proxy (invisible) legend entries: one per target, showing its closest neighbor's
-    # tissue, e.g. "Myeloid (K562)" -- these aren't separate plotted groups, just labels.
-    for lin, name in neighbor_pairs:
-        ax.scatter([], [], s=0, label=f"{lin} ({name})")
+    # Proxy (invisible) legend entries: one per target, showing the actual validation
+    # strength (k=15 same-true-lineage fraction), not just its single closest neighbor
+    # -- "Myeloid (K562): 15/15" vs "Myeloid (HAP1): 1/15" look identical if you only
+    # show the closest-neighbor lineage name, but they mean opposite things.
+    for name, closest_lineage, same in summaries:
+        ax.scatter([], [], s=0, label=f"{name}: {same}/{K_PURITY} share true lineage (closest pt: {closest_lineage})")
 
     ax.set_xlabel("UMAP_1")
     ax.set_ylabel("UMAP_2")
@@ -94,7 +114,7 @@ def main():
                  "Myeloid / Breast / Lymphoid / Skin highlighted, rest gray; "
                  "target cell lines circled + labeled")
     ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize=8, frameon=False,
-              title="Lineage / closest-neighbor tissue")
+              title="Lineage / target validation (k=15 same-lineage neighbors)")
     fig.tight_layout()
     fig.savefig(args.output, dpi=150, bbox_inches="tight")
     print(f"Saved -> {args.output}")
