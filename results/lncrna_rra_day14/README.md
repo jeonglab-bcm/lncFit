@@ -306,6 +306,37 @@ spread if reproducing this.
 Files: `feature_model_comparison/predictions_dnabert2_mlp.csv`, `metrics_dnabert2_mlp.csv`,
 `run_info_mlp.json`, `mlp_grid_dnabert2.csv` (full 27-row grid), `mlp_grid_dnabert2_best.json`.
 
+#### Follow-up: even smaller batch, even lower learning rate
+
+`scripts/grid_search_dnabert2_mlp_smaller_batch.py`: pushed both knobs further down --
+`batch_size` in `{4, 8}` (below the first grid's smallest, 16) and `learning_rate` in
+`{0.0001, 0.0002, 0.0005}` (below its smallest, 0.0005) -- holding `hidden=64` fixed at
+the AUPRC-best value above.
+
+| batch_size | learning_rate | AUROC | AUPRC |
+|---|---|---|---|
+| 8 | 0.0001 | 0.6655 | 0.1486 |
+| 4 | 0.0001 | 0.6711 | 0.1499 |
+| 4 | 0.0002 | 0.6714 | 0.1535 |
+| 8 | 0.0002 | 0.6763 | 0.1623 |
+| 8 | 0.0005 | 0.6779 | 0.1711 |
+| **4** | **0.0005** | **0.6920** | 0.1752 |
+
+Two clear, honest findings, not the ones a "smaller is better" story would predict:
+
+- **Lower learning rate did not help.** Within both batch groups, AUROC and AUPRC
+  increase monotonically as `lr` goes from 0.0001 up to 0.0005 (the *highest* of the
+  three values tried here, itself still lower than the first grid's overall-best
+  `lr=0.002`). Going lower than 0.0005 made things worse every time.
+- **`batch_size=4, lr=0.0005` sets a new best AUROC (0.6920)**, edging past the first
+  grid's 0.6901 -- but its AUPRC (0.1752) does not beat the first grid's best AUPRC
+  (0.1986, `batch_size=16, lr=0.002, hidden=64`). That config remains the one saved to
+  `predictions_dnabert2_mlp.csv` (picked by AUPRC, the established convention here);
+  this follow-up isn't re-saved since it doesn't improve on it by that metric.
+
+Files: `feature_model_comparison/mlp_grid_dnabert2_smaller_batch.csv`,
+`mlp_grid_dnabert2_smaller_batch_best.json`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned
