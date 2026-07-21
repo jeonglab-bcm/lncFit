@@ -25,6 +25,17 @@ def _load_celligner_embedding() -> dict[str, tuple[float, float]]:
     Celligner realignment against current DepMap data, covering HAP1, K562,
     MDA-MB-231, THP1. HEK293FT is absent (not a cancer cell line, never in
     CCLE/DepMap) and callers should zero-fill it -- see cell_embedding_block().
+
+    CAUTION -- HAP1's coordinates failed validation: 0/15 of its nearest CCLE
+    neighbors in this embedding share its true lineage (Myeloid), even though
+    Myeloid lines cluster very well overall (88.8% average purity, n=74), and
+    its position is the least stable of the 4 across independent reruns of this
+    same pipeline (see data/external/README.md's "Validation" section for the
+    full nearest-neighbor lineage-purity analysis). Kept in per explicit
+    request rather than zero-filled, but treat HAP1's specific coordinates with
+    real skepticism until this is resolved -- K562, THP1 validated cleanly;
+    MDA-MB-231 has a plausible (not confirmed) biological explanation for its
+    own lower purity.
     """
     global _celligner_embedding_cache
     if _celligner_embedding_cache is None:
@@ -45,6 +56,9 @@ def cell_embedding_block(records: list) -> tuple[np.ndarray, list[str]]:
     _build_embedding_block). Meant to sit alongside the existing cell_*
     one-hot columns, not replace them, since one-hot is still the only signal
     for cell lines this embedding doesn't cover.
+
+    See _load_celligner_embedding()'s docstring: HAP1's specific coordinates
+    here failed validation and should be treated with real skepticism.
     """
     embedding = _load_celligner_embedding()
     E = np.zeros((len(records), 2), dtype=np.float32)

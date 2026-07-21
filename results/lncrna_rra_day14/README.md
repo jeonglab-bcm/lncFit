@@ -360,12 +360,25 @@ and caveats. Result: HAP1, K562, MDA-MB-231, THP1 now have real 2-D coordinates
 a cancer cell line, never in CCLE/DepMap under any release) and is zero-filled
 wherever this embedding is used.
 
-Sanity check on the new alignment: K562 and THP1 (both blood/leukemia lineage)
-land much closer to each other (distance 3.6) than either does to MDA-MB-231, a
-breast line (11.5 / 14.2) -- the same qualitative structure as the original
-published alignment. HAP1 lands near MDA-MB-231 rather than the other blood
-lines, which is a genuine (if unverified) finding worth flagging, not
-necessarily a bug -- see `data/external/README.md`'s caveat section.
+**Validation (not just eyeballing distances among the 4 targets):** computed
+each target's k=15 nearest CCLE neighbors in the aligned space and checked what
+fraction share its true Oncotree lineage, against a baseline computed the same
+way for all 1,668 lineage-annotated CCLE lines (mean purity 53.8%, well above
+chance; Myeloid and Lymphoid lines cluster especially cleanly at 88.8%/96.1%).
+Result: **K562 and THP1 validate cleanly** (15/15 same-lineage neighbors, in
+line with Myeloid's already-high 88.8% average). **MDA-MB-231** scores 0/15,
+but Breast lines only average 54.9% purity to begin with and MDA-MB-231 is a
+documented mesenchymal-like outlier among breast cell lines -- a plausible,
+not confirmed, explanation. **HAP1 scores 0/15 despite sitting in a lineage
+(Myeloid) that otherwise clusters at 88.8%** -- a genuine outlier with no
+raw-expression QC explanation found, and the least stable of the 4 across
+independent reruns (7.04 UMAP-unit shift vs. 1.25-3.10 for the others).
+**HAP1's specific coordinates should be treated with real skepticism** (flagged
+`"UNRELIABLE"` in the data file) -- kept per explicit request, not because
+they've been shown trustworthy. Full analysis and the validation figure (all
+1,673 CCLE lines colored by lineage, targets circled) are in
+`data/external/README.md` and
+`celligner_embedding_comparison/alignment_validation.png`.
 
 `build_lncrna_features(..., include_celligner_embedding=True)` appends 2 columns
 (`cell_umap_1`, `cell_umap_2`) alongside (not replacing) the existing cell one-hot.
@@ -384,10 +397,16 @@ AUROC jumps (0.681 -> 0.721) while its AUPRC drops considerably (0.284 -> 0.159)
 HAP1 and THP1 both improve on AUROC; HEK293FT is roughly flat as expected (it gets
 no real embedding signal, only zeros). This is a single seed=42 run, not averaged
 over multiple seeds/folds -- a natural next step if pursuing this further, not
-done here given the scope already spent on the realignment itself.
+done here given the scope already spent on the realignment itself. **HAP1's
+contribution to this result should be read with the same caution as its
+coordinates** (see Validation above) -- its improvement here isn't independent
+evidence the coordinates are correct, since a model can pick up *some* signal
+from an unreliable embedding without that meaning the embedding reflects real
+biology.
 
 Files: `data/external/celligner_cell_line_umap.csv`, `data/external/README.md`,
-`celligner_embedding_comparison/summary.csv`, `celligner_embedding_comparison/run_info.json`.
+`celligner_embedding_comparison/summary.csv`, `celligner_embedding_comparison/run_info.json`,
+`celligner_embedding_comparison/alignment_validation.png`.
 
 ## Files
 

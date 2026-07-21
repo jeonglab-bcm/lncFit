@@ -1,0 +1,44 @@
+Baseline over all 1668 lineage-annotated CCLE lines:
+  mean purity=0.538  median=0.533
+
+                               mean  count
+lineage                                   
+Adrenal Gland              0.000000      2
+Other                      0.000000      1
+Embryonal                  0.000000      1
+Vulva/Vagina               0.000000      2
+Ampulla of Vater           0.000000      4
+Thyroid                    0.060606     22
+Hair                       0.066667      2
+Biliary Tract              0.087879     44
+Prostate                   0.102564     13
+Cervix                     0.143333     20
+Muscle                     0.160000      5
+Bladder/Urinary Tract      0.172973     37
+Esophagus/Stomach          0.214719     77
+Liver                      0.222222     27
+Uterus                     0.297674     43
+Pancreas                   0.307879     55
+Soft Tissue                0.348246     76
+Ovary/Fallopian Tube       0.365174     67
+Testis                     0.373333     10
+Head and Neck              0.445946     74
+Kidney                     0.450000     52
+CNS/Brain                  0.496000    100
+Eye                        0.501449     23
+Bone                       0.541818     55
+Breast                     0.548571     70
+Lung                       0.575389    214
+Pleura                     0.612121     22
+Bowel                      0.655039     86
+Fibroblast                 0.690598     39
+Peripheral Nervous System  0.748148     45
+Skin                       0.748889    120
+Myeloid                    0.888288     74
+Lymphoid                   0.960932    186
+
+Target cell lines (k=15 nearest CCLE neighbors):
+  K562         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.888
+  MDA-MB-231   true_lineage=Breast     same_lineage_neighbors=0/15  lineage_own_average_purity=0.549
+  THP1         true_lineage=Myeloid    same_lineage_neighbors=15/15  lineage_own_average_purity=0.888
+  HAP1         true_lineage=Myeloid    same_lineage_neighbors=0/15  lineage_own_average_purity=0.888

@@ -38,26 +38,81 @@ Inputs:
 **This is a fresh, self-consistent realignment, not a projection onto the
 published coordinates** — every cell line's coordinates (including K562,
 MDA-MB-231, THP1) were recomputed from this run, so they will not numerically
-match `Celligner_info.csv`'s published `UMAP_1`/`UMAP_2` values, though the
-qualitative structure matches (verified: K562-THP1, both blood/leukemia lineage,
-are much closer to each other than either is to MDA-MB-231, a breast line, same
-as in the original publication).
+match `Celligner_info.csv`'s published `UMAP_1`/`UMAP_2` values.
 
-**Caveat on HAP1's position:** it lands near MDA-MB-231 rather than near the
-other blood-lineage lines (K562, THP1) in this alignment. This may be a genuine
-biological signal — HAP1 is known to grow adherently (unlike typical suspension
-leukemia lines) and has been extensively altered by its haploidization/selection
-process relative to its CML-derived parental line (KBM-7) — but it has not been
-independently verified beyond the sanity checks above, and should be treated with
-appropriate caution.
+## Validation
+
+Eyeballing distances among just our 4 target cell lines isn't a real validation —
+it can't distinguish "the alignment reflects real biology" from "these 4 points
+happen to be arranged plausibly by chance." Instead: computed each of the 4
+targets' **k=15 nearest CCLE neighbors** in the aligned UMAP space, and checked
+what fraction share the *same Oncotree lineage* (`Model.csv`'s
+`OncotreeLineage`) — then compared that against the same nearest-neighbor-purity
+statistic computed for **all 1,668 lineage-annotated CCLE cell lines**, not just
+our 4, as a baseline for what "good" and "bad" purity look like in this specific
+alignment.
+
+**Baseline (all 1,668 CCLE lines):** mean same-lineage purity 53.8%, median
+53.3% — well above what 34 categories of very unequal size would give by chance.
+Purity varies a lot by lineage: well-populated ones cluster very cleanly
+(Lymphoid 96.1% n=186, Myeloid 88.8% n=74, Skin 74.9% n=120), while small/rare
+lineages are noisy (Adrenal Gland, Ampulla of Vater, Vulva/Vagina: 0%, but
+n=1-4 each). This confirms the alignment mechanism itself is sound and
+recovering real biological structure, which is the necessary context for judging
+the 4 target lines below.
+
+| cell line | true lineage | same-lineage neighbors (of 15) | lineage's own average purity | run-to-run coordinate shift |
+|---|---|---|---|---|
+| **K562** | Myeloid | **15/15** | 88.8% (n=74) | 2.51 |
+| **THP1** | Myeloid | **15/15** | 88.8% (n=74) | 1.25 (most stable) |
+| MDA-MB-231 | Breast | 0/15 | 54.9% (n=70) | 3.10 |
+| **HAP1** | Myeloid | **0/15** | 88.8% (n=74) | **7.04 (least stable)** |
+
+- **K562, THP1: validated.** Both land with maximal same-lineage purity, in a
+  lineage that already clusters very cleanly overall.
+- **MDA-MB-231: 0/15, but plausible.** Breast lines only average 54.9% purity
+  to begin with (a noisier lineage than Myeloid), and MDA-MB-231 is a
+  well-documented mesenchymal-like, triple-negative outlier among breast cancer
+  cell lines (unlike more common epithelial/luminal breast lines) — a real
+  discrepancy from naive expectation, but with a defensible biological
+  explanation. Not confirmed further than that.
+- **HAP1: 0/15, and NOT explained.** Myeloid lines cluster at 88.8% purity
+  overall — HAP1 is a genuine outlier *within an otherwise very clean lineage*,
+  not just "different from 3 comparison points." Checked for an obvious
+  technical explanation and found none: HAP1's raw expression has no unusual
+  zero-count or NaN rate versus K562/THP1, and its raw whole-transcriptome
+  correlation to K562 (0.858), THP1 (0.833), and MDA-MB-231 (0.855) are all
+  similar — raw correlation doesn't discriminate here either way. HAP1's
+  position is also the **least stable of the 4 across two independent runs of
+  the identical pipeline on identical data** (shift of 7.04 UMAP units, vs.
+  1.25–3.10 for the other 3). Three independent signals (lineage-purity outlier
+  in an otherwise-clean lineage, no raw-data explanation, worst run-to-run
+  stability) all point the same way.
+
+**Bottom line: treat HAP1's specific coordinates in `celligner_cell_line_umap.csv`
+with real skepticism** (flagged as `"UNRELIABLE"` in that file's `reliability`
+column) until this is investigated further — kept rather than zero-filled per
+explicit request, not because it's been shown trustworthy. K562 and THP1 are
+solid; MDA-MB-231 has a plausible but unconfirmed explanation for its own lower
+purity.
+
+Validation figure: `results/lncrna_rra_day14/celligner_embedding_comparison/alignment_validation.png`
+(`scripts/plot_celligner_validation.py`) — all 1,673 CCLE cell lines colored by
+Oncotree lineage, tumor samples as a gray background cloud, target cell lines
+circled and labeled.
 
 **Known deviations from the original method** (approximations, not exact
 reproductions): clustering uses a plain KNN-graph + Louvain (`igraph`) rather than
 Seurat's specific SNN-graph construction; this only affects the intermediate
 cluster-mean-subtraction and DE-gene-subset-selection steps, not the core cPCA/MNN
-math. Tumor samples have no lineage/subtype annotations (Treehouse clinical
-metadata was not fetched, since it's not used mathematically by the algorithm).
+math. Tumor samples used in the validation figure's background have disease-type
+annotations from Treehouse's `clinical_TumorCompendium_v10_PolyA_2019-07-25.tsv`
+(joined on sample ID, ~99.99% match rate), but tumor lineage/disease is not used
+anywhere in the alignment math itself, only for the validation plot.
 
 Reproduction script (not checked into this repo — large raw inputs, one-off run):
-available on request; downloads ~6.2GB of raw expression data and takes ~10
-minutes to run on a 32GB-RAM machine.
+available on request; downloads ~11GB of raw expression + clinical data and takes
+~10 minutes to run on a 32GB-RAM machine. Re-running produces qualitatively
+similar but not numerically identical coordinates (UMAP + Louvain clustering are
+not perfectly deterministic even with a fixed seed) — see the run-to-run shift
+column above.
