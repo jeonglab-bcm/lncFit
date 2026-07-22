@@ -1,0 +1,30 @@
+# Grid search over configs/search_spaces/logreg.yaml, stratified K-fold CV,
+# plain k-mer features (no Celligner embedding).
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/logreg_kmer_grid.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 3
+  include_distance: false
+  cell_embedding_dim: 0
+
+model:
+  name: logreg
+
+tuning:
+  method: grid
+  search_space: configs/search_spaces/logreg.yaml
+  metric: auprc
+
+cv:
+  strategy: stratified
+  n_splits: 5
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs

@@ -1,0 +1,32 @@
+# DNABERT-2 embeddings instead of k-mers, MLP classification head, fixed
+# hyperparameters, plus the Celligner PCA(10) cell-line embedding (issue #78).
+# Requires data/processed/dnabert2_transcript_full.npz -- build it first with
+# scripts/embed_sequences.py.
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/mlp_dnabert2_fixed.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: false
+  cell_embedding_dim: 10
+
+model:
+  name: mlp
+  params:
+    hidden: 128
+    dropout: 0.2
+    lr: 0.001
+
+tuning:
+  method: fixed
+
+cv:
+  strategy: none
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs

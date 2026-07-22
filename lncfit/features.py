@@ -542,21 +542,28 @@ def build_lncrna_embedding_features(
     embeddings: tuple[np.ndarray, dict[str, int]],
     include_cell_line: bool = True,
     include_distance: bool = False,
+    celligner_embedding_dim: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Build features from precomputed per-lncRNA embeddings (e.g. DNABERT-2).
 
     embeddings = (matrix, index) from lncfit.embeddings.load_embeddings(): matrix is
     (n_lncRNAs, n_dims) float32, index maps target (lncRNA gene_id) -> row. Each
     record's feature vector is its target's embedding row + optional cell-line
-    one-hot [+ distance]. A target absent from the index gets a zero embedding
-    (same convention as the k-mer builder). Returns dense (X, y, columns); y is the
-    binary hit label.
+    one-hot [+ celligner embedding] [+ distance]. A target absent from the index
+    gets a zero embedding (same convention as the k-mer builder). Returns dense
+    (X, y, columns); y is the binary hit label.
+
+    celligner_embedding_dim: same meaning as in build_lncrna_features -- 0 (default)
+    = off, 2 = the 2-D Celligner UMAP, up to 70 = the pre-UMAP PCA space (issue #78).
+    Appended alongside the cell one-hot, feature-type-independent so k-mer and
+    DNABERT-2 runs can be compared at the same cell-embedding setting.
     """
     matrix, index = embeddings
     n_dims = matrix.shape[1]
     emb_cols = [f"dnabert_{j}" for j in range(n_dims)]
     cell_cols = [f"cell_{c}" for c in _CELL_LINES] if include_cell_line else []
-    columns = emb_cols + cell_cols
+    celligner_cols = [f"cell_embed_{i + 1}" for i in range(celligner_embedding_dim)]
+    columns = emb_cols + cell_cols + celligner_cols
     if include_distance:
         columns.append("distance_to_closest_pc_gene")
 
@@ -564,6 +571,7 @@ def build_lncrna_embedding_features(
     X = np.zeros((n, len(columns)), dtype=np.float32)
     y = np.empty(n, dtype=np.float32)
     cell_offset = n_dims
+    celligner_offset = cell_offset + len(cell_cols)
     for i, r in enumerate(records):
         row = index.get(r.target)
         if row is not None:
@@ -577,4 +585,7 @@ def build_lncrna_embedding_features(
             dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
             X[i, -1] = float(dist)
         y[i] = r.label
+    if celligner_embedding_dim > 0:
+        E, _ = cell_embedding_block(records, dim=celligner_embedding_dim)
+        X[:, celligner_offset : celligner_offset + celligner_embedding_dim] = E
     return X, y, columns

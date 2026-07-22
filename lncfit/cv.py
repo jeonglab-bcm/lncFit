@@ -254,3 +254,52 @@ def build_lncrna_stratified_folds(
         gc.collect()
 
     return fold_ids, fold_data, feature_cols
+
+
+def make_cv_splits(
+    records: list,
+    strategy: str,
+    n_splits: int = 5,
+    seed: int = 42,
+) -> list[tuple[np.ndarray, np.ndarray, str]]:
+    """Feature-type-agnostic CV split masks: (train_mask, val_mask, fold_label) triples.
+
+    Unlike build_lncrna_folds/build_lncrna_stratified_folds above (which refit a
+    k-mer vocabulary per fold and build feature matrices themselves), this only
+    returns boolean masks over `records` -- it doesn't know or care whether the
+    caller's feature matrix came from k-mers, DNABERT-2 embeddings, or anything
+    else. Used by lncfit.pipeline.LncRnaPipeline so the same tuning/CV code path
+    works regardless of --features choice.
+
+    strategy="chrom": chromosome LOCO-CV, one fold per chromosome with
+    >= MIN_FOLD_RECORDS records (same grouping as build_lncrna_folds).
+    strategy="stratified": plain StratifiedKFold over the binary label, ignoring
+    chromosome. As documented in build_lncrna_stratified_folds, this is NOT
+    leak-free for k-mer features (every cell-line row of a given lncRNA shares one
+    k-mer vector), and the vocabulary here is fit once on all records rather than
+    per fold -- a simplification accepted for a single generic code path across
+    feature types, not a claim of leak-free CV.
+    """
+    if strategy == "chrom":
+        chrom_arr = np.array([r.chrom for r in records])
+        counts = Counter(chrom_arr)
+        chroms = sorted(
+            [str(c) for c, n in counts.items() if c and n >= MIN_FOLD_RECORDS],
+            key=lambda x: (len(x), x),
+        )
+        return [(chrom_arr != c, chrom_arr == c, f"chr{c}") for c in chroms]
+    elif strategy == "stratified":
+        from sklearn.model_selection import StratifiedKFold
+
+        y = np.array([r.label for r in records])
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+        splits = []
+        for i, (train_idx, val_idx) in enumerate(skf.split(np.zeros(len(y)), y)):
+            train_mask = np.zeros(len(y), dtype=bool)
+            val_mask = np.zeros(len(y), dtype=bool)
+            train_mask[train_idx] = True
+            val_mask[val_idx] = True
+            splits.append((train_mask, val_mask, f"fold{i}"))
+        return splits
+    else:
+        raise ValueError(f"Unknown CV strategy {strategy!r}. Expected 'chrom' or 'stratified'.")

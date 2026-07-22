@@ -1,0 +1,155 @@
+import json
+
+import pytest
+
+from lncfit.pipeline import LncRnaPipeline
+from lncfit.screen_data import LncRnaRecord, save_jsonl
+
+_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
+
+
+def _synthetic_records(n_targets, offset=0):
+    """n_targets lncRNAs x 5 cell lines, ~20% hit rate, 3 chromosomes."""
+    records = []
+    for i in range(n_targets):
+        target = f"T{offset + i}"
+        label = 1 if i % 5 == 0 else 0
+        chrom = str(i % 3)
+        for cell_line in _CELL_LINES:
+            records.append(LncRnaRecord(
+                target=target, cell_line=cell_line, day=14,
+                rra_pvalue=0.01 if label else 0.5, fold_change=-1.0 if label else 0.1,
+                label=label, chrom=chrom,
+            ))
+    return records
+
+
+def _synthetic_transcript_sequences(n_targets, offset=0):
+    bases = "ACGT"
+    return {
+        f"T{offset + i}": "".join(bases[(i * 7 + j * 3) % 4] for j in range(40))
+        for i in range(n_targets)
+    }
+
+
+@pytest.fixture
+def data_files(tmp_path):
+    train_records = _synthetic_records(30, offset=0)
+    test_records = _synthetic_records(10, offset=30)
+    train_path = tmp_path / "train.jsonl.gz"
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(train_records, train_path)
+    save_jsonl(test_records, test_path)
+
+    seqs = {**_synthetic_transcript_sequences(30, 0), **_synthetic_transcript_sequences(10, 30)}
+    seqs_path = tmp_path / "transcript_sequences.json"
+    with open(seqs_path, "w") as fh:
+        json.dump({gid: [seq, ""] for gid, seq in seqs.items()}, fh)
+
+    return {"train": str(train_path), "test": str(test_path), "transcript_sequences": str(seqs_path)}
+
+
+def _base_config(data_files, tmp_path, **overrides):
+    config = {
+        "data": data_files,
+        "features": {"type": "kmer", "k": 3, "cell_embedding_dim": 0},
+        "model": {"name": "logreg", "params": {"C": 1.0}},
+        "tuning": {"method": "fixed"},
+        "cv": {"strategy": "none"},
+        "seed": 42,
+        "output_dir": str(tmp_path / "runs"),
+    }
+    config.update(overrides)
+    return config
+
+
+def test_fixed_run_end_to_end(data_files, tmp_path):
+    config = _base_config(data_files, tmp_path, cv={"strategy": "stratified", "n_splits": 3})
+    pipeline = LncRnaPipeline(config)
+    result = pipeline.run()
+
+    run_dir = pipeline.output_dir
+    runs = list(run_dir.iterdir())
+    assert len(runs) == 1
+    files = {p.name for p in runs[0].iterdir()}
+    assert {"config.yaml", "best_params.json", "cv_scores.csv", "metrics.csv",
+            "predictions.csv", "run_info.json"} <= files
+
+    assert result["best_params"] == {"C": 1.0}
+    assert "auroc" in result["overall"] and "auprc" in result["overall"]
+
+    with open(runs[0] / "best_params.json") as fh:
+        assert json.load(fh) == {"C": 1.0}
+
+    import pandas as pd
+    cv_scores = pd.read_csv(runs[0] / "cv_scores.csv")
+    assert len(cv_scores) == 3  # one row per stratified fold
+
+    predictions = pd.read_csv(runs[0] / "predictions.csv")
+    assert len(predictions) == 10 * len(_CELL_LINES)  # test set size
+
+
+def test_grid_tuning_picks_a_value_from_the_search_space(data_files, tmp_path):
+    search_space_path = tmp_path / "logreg_search.yaml"
+    search_space_path.write_text("C:\n  grid: [0.01, 100.0]\n")
+
+    config = _base_config(
+        data_files, tmp_path,
+        model={"name": "logreg"},
+        tuning={"method": "grid", "search_space": str(search_space_path), "metric": "auprc"},
+        cv={"strategy": "stratified", "n_splits": 2},
+    )
+    pipeline = LncRnaPipeline(config)
+    result = pipeline.run()
+
+    assert result["best_params"]["C"] in (0.01, 100.0)
+
+    import pandas as pd
+    run_dir = list(pipeline.output_dir.iterdir())[0]
+    cv_scores = pd.read_csv(run_dir / "cv_scores.csv")
+    assert len(cv_scores) == 2  # one row per grid combo (only C varies)
+
+
+def test_dnabert2_features_and_celligner_dim(tmp_path, data_files):
+    import numpy as np
+
+    targets = [f"T{i}" for i in range(30)] + [f"T{i}" for i in range(30, 40)]
+    matrix = np.random.default_rng(0).random((len(targets), 4)).astype(np.float32)
+    index = {t: i for i, t in enumerate(targets)}
+    emb_path = tmp_path / "embeddings.npz"
+    np.savez(emb_path, embeddings=matrix, index=json.dumps(index))
+
+    data_no_seqs = {k: v for k, v in data_files.items() if k != "transcript_sequences"}
+    config = _base_config(
+        data_files, tmp_path,
+        data=data_no_seqs,
+        features={"type": "dnabert2", "embeddings": str(emb_path), "cell_embedding_dim": 2},
+        model={"name": "logreg", "params": {"C": 1.0}},
+        tuning={"method": "fixed"},
+        cv={"strategy": "none"},
+    )
+    pipeline = LncRnaPipeline(config)
+    result = pipeline.run()
+    assert "auroc" in result["overall"]
+
+
+def test_config_validation_rejects_tuning_without_cv(data_files, tmp_path):
+    config = _base_config(
+        data_files, tmp_path,
+        tuning={"method": "grid", "search_space": "irrelevant.yaml"},
+        cv={"strategy": "none"},
+    )
+    with pytest.raises(ValueError, match="cv.strategy"):
+        LncRnaPipeline(config)
+
+
+def test_config_validation_rejects_bad_feature_type(data_files, tmp_path):
+    config = _base_config(data_files, tmp_path, features={"type": "bogus"})
+    with pytest.raises(ValueError, match="features.type"):
+        LncRnaPipeline(config)
+
+
+def test_config_validation_requires_embeddings_for_dnabert2(data_files, tmp_path):
+    config = _base_config(data_files, tmp_path, features={"type": "dnabert2"})
+    with pytest.raises(ValueError, match="features.embeddings"):
+        LncRnaPipeline(config)

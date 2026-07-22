@@ -415,6 +415,29 @@ Files: `data/external/celligner_cell_line_umap.csv`, `data/external/celligner_ce
 `data/external/README.md`, `celligner_embedding_comparison/summary.csv`,
 `celligner_embedding_comparison/run_info.json`, `celligner_embedding_comparison/alignment_validation.png`.
 
+## Pluggable pipeline (config-driven runner)
+
+Every comparison above used a separate script per axis (a script per model, a
+separate DNABERT-2 runner, XGBoost-only Optuna tuning, ad hoc grid searches).
+`scripts/run_pipeline.py` + `lncfit.pipeline.LncRnaPipeline` collapses all of that
+into one YAML-configured entry point: pick the model (any
+`lncfit.classifiers` registry name), the feature type (k-mer or DNABERT-2), the
+cell-line embedding (one-hot, Celligner UMAP, or PCA at any dimension), the
+tuning method (fixed / grid / Optuna), and the CV strategy (none / chromosome /
+stratified) all in one config file, then:
+
+```bash
+uv run python scripts/run_pipeline.py --config configs/pipeline/xgboost_kmer_optuna.yaml
+```
+
+See `configs/README.md` for the full schema, `configs/pipeline/*.yaml` for
+ready-to-run examples, and `configs/search_spaces/*.yaml` for the grid/Optuna
+hyperparameter ranges per model. This runner is additive -- the model-specific
+tuning scripts referenced elsewhere in this file (`tune_lncrna_xgboost.py`,
+`tune_lncrna_stratified.py`, the one-off `grid_search_*.py` probes) still exist
+and still produce the exact numbers already reported above; this is the place to
+run a *new* combination without writing a new script.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned
