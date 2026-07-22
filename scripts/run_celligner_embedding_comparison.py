@@ -1,9 +1,10 @@
-"""Does adding the Celligner cell-line embedding (issue #78) help the k=5 kmer model?
+"""Does adding the Celligner cell-line embedding (issue #78) help the k=5 kmer model,
+and does the embedding's dimensionality matter?
 
 Same k=5 kmer features, same stratified 90/10 split (seed=42), same chr1 held-out
 test, and the same best-known xgboost hyperparameters from the feature x model
 comparison (results/lncrna_rra_day14/README.md) -- the only thing that changes is
-include_celligner_embedding: on vs off.
+celligner_embedding_dim: 0 (off), 2 (2-D UMAP), 10 or 70 (pre-UMAP PCA columns).
 """
 import json
 import sys
@@ -22,6 +23,7 @@ from lncfit.xgboost_model import evaluate_lncrna_by_group
 
 K = 5
 SEED = 42
+EMBEDDING_DIMS = [0, 2, 10, 70]
 XGB_PARAMS = {
     "learning_rate": 0.02, "max_depth": 9, "subsample": 0.5,
     "colsample_bytree": 0.9, "min_child_weight": 3, "reg_alpha": 3.188749808609341,
@@ -48,18 +50,15 @@ def main():
     vocab = fit_vocab([transcript_sequences[t] for t in train_targets if t in transcript_sequences], K)
 
     rows = []
-    for use_embedding in [False, True]:
+    for dim in EMBEDDING_DIMS:
         X_tr, y_tr, _ = build_lncrna_features(
-            final_train, transcript_sequences, k=K, vocab=vocab,
-            include_celligner_embedding=use_embedding,
+            final_train, transcript_sequences, k=K, vocab=vocab, celligner_embedding_dim=dim,
         )
         X_es, y_es, _ = build_lncrna_features(
-            final_es, transcript_sequences, k=K, vocab=vocab,
-            include_celligner_embedding=use_embedding,
+            final_es, transcript_sequences, k=K, vocab=vocab, celligner_embedding_dim=dim,
         )
         X_test, y_test, _ = build_lncrna_features(
-            test_records, transcript_sequences, k=K, vocab=vocab,
-            include_celligner_embedding=use_embedding,
+            test_records, transcript_sequences, k=K, vocab=vocab, celligner_embedding_dim=dim,
         )
 
         model = xgb.XGBClassifier(
@@ -70,10 +69,10 @@ def main():
         y_pred = model.predict_proba(X_test)[:, 1]
         metrics_rows = evaluate_lncrna_by_group(test_records, y_test, y_pred)
         overall = next(r for r in metrics_rows if r["split"] == "Overall")
-        row = {"celligner_embedding": use_embedding, "n_features": X_tr.shape[1],
+        row = {"celligner_embedding_dim": dim, "n_features": X_tr.shape[1],
                "auroc": overall["auroc"], "auprc": overall["auprc"]}
         rows.append(row)
-        print(f"celligner_embedding={use_embedding}  n_features={X_tr.shape[1]}  "
+        print(f"celligner_embedding_dim={dim}  n_features={X_tr.shape[1]}  "
               f"AUROC={overall['auroc']:.4f}  AUPRC={overall['auprc']:.4f}")
         for r in metrics_rows:
             if r["split"] != "Overall":
@@ -84,7 +83,8 @@ def main():
     df = pd.DataFrame(rows)
     df.to_csv(out_dir / "summary.csv", index=False)
     with open(out_dir / "run_info.json", "w") as fh:
-        json.dump({"k": K, "seed": SEED, "xgb_params": XGB_PARAMS, "git_commit": git_commit()}, fh, indent=2)
+        json.dump({"k": K, "seed": SEED, "embedding_dims": EMBEDDING_DIMS,
+                   "xgb_params": XGB_PARAMS, "git_commit": git_commit()}, fh, indent=2)
     print(f"\nSaved -> {out_dir / 'summary.csv'}")
 
 

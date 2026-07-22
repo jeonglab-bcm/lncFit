@@ -14,59 +14,89 @@ _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
 _DAYS = [7, 14]
 _COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
 
-_CELLIGNER_EMBEDDING_PATH = Path(__file__).parent.parent / "data" / "external" / "celligner_cell_line_umap.csv"
-_celligner_embedding_cache: dict[str, tuple[float, float]] | None = None
+_CELLIGNER_UMAP_PATH = Path(__file__).parent.parent / "data" / "external" / "celligner_cell_line_umap.csv"
+_CELLIGNER_PCA_PATH = Path(__file__).parent.parent / "data" / "external" / "celligner_cell_line_pca.csv"
+_celligner_umap_cache: dict[str, tuple[float, float]] | None = None
+_celligner_pca_cache: dict[str, np.ndarray] | None = None
 
 
-def _load_celligner_embedding() -> dict[str, tuple[float, float]]:
+def _load_celligner_umap() -> dict[str, tuple[float, float]]:
     """Load the 2-D Celligner UMAP coordinates for the cell lines that have one.
 
     See data/external/README.md for provenance (issue #78): a from-scratch
     Celligner realignment against current DepMap data, covering HAP1, K562,
     MDA-MB-231, THP1. HEK293FT is absent (not a cancer cell line, never in
     CCLE/DepMap) and callers should zero-fill it -- see cell_embedding_block().
-
-    CAUTION -- HAP1's coordinates failed validation: 0/15 of its nearest CCLE
-    neighbors in this embedding share its true lineage (Myeloid), even though
-    Myeloid lines cluster very well overall (88.8% average purity, n=74), and
-    its position is the least stable of the 4 across independent reruns of this
-    same pipeline (see data/external/README.md's "Validation" section for the
-    full nearest-neighbor lineage-purity analysis). Kept in per explicit
-    request rather than zero-filled, but treat HAP1's specific coordinates with
-    real skepticism until this is resolved -- K562, THP1 validated cleanly;
-    MDA-MB-231 has a plausible (not confirmed) biological explanation for its
-    own lower purity.
     """
-    global _celligner_embedding_cache
-    if _celligner_embedding_cache is None:
+    global _celligner_umap_cache
+    if _celligner_umap_cache is None:
         cache: dict[str, tuple[float, float]] = {}
-        with open(_CELLIGNER_EMBEDDING_PATH) as fh:
+        with open(_CELLIGNER_UMAP_PATH) as fh:
             for row in csv.DictReader(fh):
                 cache[row["cell_line"]] = (float(row["UMAP_1"]), float(row["UMAP_2"]))
-        _celligner_embedding_cache = cache
-    return _celligner_embedding_cache
+        _celligner_umap_cache = cache
+    return _celligner_umap_cache
 
 
-def cell_embedding_block(records: list) -> tuple[np.ndarray, list[str]]:
-    """Return (E, col_names) of 2-D Celligner cell-line embedding coordinates.
+def _load_celligner_pca() -> dict[str, np.ndarray]:
+    """Load the full 70-D Celligner PCA scores: the aligned representation
+    Celligner computes internally just before the final 2-D UMAP projection.
+    Never published by the original method (only the 2-D UMAP is) -- available
+    here only because this project's from-scratch reimplementation (issue #78)
+    exported it. See data/external/README.md for provenance.
+    """
+    global _celligner_pca_cache
+    if _celligner_pca_cache is None:
+        cache: dict[str, np.ndarray] = {}
+        with open(_CELLIGNER_PCA_PATH) as fh:
+            reader = csv.DictReader(fh)
+            pc_cols = [c for c in reader.fieldnames if c.startswith("PC")]
+            for row in reader:
+                cache[row["cell_line"]] = np.array([row[c] for c in pc_cols], dtype=np.float32)
+        _celligner_pca_cache = cache
+    return _celligner_pca_cache
 
-    E is float32 (n_records, 2); a record whose cell_line has no Celligner
+
+def cell_embedding_block(records: list, dim: int = 2) -> tuple[np.ndarray, list[str]]:
+    """Return (E, col_names) of Celligner cell-line embedding coordinates.
+
+    dim=2 (default): the 2-D UMAP projection Celligner normally publishes.
+    dim>2 (up to 70): the top `dim` columns of the pre-UMAP 70-D PCA space
+    (see _load_celligner_pca()) -- a richer, higher-dimensional alternative.
+
+    Dimensionality is a real hyperparameter here, not just "more is better":
+    nearest-neighbor lineage-purity checks found dim=10 raw PCA is actually
+    WORSE than dim=2 UMAP at recovering known cell lineage clusters (K562 drops
+    from 15/15 to 3/15) -- UMAP's nonlinear neighbor-preserving objective beats
+    a handful of raw linear PCA directions; only using close to all 70 PCs
+    matches or exceeds 2-D UMAP's quality (K562 14/15, THP1 15/15 at dim=70).
+
+    E is float32 (n_records, dim); a record whose cell_line has no Celligner
     coordinates (currently only HEK293FT) gets a zero vector -- the same
     missing-value convention used elsewhere in this module (see
     _build_embedding_block). Meant to sit alongside the existing cell_*
     one-hot columns, not replace them, since one-hot is still the only signal
     for cell lines this embedding doesn't cover.
 
-    See _load_celligner_embedding()'s docstring: HAP1's specific coordinates
-    here failed validation and should be treated with real skepticism.
+    CAUTION -- HAP1's coordinates failed validation at every dimensionality
+    checked (2, 10, 70): 0/15 of its nearest CCLE neighbors share its true
+    lineage (Myeloid), even though Myeloid lines cluster very well overall
+    (~89% average purity, n=74), and its position is the least stable of the 4
+    across independent reruns of this pipeline (see data/external/README.md's
+    "Validation" section). Kept in per explicit request rather than
+    zero-filled, but treat HAP1's specific coordinates with real skepticism --
+    K562 and THP1 validated cleanly at every dimensionality; MDA-MB-231 has a
+    plausible (not confirmed) biological explanation for its own lower purity,
+    independently confirmed against the official published Celligner alignment.
     """
-    embedding = _load_celligner_embedding()
-    E = np.zeros((len(records), 2), dtype=np.float32)
+    embedding = _load_celligner_umap() if dim == 2 else _load_celligner_pca()
+    E = np.zeros((len(records), dim), dtype=np.float32)
     for i, r in enumerate(records):
         coords = embedding.get(r.cell_line)
         if coords is not None:
-            E[i] = coords
-    return E, ["cell_umap_1", "cell_umap_2"]
+            E[i] = np.asarray(coords, dtype=np.float32)[:dim]
+    col_prefix = "cell_umap_" if dim == 2 else "cell_pca_"
+    return E, [f"{col_prefix}{i + 1}" for i in range(dim)]
 
 
 def _revcomp(seq: str) -> str:
@@ -414,7 +444,7 @@ def build_lncrna_features(
     include_distance: bool = False,
     vocab: list[str] | None = None,
     sparse: bool = False,
-    include_celligner_embedding: bool = False,
+    celligner_embedding_dim: int = 0,
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, binary label vector y, and column names from LncRnaRecords.
 
@@ -426,11 +456,12 @@ def build_lncrna_features(
     day one-hot (records are single-day). y is the binary hit label (r.label), not a
     continuous fold-change.
 
-    include_celligner_embedding=True appends 2 columns (cell_umap_1, cell_umap_2) from
-    cell_embedding_block() -- a real transcriptomic-similarity embedding for the cell
-    line (see issue #78, data/external/README.md), alongside (not replacing) the
-    existing cell_* one-hot, since it doesn't cover every cell line (HEK293FT is
-    zero-filled).
+    celligner_embedding_dim: 0 (default) = no Celligner embedding. 2 = the 2-D UMAP
+    Celligner normally publishes. >2 (up to 70) = that many columns of the richer
+    pre-UMAP PCA space (see cell_embedding_block() -- dimensionality is a real
+    hyperparameter here, not simply "more is better"). Appended alongside, not
+    replacing, the existing cell_* one-hot, since the embedding doesn't cover every
+    cell line (HEK293FT is zero-filled; see issue #78, data/external/README.md).
     """
     if vocab is None:
         vocab = all_kmers(k)
@@ -439,7 +470,7 @@ def build_lncrna_features(
 
     cell_cols = [f"cell_{c}" for c in _CELL_LINES]
     columns = vocab + cell_cols
-    embed_cols = ["cell_umap_1", "cell_umap_2"] if include_celligner_embedding else []
+    embed_cols = [f"cell_embed_{i + 1}" for i in range(celligner_embedding_dim)]
     columns = columns + embed_cols
     if include_distance:
         columns.append("distance_to_closest_pc_gene")
@@ -452,7 +483,10 @@ def build_lncrna_features(
     freqs = _lncrna_kmer_freqs(records, transcript_sequences, k, vocab_index)
 
     if sparse:
-        embedding = _load_celligner_embedding() if include_celligner_embedding else None
+        embedding = (
+            (_load_celligner_umap() if celligner_embedding_dim == 2 else _load_celligner_pca())
+            if celligner_embedding_dim > 0 else None
+        )
         row_idx: list[int] = []
         col_idx: list[int] = []
         vals: list[float] = []
@@ -470,10 +504,10 @@ def build_lncrna_features(
             if embedding is not None:
                 coords = embedding.get(r.cell_line)
                 if coords is not None:
-                    for j, val in enumerate(coords):
+                    for j, val in enumerate(np.asarray(coords)[:celligner_embedding_dim]):
                         row_idx.append(i)
                         col_idx.append(embed_offset + j)
-                        vals.append(val)
+                        vals.append(float(val))
             if include_distance:
                 dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
                 row_idx.append(i)
@@ -497,9 +531,9 @@ def build_lncrna_features(
             dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
             X_dense[i, n_cols - 1] = float(dist)
         y[i] = r.label
-    if include_celligner_embedding:
-        E, _ = cell_embedding_block(records)
-        X_dense[:, embed_offset : embed_offset + 2] = E
+    if celligner_embedding_dim > 0:
+        E, _ = cell_embedding_block(records, dim=celligner_embedding_dim)
+        X_dense[:, embed_offset : embed_offset + celligner_embedding_dim] = E
     return X_dense, y, columns
 
 
