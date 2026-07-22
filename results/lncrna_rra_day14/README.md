@@ -380,33 +380,40 @@ they've been shown trustworthy. Full analysis and the validation figure (all
 `data/external/README.md` and
 `celligner_embedding_comparison/alignment_validation.png`.
 
-`build_lncrna_features(..., include_celligner_embedding=True)` appends 2 columns
-(`cell_umap_1`, `cell_umap_2`) alongside (not replacing) the existing cell one-hot.
+`build_lncrna_features(..., celligner_embedding_dim=N)` appends N columns
+alongside (not replacing) the existing cell one-hot: N=2 is the 2-D UMAP
+Celligner normally publishes; N=10/70 uses that many columns of the richer
+pre-UMAP PCA space this reimplementation also exports (`celligner_cell_line_pca.csv`
+-- see `data/external/README.md`). Dimensionality is itself a hyperparameter here.
 `scripts/run_celligner_embedding_comparison.py`: k=5 kmer features, the same
-best-known xgboost hyperparameters from the feature x model comparison above, on
-vs off, same chr1 held-out test:
+best-known xgboost hyperparameters from the feature x model comparison above,
+dim in `{0, 2, 10, 70}`, same chr1 held-out test:
 
-| celligner embedding | AUROC | AUPRC |
-|---|---|---|
-| off | 0.6251 | 0.1329 |
-| **on** | **0.6395** | **0.1353** |
+| dim | n_features | AUROC | AUPRC |
+|---|---|---|---|
+| 0 (off) | 1029 | 0.6251 | 0.1329 |
+| **2 (UMAP)** | 1031 | 0.6395 | **0.1353** |
+| 10 (PCA) | 1039 | 0.6529 | 0.1203 |
+| **70 (PCA)** | 1099 | **0.6537** | 0.1194 |
 
-A modest, real improvement on both metrics (AUROC +2.3%, AUPRC +1.8%) from just 2
-extra columns -- but per-cell-line it's mixed, not a uniform win: MDA-MB-231's
-AUROC jumps (0.681 -> 0.721) while its AUPRC drops considerably (0.284 -> 0.159);
-HAP1 and THP1 both improve on AUROC; HEK293FT is roughly flat as expected (it gets
-no real embedding signal, only zeros). This is a single seed=42 run, not averaged
-over multiple seeds/folds -- a natural next step if pursuing this further, not
-done here given the scope already spent on the realignment itself. **HAP1's
-contribution to this result should be read with the same caution as its
-coordinates** (see Validation above) -- its improvement here isn't independent
+Not "bigger is better": AUROC climbs steadily with more dimensions, but AUPRC
+(the more informative metric at ~5% positive rate) peaks at dim=2 and gets
+*worse* at 10/70 -- more embedding columns add noise/overfit risk for a model
+that only needs to distinguish 5 categories. At dim=2, per-cell-line it's mixed,
+not a uniform win: MDA-MB-231's AUROC jumps (0.681 -> 0.721) while its AUPRC drops
+considerably (0.284 -> 0.159); HAP1 and THP1 both improve on AUROC; HEK293FT is
+roughly flat as expected (it gets no real embedding signal, only zeros). This is
+a single seed=42 run, not averaged over multiple seeds/folds. **HAP1's
+contribution to any of these results should be read with the same caution as its
+coordinates** (see Validation above) -- improvement here isn't independent
 evidence the coordinates are correct, since a model can pick up *some* signal
 from an unreliable embedding without that meaning the embedding reflects real
-biology.
+biology. Explore this interactively in
+`notebooks/celligner_embedding_dimensionality.py`.
 
-Files: `data/external/celligner_cell_line_umap.csv`, `data/external/README.md`,
-`celligner_embedding_comparison/summary.csv`, `celligner_embedding_comparison/run_info.json`,
-`celligner_embedding_comparison/alignment_validation.png`.
+Files: `data/external/celligner_cell_line_umap.csv`, `data/external/celligner_cell_line_pca.csv`,
+`data/external/README.md`, `celligner_embedding_comparison/summary.csv`,
+`celligner_embedding_comparison/run_info.json`, `celligner_embedding_comparison/alignment_validation.png`.
 
 ## Files
 

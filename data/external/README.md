@@ -1,6 +1,6 @@
 # External reference data
 
-## `celligner_cell_line_umap.csv`
+## `celligner_cell_line_umap.csv` / `celligner_cell_line_pca.csv`
 
 Cell-line embedding coordinates for issue #78 (replace/augment one-hot cell-line
 encoding with a real transcriptomic similarity embedding), built by re-running the
@@ -39,6 +39,36 @@ Inputs:
 published coordinates** — every cell line's coordinates (including K562,
 MDA-MB-231, THP1) were recomputed from this run, so they will not numerically
 match `Celligner_info.csv`'s published `UMAP_1`/`UMAP_2` values.
+
+**Embedding dimensionality is a hyperparameter, not fixed at 2.** Celligner only
+ever *publishes* the final 2-D UMAP, but internally computes a richer 70-D PCA
+space right before that step (the aligned representation UMAP is fit on).
+`celligner_cell_line_pca.csv` exports that pre-UMAP PCA space (`PC1`..`PC70`)
+for the same 4 cell lines, so `lncfit.features.build_lncrna_features(...,
+celligner_embedding_dim=N)` can use N=2 (UMAP, default), or N up to 70 (PCA).
+
+`scripts/run_celligner_embedding_comparison.py` sweeps dim in `{0, 2, 10, 70}`
+with the same tuned xgboost config used elsewhere in this project:
+
+| dim | n_features | AUROC | AUPRC |
+|---|---|---|---|
+| 0 (off) | 1029 | 0.6251 | 0.1329 |
+| **2 (UMAP)** | 1031 | 0.6395 | **0.1353** |
+| 10 (PCA) | 1039 | 0.6529 | 0.1203 |
+| **70 (PCA)** | 1099 | **0.6537** | 0.1194 |
+
+Not a clean "bigger is better": AUROC climbs steadily with more dimensions, but
+AUPRC (the more informative metric at ~5% positive rate) peaks at dim=2 and
+gets *worse* at 10/70 — more embedding columns add noise/overfit risk for a
+model that only needs to distinguish 5 categories. A separate nearest-neighbor
+lineage-purity check (not tied to the downstream classifier) found the same
+kind of nuance from the other direction: dim=10 raw PCA is actually *worse*
+than dim=2 UMAP at recovering known lineage clusters (K562 drops from 15/15 to
+3/15 same-lineage neighbors) — UMAP's nonlinear neighbor-preserving objective
+beats a handful of raw linear PCA directions; only dim=70 (nearly all the PCs)
+catches back up (K562 14/15, THP1 15/15). See
+`notebooks/celligner_embedding_dimensionality.py` (`uv run marimo edit
+notebooks/celligner_embedding_dimensionality.py`) to explore this interactively.
 
 ## Validation
 

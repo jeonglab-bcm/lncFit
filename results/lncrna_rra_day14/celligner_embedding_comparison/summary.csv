@@ -1,3 +1,5 @@
-celligner_embedding,n_features,auroc,auprc
-False,1029,0.6251,0.1329
-True,1031,0.6395,0.1353
+celligner_embedding_dim,n_features,auroc,auprc
+0,1029,0.6251,0.1329
+2,1031,0.6395,0.1353
+10,1039,0.6529,0.1203
+70,1099,0.6537,0.1194
