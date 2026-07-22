@@ -337,6 +337,77 @@ Two clear, honest findings, not the ones a "smaller is better" story would predi
 Files: `feature_model_comparison/mlp_grid_dnabert2_smaller_batch.csv`,
 `mlp_grid_dnabert2_smaller_batch_best.json`.
 
+## Celligner cell-line embedding (issue #78)
+
+Every model above represents the cell line as a 5-column one-hot
+(`cell_HAP1`, `cell_HEK293FT`, `cell_K562`, `cell_MDA-MB-231`, `cell_THP1`) --
+telling the model *which* cell line a row is, but nothing about how the cell
+lines relate to each other biologically. Issue #78 proposed replacing/augmenting
+this with a real transcriptomic-similarity embedding from
+[Celligner](https://github.com/broadinstitute/celligner) (Warren et al., *Nat
+Commun* 2021), which aligns CCLE cell line and TCGA tumor RNA-seq onto a shared
+2-D UMAP space.
+
+The published Celligner data (all 5 Figshare versions checked) is frozen at
+DepMap 19Q4 and doesn't include HAP1 at all -- so rather than use the stale
+published coordinates, **the full Celligner alignment method was re-run from
+scratch** against current DepMap data (24Q4), faithfully reimplementing the
+original R pipeline (contrastive PCA, mutual-nearest-neighbor batch correction,
+70-D PCA, UMAP) with `irlba`/`uwot`/`igraph`/`FNN`/`limma` instead of
+Seurat/batchelor. See `data/external/README.md` for full methodology, provenance,
+and caveats. Result: HAP1, K562, MDA-MB-231, THP1 now have real 2-D coordinates
+(`data/external/celligner_cell_line_umap.csv`); **HEK293FT still has none** (not
+a cancer cell line, never in CCLE/DepMap under any release) and is zero-filled
+wherever this embedding is used.
+
+**Validation (not just eyeballing distances among the 4 targets):** computed
+each target's k=15 nearest CCLE neighbors in the aligned space and checked what
+fraction share its true Oncotree lineage, against a baseline computed the same
+way for all 1,668 lineage-annotated CCLE lines (mean purity ~53-54%, well above
+chance; Myeloid and Lymphoid lines cluster especially cleanly at ~89%/~97%).
+Result: **K562 and THP1 validate cleanly** (15/15 same-lineage neighbors, in
+line with Myeloid's already-high ~89% average). **MDA-MB-231** scores 0/15 (both reruns this was checked),
+but Breast lines only average ~55% purity to begin with and MDA-MB-231 is a
+documented mesenchymal-like outlier among breast cell lines -- a plausible,
+not confirmed, explanation. **HAP1 scores 0/15 then 1/15 (the 2 reruns this was checked) despite sitting in a lineage
+(Myeloid) that otherwise clusters at ~89%** -- a genuine outlier with no
+raw-expression QC explanation found, and the least stable of the 4 across
+independent reruns (7.04 UMAP-unit shift vs. 1.25-3.10 for the others).
+**HAP1's specific coordinates should be treated with real skepticism** (flagged
+`"UNRELIABLE"` in the data file) -- kept per explicit request, not because
+they've been shown trustworthy. Full analysis and the validation figure (all
+1,673 CCLE lines colored by lineage, targets circled) are in
+`data/external/README.md` and
+`celligner_embedding_comparison/alignment_validation.png`.
+
+`build_lncrna_features(..., include_celligner_embedding=True)` appends 2 columns
+(`cell_umap_1`, `cell_umap_2`) alongside (not replacing) the existing cell one-hot.
+`scripts/run_celligner_embedding_comparison.py`: k=5 kmer features, the same
+best-known xgboost hyperparameters from the feature x model comparison above, on
+vs off, same chr1 held-out test:
+
+| celligner embedding | AUROC | AUPRC |
+|---|---|---|
+| off | 0.6251 | 0.1329 |
+| **on** | **0.6395** | **0.1353** |
+
+A modest, real improvement on both metrics (AUROC +2.3%, AUPRC +1.8%) from just 2
+extra columns -- but per-cell-line it's mixed, not a uniform win: MDA-MB-231's
+AUROC jumps (0.681 -> 0.721) while its AUPRC drops considerably (0.284 -> 0.159);
+HAP1 and THP1 both improve on AUROC; HEK293FT is roughly flat as expected (it gets
+no real embedding signal, only zeros). This is a single seed=42 run, not averaged
+over multiple seeds/folds -- a natural next step if pursuing this further, not
+done here given the scope already spent on the realignment itself. **HAP1's
+contribution to this result should be read with the same caution as its
+coordinates** (see Validation above) -- its improvement here isn't independent
+evidence the coordinates are correct, since a model can pick up *some* signal
+from an unreliable embedding without that meaning the embedding reflects real
+biology.
+
+Files: `data/external/celligner_cell_line_umap.csv`, `data/external/README.md`,
+`celligner_embedding_comparison/summary.csv`, `celligner_embedding_comparison/run_info.json`,
+`celligner_embedding_comparison/alignment_validation.png`.
+
 ## Files
 
 - `metrics_k3.csv`, `metrics_k4.csv`, `metrics_k5.csv`, `metrics_k6.csv` — untuned

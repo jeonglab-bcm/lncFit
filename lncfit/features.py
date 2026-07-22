@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import itertools
+from pathlib import Path
 
 import numpy as np
 from scipy.sparse import csr_matrix, hstack as sp_hstack
@@ -11,6 +13,60 @@ _BASES = "ACGT"
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
 _DAYS = [7, 14]
 _COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
+
+_CELLIGNER_EMBEDDING_PATH = Path(__file__).parent.parent / "data" / "external" / "celligner_cell_line_umap.csv"
+_celligner_embedding_cache: dict[str, tuple[float, float]] | None = None
+
+
+def _load_celligner_embedding() -> dict[str, tuple[float, float]]:
+    """Load the 2-D Celligner UMAP coordinates for the cell lines that have one.
+
+    See data/external/README.md for provenance (issue #78): a from-scratch
+    Celligner realignment against current DepMap data, covering HAP1, K562,
+    MDA-MB-231, THP1. HEK293FT is absent (not a cancer cell line, never in
+    CCLE/DepMap) and callers should zero-fill it -- see cell_embedding_block().
+
+    CAUTION -- HAP1's coordinates failed validation: 0/15 of its nearest CCLE
+    neighbors in this embedding share its true lineage (Myeloid), even though
+    Myeloid lines cluster very well overall (88.8% average purity, n=74), and
+    its position is the least stable of the 4 across independent reruns of this
+    same pipeline (see data/external/README.md's "Validation" section for the
+    full nearest-neighbor lineage-purity analysis). Kept in per explicit
+    request rather than zero-filled, but treat HAP1's specific coordinates with
+    real skepticism until this is resolved -- K562, THP1 validated cleanly;
+    MDA-MB-231 has a plausible (not confirmed) biological explanation for its
+    own lower purity.
+    """
+    global _celligner_embedding_cache
+    if _celligner_embedding_cache is None:
+        cache: dict[str, tuple[float, float]] = {}
+        with open(_CELLIGNER_EMBEDDING_PATH) as fh:
+            for row in csv.DictReader(fh):
+                cache[row["cell_line"]] = (float(row["UMAP_1"]), float(row["UMAP_2"]))
+        _celligner_embedding_cache = cache
+    return _celligner_embedding_cache
+
+
+def cell_embedding_block(records: list) -> tuple[np.ndarray, list[str]]:
+    """Return (E, col_names) of 2-D Celligner cell-line embedding coordinates.
+
+    E is float32 (n_records, 2); a record whose cell_line has no Celligner
+    coordinates (currently only HEK293FT) gets a zero vector -- the same
+    missing-value convention used elsewhere in this module (see
+    _build_embedding_block). Meant to sit alongside the existing cell_*
+    one-hot columns, not replace them, since one-hot is still the only signal
+    for cell lines this embedding doesn't cover.
+
+    See _load_celligner_embedding()'s docstring: HAP1's specific coordinates
+    here failed validation and should be treated with real skepticism.
+    """
+    embedding = _load_celligner_embedding()
+    E = np.zeros((len(records), 2), dtype=np.float32)
+    for i, r in enumerate(records):
+        coords = embedding.get(r.cell_line)
+        if coords is not None:
+            E[i] = coords
+    return E, ["cell_umap_1", "cell_umap_2"]
 
 
 def _revcomp(seq: str) -> str:
@@ -358,6 +414,7 @@ def build_lncrna_features(
     include_distance: bool = False,
     vocab: list[str] | None = None,
     sparse: bool = False,
+    include_celligner_embedding: bool = False,
 ) -> tuple[np.ndarray | csr_matrix, np.ndarray, list[str]]:
     """Build feature matrix X, binary label vector y, and column names from LncRnaRecords.
 
@@ -365,8 +422,15 @@ def build_lncrna_features(
     sequence (e.g. from lncfit.sequence.extract_spliced_sequences) — NOT guide spacer
     sequences (see issue #65). Every cell_line row for the same lncRNA shares one
     k-mer frequency vector, since the lncRNA's sequence doesn't vary by cell line.
-    Columns are vocab k-mers + cell one-hot [+ distance]; no day one-hot (records
-    are single-day). y is the binary hit label (r.label), not a continuous fold-change.
+    Columns are vocab k-mers + cell one-hot [+ celligner embedding] [+ distance]; no
+    day one-hot (records are single-day). y is the binary hit label (r.label), not a
+    continuous fold-change.
+
+    include_celligner_embedding=True appends 2 columns (cell_umap_1, cell_umap_2) from
+    cell_embedding_block() -- a real transcriptomic-similarity embedding for the cell
+    line (see issue #78, data/external/README.md), alongside (not replacing) the
+    existing cell_* one-hot, since it doesn't cover every cell line (HEK293FT is
+    zero-filled).
     """
     if vocab is None:
         vocab = all_kmers(k)
@@ -375,9 +439,12 @@ def build_lncrna_features(
 
     cell_cols = [f"cell_{c}" for c in _CELL_LINES]
     columns = vocab + cell_cols
+    embed_cols = ["cell_umap_1", "cell_umap_2"] if include_celligner_embedding else []
+    columns = columns + embed_cols
     if include_distance:
         columns.append("distance_to_closest_pc_gene")
     cell_offset = n_kmer
+    embed_offset = cell_offset + len(_CELL_LINES)
 
     n = len(records)
     n_cols = len(columns)
@@ -385,6 +452,7 @@ def build_lncrna_features(
     freqs = _lncrna_kmer_freqs(records, transcript_sequences, k, vocab_index)
 
     if sparse:
+        embedding = _load_celligner_embedding() if include_celligner_embedding else None
         row_idx: list[int] = []
         col_idx: list[int] = []
         vals: list[float] = []
@@ -399,6 +467,13 @@ def build_lncrna_features(
                     col_idx.append(cell_offset + j)
                     vals.append(1.0)
                     break
+            if embedding is not None:
+                coords = embedding.get(r.cell_line)
+                if coords is not None:
+                    for j, val in enumerate(coords):
+                        row_idx.append(i)
+                        col_idx.append(embed_offset + j)
+                        vals.append(val)
             if include_distance:
                 dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
                 row_idx.append(i)
@@ -422,6 +497,9 @@ def build_lncrna_features(
             dist = r.distance_to_closest_pc_gene if r.distance_to_closest_pc_gene is not None else -1
             X_dense[i, n_cols - 1] = float(dist)
         y[i] = r.label
+    if include_celligner_embedding:
+        E, _ = cell_embedding_block(records)
+        X_dense[:, embed_offset : embed_offset + 2] = E
     return X_dense, y, columns
 
 
