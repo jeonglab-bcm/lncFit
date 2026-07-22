@@ -16,6 +16,9 @@ only the plug-in *pattern* is borrowed.
 | `registry.py` | `CLASSIFIER_REGISTRY`, `@register_classifier(name)`, `build_classifier(name, **params)`, `available_classifiers()` |
 | `null.py` | `NullClassifier` — constant training base-rate prediction (AUROC 0.5 floor) |
 | `logreg.py` | `LogRegClassifier` — L2 logistic regression, balanced class weights |
+| `randomforest.py` | `RandomForestClassifier` — bagged trees, `class_weight="balanced_subsample"` |
+| `knn.py` | `KNNClassifier` — distance-weighted k-nearest-neighbors |
+| `mlp.py` | `MLPClassifier` — one-hidden-layer network, Adam + internal early stopping |
 | `xgboost_clf.py` | `XGBoostClassifier` — gradient-boosted trees, auto `scale_pos_weight` |
 | `__init__.py` | imports the wrappers to trigger registration |
 
@@ -24,7 +27,7 @@ only the plug-in *pattern* is borrowed.
 ```python
 from lncfit.classifiers import build_classifier, available_classifiers
 
-available_classifiers()               # ['logreg', 'null', 'xgboost']
+available_classifiers()               # ['knn', 'logreg', 'mlp', 'null', 'randomforest', 'xgboost']
 model = build_classifier("xgboost", max_depth=4)
 model.fit(X_train, y_train)           # X from lncfit.features.build_lncrna_features
 proba = model.predict_proba(X_test)   # P(hit) per row, shape (n,)
@@ -39,13 +42,55 @@ uv run python scripts/run_lncrna_classifier.py --model null
 # extra hyperparameters: --param max_depth=4 --param learning_rate=0.03
 ```
 
+Or, for the full model x features x cell-embedding x tuning x CV pipeline, set
+`model.name` in a YAML config and run `scripts/run_pipeline.py --config <file>.yaml`
+(see `configs/README.md`) — any model registered here is automatically available
+there too, nothing extra to wire up.
+
 ## Adding a model
 
-1. New module in this package, e.g. `randomforest.py`.
-2. Subclass `ClassifierModel`, set `model_type`, implement `fit` / `predict_proba`,
-   decorate with `@register_classifier("randomforest")`.
-3. Import it in `__init__.py` so registration fires on package import.
-4. It's now available to `build_classifier(...)` and `--model randomforest`.
+1. **Add a new module** in this package, e.g. `svm.py`. Subclass `ClassifierModel`
+   and implement its three required pieces:
+
+   ```python
+   from lncfit.classifiers.base import ClassifierModel
+   from lncfit.classifiers.registry import register_classifier
+
+   @register_classifier("svm")
+   class SVMClassifier(ClassifierModel):
+       model_type = "svm"
+
+       def __init__(self, C: float = 1.0, seed: int = 42, **params) -> None:
+           super().__init__(C=C, seed=seed, **params)  # stash hyperparams on self.params
+           self._model = None
+
+       def fit(self, X, y) -> "SVMClassifier":
+           # handle the ~5% positive rate yourself (e.g. class_weight="balanced")
+           self._model = ...fit on (X, y)...
+           return self
+
+       def predict_proba(self, X):
+           # 1-D P(hit) per row, NOT sklearn's 2-column form -- see Notes below
+           return self._model.predict_proba(X)[:, 1]
+   ```
+
+2. **Register it for import** — add `from lncfit.classifiers.svm import SVMClassifier`
+   to `__init__.py` (and to its `__all__` list) so the `@register_classifier`
+   decorator actually fires when the package is imported. Forgetting this step is
+   the most common way a new model "doesn't show up."
+3. **Done** — it's now available everywhere by name, no other file needs to change:
+   - `build_classifier("svm", ...)` / `available_classifiers()`
+   - `scripts/run_lncrna_classifier.py --model svm`
+   - `model.name: svm` in a `scripts/run_pipeline.py` config
+4. **Optional — make it tunable via grid/Optuna**: add
+   `configs/search_spaces/svm.yaml` listing its hyperparameters (see the existing
+   files there for the format — each parameter can carry a `grid:` list, an
+   Optuna `low`/`high` range, or both). Without this file, `svm` still works fine
+   with `tuning.method: fixed`; you only need it for `grid`/`optuna`.
+5. **Add a test** in `tests/test_classifiers.py` — the existing
+   `test_classifier_wrappers_share_the_fit_predict_contract` loops over a list of
+   model names; add `"svm"` to it and it's covered by the same shared contract
+   checks (predict_proba shape, [0, 1] range, dense/sparse handling) for free.
 
 ## Notes
 
