@@ -96,6 +96,15 @@ explicit request, not because it's been shown trustworthy. K562 and THP1 are
 solid; MDA-MB-231 has a plausible but unconfirmed explanation for its own lower
 purity.
 
+**Independent cross-check:** running this same k=15 lineage-purity test on the
+*official published* Celligner alignment (Broad's own `Celligner_info.csv`,
+DepMap 19Q4, completely independent code/data from this reimplementation) gives
+the same pattern for the 3 cell lines it covers: K562 15/15, THP1 14/15,
+MDA-MB-231 0/15 (despite breast overall averaging 65% purity there). MDA-MB-231's
+outlier status is a real property of the method/data, not a bug in this
+reimplementation -- reassuring for the parts of this reimplementation that
+*can't* be cross-checked this way (HAP1 was never in the published data).
+
 Validation figure: `results/lncrna_rra_day14/celligner_embedding_comparison/alignment_validation.png`
 (`scripts/plot_celligner_validation.py`) — all 1,673 CCLE cell lines colored by
 Oncotree lineage, tumor samples as a gray background cloud, target cell lines
