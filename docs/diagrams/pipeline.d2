@@ -1,13 +1,17 @@
 # lncFit pipeline: raw data -> feature vectors -> trained/evaluated model.
 #
-# Top-to-bottom. Dashed border/edges = only active when features.type: dnabert2.
+# Left-to-right (each of the 6 stages below is a top-level container so the
+# `direction: right` at the root ranks them correctly; direction on a
+# container's own children only reliably ranks simple/leaf nodes, not nested
+# sub-containers -- see 3a/3b below, which stay side-by-side regardless).
+# Dashed border/edges = only active when features.type: dnabert2.
 # The two "worked example" boxes show real (kmer) / illustrative (dnabert2)
 # numbers for one actual lncRNA (Hum_XLOC_000002) so the vector construction
 # isn't just an abstract box.
 #
 # Render: d2 docs/diagrams/pipeline.d2 docs/diagrams/pipeline.svg
 
-direction: down
+direction: right
 
 classes: {
   title-lg: {
@@ -30,7 +34,7 @@ classes: {
 raw_and_prep: "1. Raw data + preprocessing (outside the pipeline)" {
   class: title-lg
   style.fill: "#eef2f7"
-  direction: right
+  direction: down
 
   gtf_fasta: "GTF + FASTA\n(hg19/GRCh37)" {shape: cylinder; class: node-lg}
   rra_excel: "RRA screen\nresults (Excel)" {shape: cylinder; class: node-lg}
@@ -46,7 +50,7 @@ raw_and_prep: "1. Raw data + preprocessing (outside the pipeline)" {
 artifacts: "2. On-disk artifacts" {
   class: title-lg
   style.fill: "#eef2f7"
-  direction: right
+  direction: down
 
   body_seqs: "body_seqs.json\n{target: (first, last)}" {shape: cylinder; class: node-lg}
   train_jsonl: "train_*.jsonl.gz" {shape: cylinder; class: node-lg}
@@ -64,7 +68,7 @@ raw_and_prep.celligner -> artifacts.celligner_csv
 
 worked_examples: "3. WORKED EXAMPLE -- gene Hum_XLOC_000002" {
   class: title-lg
-  direction: right
+  direction: down
 
   kmer_example: "3a. kmer (k=5)" {
     class: [title-lg; example]
