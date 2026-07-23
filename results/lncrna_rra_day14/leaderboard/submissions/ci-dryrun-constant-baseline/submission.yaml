@@ -1,0 +1,6 @@
+submitter: claude (CI dry run)
+model: constant base-rate baseline
+description: >
+  Not a real model -- every row predicted at the fixed 5.3% base rate.
+  Submitted only to exercise the leaderboard CI end-to-end. Safe to close
+  and delete this test PR/branch once verified.
