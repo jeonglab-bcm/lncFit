@@ -1,0 +1,69 @@
+name: Leaderboard
+
+# Only fires for submission PRs: branch name must start with "submission/" AND
+# it must actually touch a submissions/ directory. Keeps this off the rest of
+# the repo's PRs entirely.
+on:
+  pull_request:
+    paths:
+      - "results/*/leaderboard/submissions/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build-leaderboard:
+    if: startsWith(github.head_ref, 'submission/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install scoring dependencies
+        # Deliberately NOT `pip install -r requirements.txt` / `uv sync` -- this
+        # script only touches lncfit.screen_data / lncfit.xgboost_model, which
+        # never import torch/transformers/xgboost. Keeps this job fast.
+        run: pip install pandas pyyaml scikit-learn scipy numpy
+
+      - name: Find changed challenge(s)
+        id: challenges
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+              -- 'results/*/leaderboard/submissions/*' \
+            | sed -E 's#results/([^/]+)/leaderboard/.*#\1#' | sort -u)
+          echo "Changed challenge(s): $changed"
+          echo "list<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$changed" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Validate submissions and rebuild LEADERBOARD.md
+        run: |
+          status=0
+          for challenge in ${{ steps.challenges.outputs.list }}; do
+            echo "::group::$challenge"
+            python scripts/build_leaderboard.py --challenge "$challenge" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      # Runs even if the step above failed, so a partially-valid leaderboard
+      # (everyone except the broken new submission) still gets committed --
+      # the job still reports red overall because of the exit code above.
+      - name: Commit updated leaderboard(s)
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add results/*/leaderboard/LEADERBOARD.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Update leaderboard [skip ci]"
+            git push origin "HEAD:${{ github.head_ref }}"
+          else
+            echo "No leaderboard changes to commit"
+          fi
