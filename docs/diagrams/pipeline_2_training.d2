@@ -1,0 +1,68 @@
+# lncFit pipeline, part 2 of 2: train, tune, evaluate, save.
+# Continues from X, y produced by docs/diagrams/pipeline_1_features.d2.
+#
+# Render: d2 docs/diagrams/pipeline_2_training.d2 docs/diagrams/pipeline_2_training.svg
+
+direction: down
+
+classes: {
+  title-lg: {
+    style.font-size: 20
+    style.bold: true
+  }
+  node-lg: {
+    style.font-size: 15
+  }
+}
+
+X_y: "X, y  (from pipeline_1_features.d2, step 4)" {shape: cylinder; class: node-lg}
+
+train_eval: "5. Train, tune, evaluate (LncRnaPipeline)" {
+  class: title-lg
+  style.fill: "#fdece8"
+  direction: down
+
+  cv: "make_cv_splits()\nnone / chrom / stratified" {class: node-lg}
+
+  tuning: "tuning.method" {
+    direction: right
+    class: node-lg
+    fixed: "fixed" {class: node-lg}
+    grid: "grid\n(itertools.product)" {class: node-lg}
+    optuna: "optuna\n(TPE, n_trials)" {class: node-lg}
+  }
+
+  registry: "classifiers registry\nxgboost/logreg/rf/knn/mlp/null" {shape: cylinder; class: node-lg}
+
+  fold_fit: "per fold x params:\nfit -> predict_proba -> AUROC/AUPRC" {class: node-lg}
+
+  best_params: "best_params" {class: node-lg}
+
+  final_fit: "refit on ALL\ntraining rows" {class: node-lg}
+
+  eval: "predict_proba(X_test)\nper-cell-line AUROC/AUPRC/F1" {class: node-lg}
+
+  cv -> tuning.fixed
+  cv -> tuning.grid
+  cv -> tuning.optuna
+  tuning.fixed -> fold_fit
+  tuning.grid -> fold_fit
+  tuning.optuna -> fold_fit
+  registry -> fold_fit
+  fold_fit -> best_params
+  best_params -> final_fit
+  registry -> final_fit
+  final_fit -> eval
+}
+
+X_y -> train_eval.cv
+X_y -> train_eval.final_fit: "all training rows"
+X_y -> train_eval.eval: "held-out test rows"
+
+save: "6. Saved run (results/.../run_<model>_<timestamp>/)" {
+  class: title-lg
+  outputs: "config.yaml, best_params.json,\ncv_scores.csv, metrics.csv,\npredictions.csv, run_info.json" {shape: cylinder; class: node-lg}
+}
+
+train_eval.eval -> save.outputs
+train_eval.best_params -> save.outputs
