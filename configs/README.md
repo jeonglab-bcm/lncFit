@@ -1,11 +1,9 @@
 # Pipeline configuration (issue #78 follow-up)
 
-See `docs/diagrams/` for a diagram of the full flow, split into two parts
-so each renders at a readable size:
-[`pipeline_1_features.svg`](../docs/diagrams/pipeline_1_features.svg)
-(raw data -> feature matrix, with a worked numeric example) and
-[`pipeline_2_training.svg`](../docs/diagrams/pipeline_2_training.svg)
-(training, tuning, CV, and evaluation).
+See [`docs/diagrams/pipeline.d2`](../docs/diagrams/pipeline.d2) (rendered:
+[`pipeline.svg`](../docs/diagrams/pipeline.svg)) for a diagram of the full
+flow -- raw data through feature-matrix construction (with a worked numeric
+example) to training, tuning, CV, and evaluation.
 
 One YAML file describes an entire training run; `scripts/run_pipeline.py` reads it
 and drives `lncfit.pipeline.LncRnaPipeline`. Every axis that used to mean picking a

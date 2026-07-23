@@ -1,14 +1,11 @@
-# lncFit pipeline, part 1 of 2: raw data -> feature vectors (X, y).
-# Part 2 (docs/diagrams/pipeline_2_training.d2) picks up from X, y and covers
-# training/tuning/evaluation. Split into two so each renders at a readable
-# size -- see docs/diagrams/README.md.
+# lncFit pipeline: raw data -> feature vectors -> trained/evaluated model.
 #
-# Dashed border/edges = only active when features.type: dnabert2.
+# Top-to-bottom. Dashed border/edges = only active when features.type: dnabert2.
 # The two "worked example" boxes show real (kmer) / illustrative (dnabert2)
 # numbers for one actual lncRNA (Hum_XLOC_000002) so the vector construction
 # isn't just an abstract box.
 #
-# Render: d2 docs/diagrams/pipeline_1_features.d2 docs/diagrams/pipeline_1_features.svg
+# Render: d2 docs/diagrams/pipeline.d2 docs/diagrams/pipeline.svg
 
 direction: down
 
@@ -130,7 +127,7 @@ feature_assembly: "4. Assemble feature matrix (features.py)" {
 
   concat: "x_kmer OR x_dnabert2 (pick one)\n+ cell one-hot (5 cols)\n+ Celligner coords (0/2/10/70, optional)\n+ distance-to-gene (optional)" {class: node-lg}
 
-  X_y: "X: (n_rows x n_features)\nkmer, dim=0 -> 1029 cols\ny: binary hit label\n\n-> continues in pipeline_2_training.d2" {shape: cylinder; class: node-lg}
+  X_y: "X: (n_rows x n_features)\nkmer, dim=0 -> 1029 cols\ny: binary hit label" {shape: cylinder; class: node-lg}
 
   concat -> X_y
 }
@@ -138,3 +135,53 @@ feature_assembly: "4. Assemble feature matrix (features.py)" {
 worked_examples.kmer_example.vector -> feature_assembly.concat
 worked_examples.dnabert_example.vector2 -> feature_assembly.concat {class: optional}
 artifacts.celligner_csv -> feature_assembly.concat
+
+train_eval: "5. Train, tune, evaluate (LncRnaPipeline)" {
+  class: title-lg
+  style.fill: "#fdece8"
+  direction: down
+
+  cv: "make_cv_splits()\nnone / chrom / stratified" {class: node-lg}
+
+  tuning: "tuning.method" {
+    direction: right
+    class: node-lg
+    fixed: "fixed" {class: node-lg}
+    grid: "grid\n(itertools.product)" {class: node-lg}
+    optuna: "optuna\n(TPE, n_trials)" {class: node-lg}
+  }
+
+  registry: "classifiers registry\nxgboost/logreg/rf/knn/mlp/null" {shape: cylinder; class: node-lg}
+
+  fold_fit: "per fold x params:\nfit -> predict_proba -> AUROC/AUPRC" {class: node-lg}
+
+  best_params: "best_params" {class: node-lg}
+
+  final_fit: "refit on ALL\ntraining rows" {class: node-lg}
+
+  eval: "predict_proba(X_test)\nper-cell-line AUROC/AUPRC/F1" {class: node-lg}
+
+  cv -> tuning.fixed
+  cv -> tuning.grid
+  cv -> tuning.optuna
+  tuning.fixed -> fold_fit
+  tuning.grid -> fold_fit
+  tuning.optuna -> fold_fit
+  registry -> fold_fit
+  fold_fit -> best_params
+  best_params -> final_fit
+  registry -> final_fit
+  final_fit -> eval
+}
+
+feature_assembly.X_y -> train_eval.cv
+feature_assembly.X_y -> train_eval.final_fit: "all training rows"
+feature_assembly.X_y -> train_eval.eval: "held-out test rows"
+
+save: "6. Saved run (results/.../run_<model>_<timestamp>/)" {
+  class: title-lg
+  outputs: "config.yaml, best_params.json,\ncv_scores.csv, metrics.csv,\npredictions.csv, run_info.json" {shape: cylinder; class: node-lg}
+}
+
+train_eval.eval -> save.outputs
+train_eval.best_params -> save.outputs
