@@ -7,6 +7,16 @@ lncRNA fitness predictor using [ChatNT](https://huggingface.co/InstaDeepAI/ChatN
 > All outputs are out-of-distribution exploratory estimates and must be treated as such until
 > benchmarked against known CRISPR-screen labels.
 
+## Pipeline overview
+
+The trainable classifier pipeline (`lncfit.pipeline.LncRnaPipeline`, driven by
+`scripts/run_pipeline.py --config <file>.yaml`) turns raw screen data and
+lncRNA sequences into a feature matrix, then trains/tunes/evaluates a model
+against it. See [`configs/README.md`](configs/README.md) for the full config
+schema and ready-to-run examples.
+
+![lncFit pipeline diagram](docs/diagrams/pipeline.svg)
+
 ## Installation
 
 ```bash
