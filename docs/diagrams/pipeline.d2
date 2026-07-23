@@ -1,0 +1,130 @@
+# lncFit pipeline: raw data -> feature coordinates -> trained/evaluated model.
+#
+# Dashed nodes/edges = only active for a specific `features.type` config choice
+# (currently dnabert2); solid = always on the path.
+#
+# Render: d2 docs/diagrams/pipeline.d2 docs/diagrams/pipeline.svg
+
+direction: right
+
+raw_data: "Raw data" {
+  style.fill: "#eef2f7"
+  direction: down
+  gtf_fasta: "GTF + FASTA\n(hg19 / GRCh37)" {shape: cylinder}
+  rra_excel: "RRA screen results\n(Excel, per cell line)" {shape: cylinder}
+}
+
+prep: "Preprocessing (one-time, outside the pipeline)" {
+  style.fill: "#eef2f7"
+  direction: down
+  sequence_py: "lncfit/sequence.py\nparse_gtf()\nextract_body_sequences()"
+  screen_data_py: "lncfit/screen_data.py\nhit calling:\np < 0.05 & fold_change < 0 -> label"
+  embed_script: "scripts/embed_sequences.py\nDNABERT-2-117M\nmean-pool last hidden state" {
+    style.stroke-dash: 4
+  }
+  celligner: "Celligner re-alignment\n(external, issue #78)"
+}
+
+artifacts: "On-disk artifacts (pipeline inputs)" {
+  style.fill: "#eef2f7"
+  direction: down
+  body_seqs: "body_sequences_transcript.json\n{target: (first1000bp, last1000bp)}" {shape: cylinder}
+  train_jsonl: "train_lncrna_*.jsonl.gz" {shape: cylinder}
+  test_jsonl: "test_lncrna_*.jsonl.gz" {shape: cylinder}
+  dnabert2_npz: "dnabert2_body.npz\n(embedding matrix + target index)" {
+    shape: cylinder
+    style.stroke-dash: 4
+  }
+  celligner_csv: "celligner_cell_line_umap.csv\ncelligner_cell_line_pca.csv" {shape: cylinder}
+}
+
+raw_data.gtf_fasta -> prep.sequence_py
+prep.sequence_py -> artifacts.body_seqs
+raw_data.rra_excel -> prep.screen_data_py
+prep.screen_data_py -> artifacts.train_jsonl
+prep.screen_data_py -> artifacts.test_jsonl
+artifacts.body_seqs -> prep.embed_script: "transcript seqs\n(dnabert2 config only)" {style.stroke-dash: 4}
+prep.embed_script -> artifacts.dnabert2_npz: "" {style.stroke-dash: 4}
+prep.celligner -> artifacts.celligner_csv
+
+pipeline: "lncfit.pipeline.LncRnaPipeline\n(scripts/run_pipeline.py --config *.yaml)" {
+  style.fill: "#f5f5f5"
+  direction: down
+
+  load: "load_jsonl()\ntrain + test LncRnaRecords"
+
+  features: "Feature building -> coordinates" {
+    style.fill: "#e8f0fe"
+    direction: down
+
+    kmer_path: "features.type: kmer" {
+      direction: down
+      fit_vocab: "fit_vocab()\nobserved k-mers on train transcripts"
+      build_kmer: "build_lncrna_features()\nk-mer freq. per transcript\n(shared across a target's cell-line rows)"
+    }
+
+    dnabert_path: "features.type: dnabert2" {
+      direction: down
+      style.stroke-dash: 4
+      load_emb: "load_embeddings()"
+      build_emb: "build_lncrna_embedding_features()\none embedding row per target"
+    }
+
+    common_cols: "+ cell-line one-hot (5 cols)\n+ celligner cols (0 / 2 / 10 / 70, optional)\n+ distance-to-gene (optional)"
+    X_y: "X: (n_rows x n_features)\ny: binary hit label" {shape: cylinder}
+
+    kmer_path.fit_vocab -> kmer_path.build_kmer
+    dnabert_path.load_emb -> dnabert_path.build_emb
+    kmer_path.build_kmer -> common_cols
+    dnabert_path.build_emb -> common_cols: "" {style.stroke-dash: 4}
+    common_cols -> X_y
+  }
+
+  train_eval: "Model training & evaluation" {
+    style.fill: "#fdece8"
+    direction: down
+
+    cv: "cv.make_cv_splits()\nnone / chrom LOCO / stratified K-fold"
+
+    tuning: "Hyperparameter selection" {
+      direction: right
+      fixed: "fixed\n(model.params as-is)"
+      grid: "grid\n(itertools.product\nover search space)"
+      optuna: "optuna\n(TPE, n_trials)"
+    }
+
+    registry: "lncfit.classifiers registry\nxgboost / logreg / randomforest\n/ knn / mlp / null" {shape: cylinder}
+
+    fold_fit: "per fold / trial:\nmodel.fit(X_train_fold, y_train_fold)\npredict_proba(X_val_fold)\nscore = AUROC or AUPRC"
+    best_params: "best_params"
+    final_fit: "fit final model\non ALL training rows\nwith best_params"
+    eval: "predict_proba(X_test)\nevaluate_lncrna_by_group()\noverall + per-cell-line metrics"
+
+    cv -> tuning.fixed
+    cv -> tuning.grid
+    cv -> tuning.optuna
+    tuning.fixed -> fold_fit
+    tuning.grid -> fold_fit
+    tuning.optuna -> fold_fit
+    registry -> fold_fit
+    fold_fit -> best_params
+    best_params -> final_fit
+    registry -> final_fit
+    final_fit -> eval
+  }
+
+  save: "_save()\nconfig.yaml, best_params.json, cv_scores.csv,\nmetrics.csv, predictions.csv, run_info.json" {shape: cylinder}
+
+  load -> features
+  features.X_y -> train_eval.cv
+  features.X_y -> train_eval.final_fit: "all training rows"
+  features.X_y -> train_eval.eval: "held-out test rows"
+  train_eval.eval -> save
+  train_eval.best_params -> save
+}
+
+artifacts.train_jsonl -> pipeline.load
+artifacts.test_jsonl -> pipeline.load
+artifacts.body_seqs -> pipeline.features.kmer_path.fit_vocab
+artifacts.dnabert2_npz -> pipeline.features.dnabert_path.load_emb: "" {style.stroke-dash: 4}
+artifacts.celligner_csv -> pipeline.features.common_cols
