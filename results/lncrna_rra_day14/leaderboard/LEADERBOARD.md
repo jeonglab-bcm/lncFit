@@ -5,3 +5,4 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 
 | Rank | Submitter | Model | AUPRC | AUROC | Submission |
 |---|---|---|---|---|---|
+| 1 | claude (CI dry run) | constant base-rate baseline | 0.0526 | 0.5000 | [ci-dryrun-constant-baseline](submissions/ci-dryrun-constant-baseline/) |
