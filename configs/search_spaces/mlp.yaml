@@ -1,0 +1,21 @@
+# Search space for lncfit.classifiers.mlp.MLPClassifier.
+# Each CV fold retrains the network from scratch -- keep --n-trials / grid size
+# modest here, this is much slower per fit than the tree/linear/kNN models.
+hidden:
+  type: int
+  low: 32
+  high: 256
+  grid: [64, 128, 256]
+
+dropout:
+  type: float
+  low: 0.0
+  high: 0.5
+  grid: [0.1, 0.2, 0.3]
+
+lr:
+  type: float
+  low: 1.0e-4
+  high: 1.0e-2
+  log: true
+  grid: [0.0005, 0.001, 0.005]

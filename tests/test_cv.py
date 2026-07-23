@@ -1,5 +1,9 @@
+import numpy as np
+import pytest
+
+import lncfit.cv as cv_module
 from lncfit.constants import MIN_FOLD_RECORDS
-from lncfit.cv import build_lncrna_folds
+from lncfit.cv import build_lncrna_folds, make_cv_splits
 from lncfit.screen_data import LncRnaRecord
 
 
@@ -40,3 +44,44 @@ def test_val_and_es_and_train_partition_without_overlap():
         total = X_tr.shape[0] + X_val.shape[0] + X_es.shape[0]
         assert total == len(records)
         assert X_val.shape[0] == MIN_FOLD_RECORDS + 10
+
+
+def test_make_cv_splits_stratified_partitions_without_overlap():
+    # lncfit.pipeline's generic, feature-type-agnostic CV splitter (issue #78
+    # pipeline follow-up) -- returns boolean masks over records, not feature matrices.
+    records, _ = _make_records(40, ["1"])
+    splits = make_cv_splits(records, strategy="stratified", n_splits=4, seed=0)
+    assert len(splits) == 4
+    n = len(records)
+    seen_val = np.zeros(n, dtype=bool)
+    for train_mask, val_mask, fold_label in splits:
+        assert train_mask.shape == (n,)
+        assert val_mask.shape == (n,)
+        assert not np.any(train_mask & val_mask)  # no row is both train and val
+        assert np.all(train_mask | val_mask)  # every row is one or the other
+        assert not np.any(seen_val & val_mask)  # each row is held out exactly once
+        seen_val |= val_mask
+        assert isinstance(fold_label, str)
+    assert np.all(seen_val)
+
+
+def test_make_cv_splits_chrom_groups_by_chromosome(monkeypatch):
+    monkeypatch.setattr(cv_module, "MIN_FOLD_RECORDS", 5)
+    records, _ = _make_records(5, ["1"])
+    records += _make_records(8, ["2"])[0]
+    records += _make_records(2, ["3"])[0]  # below the (patched) MIN_FOLD_RECORDS -> excluded
+
+    splits = make_cv_splits(records, strategy="chrom")
+    fold_labels = {label for _, _, label in splits}
+    assert fold_labels == {"chr1", "chr2"}
+    for train_mask, val_mask, label in splits:
+        chrom = label.removeprefix("chr")
+        expected_val = np.array([r.chrom == chrom for r in records])
+        assert np.array_equal(val_mask, expected_val)
+        assert np.array_equal(train_mask, ~expected_val)
+
+
+def test_make_cv_splits_rejects_unknown_strategy():
+    records, _ = _make_records(5, ["1"])
+    with pytest.raises(ValueError):
+        make_cv_splits(records, strategy="bogus")

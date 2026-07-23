@@ -1,0 +1,6 @@
+# Search space for lncfit.classifiers.knn.KNNClassifier.
+n_neighbors:
+  type: int
+  low: 5
+  high: 100
+  grid: [10, 25, 50, 75]

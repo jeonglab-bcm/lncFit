@@ -1,0 +1,30 @@
+# Optuna TPE tuning over configs/search_spaces/xgboost.yaml, chromosome LOCO-CV,
+# k-mer features + the Celligner UMAP cell-line embedding (issue #78).
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/xgboost_kmer_optuna.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  cell_embedding_dim: 2
+
+model:
+  name: xgboost
+
+tuning:
+  method: optuna
+  search_space: configs/search_spaces/xgboost.yaml
+  n_trials: 50
+  metric: auprc
+
+cv:
+  strategy: chrom
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs
