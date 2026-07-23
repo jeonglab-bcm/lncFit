@@ -20,6 +20,10 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+          # data/processed/*.jsonl.gz (the held-out test set) is Git LFS-tracked;
+          # without this, checkout leaves LFS pointer text files in place and
+          # scoring fails trying to gunzip them.
+          lfs: true
 
       - uses: actions/setup-python@v5
         with:
