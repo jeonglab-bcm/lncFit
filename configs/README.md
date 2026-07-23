@@ -1,5 +1,11 @@
 # Pipeline configuration (issue #78 follow-up)
 
+Full flow -- raw data through feature-matrix construction (with a worked
+numeric example) to training, tuning, CV, and evaluation. Source:
+[`docs/diagrams/pipeline.d2`](../docs/diagrams/pipeline.d2).
+
+![lncFit pipeline diagram](../docs/diagrams/pipeline.svg)
+
 One YAML file describes an entire training run; `scripts/run_pipeline.py` reads it
 and drives `lncfit.pipeline.LncRnaPipeline`. Every axis that used to mean picking a
 different script is now a field in the config:
