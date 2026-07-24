@@ -1,0 +1,9 @@
+submitter: lncFit baseline
+model: xgboost + kmer (k=5), no cell embedding
+description: >
+  Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified --
+  same fixed hyperparameters as the chromosome-held-out baseline
+  (configs/cellline_loco/xgboost_kmer.yaml). HEK293FT excluded (not a real
+  cancer line). 4 folds: HAP1, K562, MDA-MB-231, THP1, each held out in turn
+  from a model trained on the other 3. Submitted as this challenge's first
+  entry for others to beat.
