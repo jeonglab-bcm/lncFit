@@ -46,7 +46,7 @@ jobs:
           echo "$changed" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Validate submissions and rebuild LEADERBOARD.md
+      - name: Validate submissions, rebuild LEADERBOARD.md and the Pages site
         run: |
           status=0
           for challenge in ${{ steps.challenges.outputs.list }}; do
@@ -59,12 +59,12 @@ jobs:
       # Runs even if the step above failed, so a partially-valid leaderboard
       # (everyone except the broken new submission) still gets committed --
       # the job still reports red overall because of the exit code above.
-      - name: Commit updated leaderboard(s)
+      - name: Commit updated leaderboard(s) and Pages site
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add results/*/leaderboard/LEADERBOARD.md
+          git add results/*/leaderboard/LEADERBOARD.md docs/*.html
           if ! git diff --cached --quiet; then
             git commit -m "Update leaderboard [skip ci]"
             git push origin "HEAD:${{ github.head_ref }}"

@@ -85,3 +85,39 @@ def test_make_cv_splits_rejects_unknown_strategy():
     records, _ = _make_records(5, ["1"])
     with pytest.raises(ValueError):
         make_cv_splits(records, strategy="bogus")
+
+
+def _make_multi_cellline_records(n_per_cell, cell_lines):
+    records = []
+    for cl in cell_lines:
+        for i in range(n_per_cell):
+            records.append(LncRnaRecord(
+                target=f"T_{cl}_{i}",
+                cell_line=cl,
+                day=14,
+                rra_pvalue=0.5,
+                fold_change=0.0,
+                label=1 if i % 5 == 0 else 0,
+                chrom="1",
+            ))
+    return records
+
+
+def test_make_cv_splits_cellline_one_fold_per_cell_line():
+    cell_lines = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
+    records = _make_multi_cellline_records(10, cell_lines)
+
+    splits = make_cv_splits(records, strategy="cellline")
+    fold_labels = {label for _, _, label in splits}
+    assert fold_labels == set(cell_lines)
+
+    n = len(records)
+    seen_val = np.zeros(n, dtype=bool)
+    for train_mask, val_mask, label in splits:
+        assert isinstance(label, str)
+        expected_val = np.array([r.cell_line == label for r in records])
+        assert np.array_equal(val_mask, expected_val)
+        assert np.array_equal(train_mask, ~expected_val)  # every other cell line's rows
+        assert not np.any(seen_val & val_mask)  # each row held out exactly once
+        seen_val |= val_mask
+    assert np.all(seen_val)
