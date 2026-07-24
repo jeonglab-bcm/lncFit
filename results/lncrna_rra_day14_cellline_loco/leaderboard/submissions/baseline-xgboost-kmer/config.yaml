@@ -1,0 +1,23 @@
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+  exclude_cell_lines:
+  - HEK293FT
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  cell_embedding_dim: 0
+model:
+  name: xgboost
+  params:
+    learning_rate: 0.02
+    max_depth: 9
+    subsample: 0.5
+    colsample_bytree: 0.9
+    min_child_weight: 3
+    reg_alpha: 3.188749808609341
+    reg_lambda: 3.078336708769974e-06
+    scale_pos_weight: 1.0
+seed: 42
+output_dir: /tmp/loco_real_run

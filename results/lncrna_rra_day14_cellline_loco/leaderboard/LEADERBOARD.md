@@ -7,3 +7,4 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 
 | Rank | Submitter | Model | AUPRC | AUROC | Submission |
 |---|---|---|---|---|---|
+| 1 | lncFit baseline | xgboost + kmer (k=5), no cell embedding | 0.1379 | 0.5915 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
