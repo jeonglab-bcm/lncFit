@@ -1,4 +1,4 @@
-submitter: lncFit baseline
+submitter: jeonglab-bcm
 model: xgboost + kmer (k=5) + Celligner UMAP (dim=2)
 description: >
   Same fixed hyperparameters as the no-cell-embedding baseline
