@@ -279,6 +279,12 @@ def make_cv_splits(
     k-mer vector), and the vocabulary here is fit once on all records rather than
     per fold -- a simplification accepted for a single generic code path across
     feature types, not a claim of leak-free CV.
+    strategy="cellline": leave-one-cell-line-out, one fold per distinct cell_line
+    (5 folds for the day14 dataset) -- val_mask is that cell line's rows, train_mask
+    is every other cell line's rows. Tests whether a model generalizes to a cell
+    line it never saw any row of during training, as opposed to "chrom"'s test of
+    generalizing to an unseen lncRNA. Used by scripts/run_cellline_loco.py to build
+    the lncrna_rra_day14_cellline_loco leaderboard challenge's predictions.
     """
     if strategy == "chrom":
         chrom_arr = np.array([r.chrom for r in records])
@@ -301,5 +307,11 @@ def make_cv_splits(
             val_mask[val_idx] = True
             splits.append((train_mask, val_mask, f"fold{i}"))
         return splits
+    elif strategy == "cellline":
+        cell_arr = np.array([r.cell_line for r in records])
+        cell_lines = sorted(str(c) for c in set(cell_arr))
+        return [(cell_arr != c, cell_arr == c, c) for c in cell_lines]
     else:
-        raise ValueError(f"Unknown CV strategy {strategy!r}. Expected 'chrom' or 'stratified'.")
+        raise ValueError(
+            f"Unknown CV strategy {strategy!r}. Expected 'chrom', 'stratified', or 'cellline'."
+        )
