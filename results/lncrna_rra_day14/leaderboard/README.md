@@ -24,10 +24,14 @@ valid submission.
      present, is ignored; scoring never trusts it).
    - `submission.yaml`:
      ```yaml
-     submitter: your name or team
+     submitter: your-github-handle
      model: one-line description, e.g. "xgboost + kmer k=5 + Celligner UMAP"
      description: optional longer note -- what you tried, what changed, etc.
      ```
+     `submitter` must be an actual GitHub username (letters/digits/single-hyphens,
+     no spaces) -- CI rejects anything else. It's linked to `github.com/<submitter>`
+     on the leaderboard, so use your own handle (or an org/team handle), not a
+     free-text display name.
    - `config.yaml` (optional but encouraged) -- the exact pipeline config you ran,
      for reproducibility. Just copy it from your run's output directory too.
 4. Open a PR. CI will:

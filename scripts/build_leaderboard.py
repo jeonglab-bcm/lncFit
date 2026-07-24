@@ -30,6 +30,7 @@ exactly -- so CI can fail the check without silently dropping a bad entry.
 """
 import argparse
 import html
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,9 @@ from lncfit.xgboost_model import evaluate_lncrna_by_group
 
 _REQUIRED_PRED_COLS = {"target", "cell_line", "y_pred_proba"}
 _REQUIRED_SUBMISSION_FIELDS = {"submitter", "model"}
+# GitHub username rules: alphanumeric or single hyphens, no leading/trailing/
+# double hyphens, max 39 chars.
+_GITHUB_HANDLE_RE = re.compile(r"^[A-Za-z\d](?:[A-Za-z\d]|-(?=[A-Za-z\d])){0,38}$")
 
 
 def _repo_slug() -> str:
@@ -103,6 +107,14 @@ def _score_submission(sub_dir: Path, records: list, truth: dict, excluded_keys: 
             f"{sub_dir.name}: submission.yaml missing field(s): {sorted(missing_fields)}"
         )
 
+    submitter = str(meta["submitter"]).strip()
+    if not _GITHUB_HANDLE_RE.match(submitter):
+        raise SubmissionError(
+            f"{sub_dir.name}: submitter {submitter!r} doesn't look like a GitHub handle "
+            "(letters/digits/single-hyphens, <=39 chars, no leading/trailing hyphen) -- "
+            "use your (or your team's) actual GitHub username so it can be linked and verified"
+        )
+
     preds = pd.read_csv(predictions_csv)
     missing_cols = _REQUIRED_PRED_COLS - set(preds.columns)
     if missing_cols:
@@ -140,7 +152,7 @@ def _score_submission(sub_dir: Path, records: list, truth: dict, excluded_keys: 
 
     return {
         "name": sub_dir.name,
-        "submitter": str(meta["submitter"]),
+        "submitter": submitter,
         "model": str(meta["model"]),
         "description": str(meta.get("description", "")).strip(),
         "auroc": overall["auroc"],
@@ -167,8 +179,8 @@ def _render_leaderboard(challenge: str, title: str, rows: list[dict], n_errors: 
     ]
     for i, r in enumerate(rows, 1):
         lines.append(
-            f"| {i} | {r['submitter']} | {r['model']} | {r['auprc']:.4f} | {r['auroc']:.4f} | "
-            f"[{r['name']}](submissions/{r['name']}/) |"
+            f"| {i} | [@{r['submitter']}](https://github.com/{r['submitter']}) | {r['model']} | "
+            f"{r['auprc']:.4f} | {r['auroc']:.4f} | [{r['name']}](submissions/{r['name']}/) |"
         )
     if n_errors:
         lines += ["", f"{n_errors} submission(s) failed validation and are not scored above -- see CI log."]
@@ -227,7 +239,7 @@ def _render_leaderboard_html(challenge: str, title: str, rows: list[dict], n_err
         body_rows.append(f"""
 <tr class="rank-{i}">
   <td>{i}</td>
-  <td>{esc(r['submitter'])}</td>
+  <td><a href="https://github.com/{esc(r['submitter'])}">@{esc(r['submitter'])}</a></td>
   <td>{esc(r['model'])}</td>
   <td class="num">{r['auprc']:.4f}</td>
   <td class="num">{r['auroc']:.4f}</td>

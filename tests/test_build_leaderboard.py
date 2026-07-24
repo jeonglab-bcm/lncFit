@@ -85,6 +85,21 @@ def test_missing_required_field_raises(tmp_path):
         _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
+def test_non_github_handle_submitter_raises(tmp_path):
+    records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(records, test_path)
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
+
+    preds = _all_keys_df(records, lambda r: 0.5)
+    sub_dir = _write_submission(
+        tmp_path, "sub", preds, {"submitter": "Jane Doe's Team!", "model": "m"}
+    )
+
+    with pytest.raises(SubmissionError, match="doesn't look like a GitHub handle"):
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
+
+
 def test_missing_rows_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"

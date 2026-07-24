@@ -1,4 +1,4 @@
-submitter: lncFit baseline
+submitter: jeonglab-bcm
 model: xgboost + kmer (k=5), no cell embedding
 description: >
   The project's established reference config (configs/pipeline/xgboost_kmer_fixed.yaml)

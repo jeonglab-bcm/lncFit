@@ -36,12 +36,16 @@ cell line it's never seen at all, not just a gene it's never seen?
      `target`, `cell_line`, `y_pred_proba` for all 27,480 rows of the full dataset.
    - `submission.yaml`:
      ```yaml
-     submitter: your name or team
+     submitter: your-github-handle
      model: one-line description, e.g. "xgboost + kmer k=5"
      description: >
        how you built the 5 folds (e.g. "scripts/run_cellline_loco.py, unmodified") --
        this is the part CI can't verify, so be explicit.
      ```
+     `submitter` must be an actual GitHub username (letters/digits/single-hyphens,
+     no spaces) -- CI rejects anything else. It's linked to `github.com/<submitter>`
+     on the leaderboard, so use your own handle (or an org/team handle), not a
+     free-text display name.
    - `config.yaml` (optional but encouraged) -- copy from your run's output directory.
 4. Open a PR. CI independently recomputes AUROC/AUPRC from your `predictions.csv`
    against the real labels in `data/processed/lncrna_rra_day14.jsonl.gz`, fails the

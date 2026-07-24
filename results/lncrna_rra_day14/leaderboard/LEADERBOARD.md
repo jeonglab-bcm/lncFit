@@ -7,5 +7,5 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 
 | Rank | Submitter | Model | AUPRC | AUROC | Submission |
 |---|---|---|---|---|---|
-| 1 | lncFit baseline | xgboost + kmer (k=5), no cell embedding | 0.1472 | 0.6902 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
-| 2 | lncFit baseline | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1342 | 0.6500 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
+| 1 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1472 | 0.6902 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
+| 2 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1342 | 0.6500 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
