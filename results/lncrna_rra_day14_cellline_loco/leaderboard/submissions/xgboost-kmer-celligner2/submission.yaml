@@ -1,0 +1,11 @@
+submitter: lncFit baseline
+model: xgboost + kmer (k=5) + Celligner UMAP (dim=2)
+description: >
+  Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified --
+  same fixed hyperparameters as the no-cell-embedding LOCO baseline, plus
+  the 2-D Celligner UMAP cell-line embedding. Celligner coordinates come
+  from independent baseline transcriptomic profiling of each cell line
+  (not the RRA screen labels), so supplying the held-out cell line's own
+  coordinate at test time is not label leakage -- it tests whether
+  transcriptomic similarity to the 3 training cell lines helps the model
+  generalize to the 4th. HEK293FT excluded (not a real cancer line).
