@@ -35,7 +35,7 @@ a { color: inherit; }
 <body>
 <p><a href="index.html">&larr; all challenges</a></p>
 <h1>lncrna_rra_day14</h1>
-<p class="subtitle">Chromosome-held-out: trained on all chromosomes except 1, evaluated on chromosome 1&#x27;s lncRNAs (across all 5 cell lines). Tests generalization to an unseen lncRNA. See lncrna_rra_day14_cellline_loco for the cell-line-held-out variant instead.</p>
+<p class="subtitle">Chromosome-held-out: trained on all chromosomes except 1, evaluated on chromosome 1&#x27;s lncRNAs (across 4 cell lines -- HEK293FT excluded, it&#x27;s not a real cancer line and has no Celligner data). Tests generalization to an unseen lncRNA. See lncrna_rra_day14_cellline_loco for the cell-line-held-out variant instead.</p>
 <table>
 <tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">AUROC</th><th></th></tr>
 
@@ -43,13 +43,13 @@ a { color: inherit; }
   <td>1</td>
   <td>lncFit baseline</td>
   <td>xgboost + kmer (k=5), no cell embedding</td>
-  <td class="num">0.1315</td>
-  <td class="num">0.6653</td>
+  <td class="num">0.1472</td>
+  <td class="num">0.6902</td>
   <td><details><summary>details</summary>
     <p>The project&#x27;s established reference config (configs/pipeline/xgboost_kmer_fixed.yaml) -- fixed hyperparameters, k-mer frequency features only, no Celligner cell-line embedding. Submitted as the leaderboard&#x27;s first entry for others to beat.</p>
     <table class="detail-table">
       <tr><th>Split</th><th class="num">n</th><th class="num">AUROC</th><th class="num">AUPRC</th><th class="num">F1</th></tr>
-      <tr><td>Overall</td><td class='num'>2,470</td><td class='num'>0.6653</td><td class='num'>0.1315</td><td class='num'>0.0000</td></tr><tr><td>HAP1</td><td class='num'>494</td><td class='num'>0.6048</td><td class='num'>0.1112</td><td class='num'>0.0000</td></tr><tr><td>HEK293FT</td><td class='num'>494</td><td class='num'>0.5348</td><td class='num'>0.0646</td><td class='num'>0.0000</td></tr><tr><td>K562</td><td class='num'>494</td><td class='num'>0.7408</td><td class='num'>0.2311</td><td class='num'>0.0000</td></tr><tr><td>MDA-MB-231</td><td class='num'>494</td><td class='num'>0.7379</td><td class='num'>0.2044</td><td class='num'>0.0000</td></tr><tr><td>THP1</td><td class='num'>494</td><td class='num'>0.5931</td><td class='num'>0.1158</td><td class='num'>0.0000</td></tr>
+      <tr><td>Overall</td><td class='num'>1,976</td><td class='num'>0.6902</td><td class='num'>0.1472</td><td class='num'>0.0000</td></tr><tr><td>HAP1</td><td class='num'>494</td><td class='num'>0.6048</td><td class='num'>0.1112</td><td class='num'>0.0000</td></tr><tr><td>K562</td><td class='num'>494</td><td class='num'>0.7408</td><td class='num'>0.2311</td><td class='num'>0.0000</td></tr><tr><td>MDA-MB-231</td><td class='num'>494</td><td class='num'>0.7379</td><td class='num'>0.2044</td><td class='num'>0.0000</td></tr><tr><td>THP1</td><td class='num'>494</td><td class='num'>0.5931</td><td class='num'>0.1158</td><td class='num'>0.0000</td></tr>
     </table>
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/config.yaml'>config.yaml</a></p>
   </details></td>

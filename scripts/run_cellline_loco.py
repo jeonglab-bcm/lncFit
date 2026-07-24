@@ -65,9 +65,16 @@ def run(config: dict) -> dict:
     seed = config.get("seed", 42)
     output_dir = Path(config.get("output_dir", "results/lncrna_rra_day14_cellline_loco/runs"))
 
+    exclude_cell_lines = set(data_cfg.get("exclude_cell_lines") or [])
+
     print(f"Loading records from {data_path} ...")
     records = load_jsonl(data_path, record_cls=LncRnaRecord)
-    print(f"  {len(records):,} records")
+    if exclude_cell_lines:
+        n_before = len(records)
+        records = [r for r in records if r.cell_line not in exclude_cell_lines]
+        print(f"  excluded {sorted(exclude_cell_lines)}: {n_before:,} -> {len(records):,} records")
+    else:
+        print(f"  {len(records):,} records")
 
     transcript_sequences = None
     embeddings = None
