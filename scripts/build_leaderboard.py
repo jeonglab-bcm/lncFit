@@ -16,6 +16,9 @@ Each challenge declares its own held-out labeled set via
 results/<challenge>/leaderboard/challenge.yaml:
   test_path: data/processed/....jsonl.gz
   title: optional one-line description for the LEADERBOARD.md header
+  exclude_cell_lines: optional list, e.g. [HEK293FT] -- dropped from scoring
+    entirely. A submission's predictions.csv may still include rows for an
+    excluded cell line (harmless, ignored); it just isn't required to.
 
 Usage:
   python scripts/build_leaderboard.py --challenge lncrna_rra_day14
@@ -64,13 +67,26 @@ class SubmissionError(Exception):
     pass
 
 
-def _load_truth(test_path: str):
-    records = load_jsonl(test_path, record_cls=LncRnaRecord)
+def _load_truth(test_path: str, exclude_cell_lines: set[str] | None = None):
+    """Returns (scored_records, truth, excluded_keys).
+
+    exclude_cell_lines are dropped from scoring entirely (e.g. HEK293FT, which
+    has no Celligner data and isn't a real cancer cell line -- excluded from
+    both leaderboard challenges). excluded_keys is still returned so
+    _score_submission can tell "a row for an excluded cell line" (tolerated,
+    just ignored) apart from "a row that shouldn't exist at all" (a real error).
+    """
+    exclude_cell_lines = exclude_cell_lines or set()
+    all_records = load_jsonl(test_path, record_cls=LncRnaRecord)
+    records = [r for r in all_records if r.cell_line not in exclude_cell_lines]
     truth = {(r.target, r.cell_line): r.label for r in records}
-    return records, truth
+    excluded_keys = {
+        (r.target, r.cell_line) for r in all_records if r.cell_line in exclude_cell_lines
+    }
+    return records, truth, excluded_keys
 
 
-def _score_submission(sub_dir: Path, records: list, truth: dict) -> dict:
+def _score_submission(sub_dir: Path, records: list, truth: dict, excluded_keys: set) -> dict:
     submission_yaml = sub_dir / "submission.yaml"
     predictions_csv = sub_dir / "predictions.csv"
 
@@ -100,7 +116,10 @@ def _score_submission(sub_dir: Path, records: list, truth: dict) -> dict:
     pred_keys = set(zip(preds["target"], preds["cell_line"]))
     truth_keys = set(truth.keys())
     missing_rows = truth_keys - pred_keys
-    extra_rows = pred_keys - truth_keys
+    # Rows for an excluded cell line (e.g. HEK293FT) are tolerated, not required --
+    # most submitters will just copy predictions.csv straight from a pipeline run
+    # that scored all 5 cell lines, so don't punish them for including it.
+    extra_rows = pred_keys - truth_keys - excluded_keys
     if missing_rows:
         raise SubmissionError(
             f"{sub_dir.name}: predictions.csv is missing {len(missing_rows)} row(s) "
@@ -301,17 +320,19 @@ def main() -> None:
 
     test_path = args.test_path
     title = ""
+    exclude_cell_lines = set()
     if challenge_config_path.exists():
         with open(challenge_config_path) as fh:
             challenge_config = yaml.safe_load(fh) or {}
         test_path = test_path or challenge_config.get("test_path")
         title = challenge_config.get("title", "").strip()
+        exclude_cell_lines = set(challenge_config.get("exclude_cell_lines") or [])
     if not test_path:
         sys.exit(
             f"No test set specified -- pass --test-path or add test_path to {challenge_config_path}"
         )
 
-    records, truth = _load_truth(test_path)
+    records, truth, excluded_keys = _load_truth(test_path, exclude_cell_lines)
 
     rows = []
     errors = []
@@ -319,7 +340,7 @@ def main() -> None:
         if not sub_dir.is_dir():
             continue
         try:
-            rows.append(_score_submission(sub_dir, records, truth))
+            rows.append(_score_submission(sub_dir, records, truth, excluded_keys))
         except SubmissionError as e:
             errors.append(str(e))
 

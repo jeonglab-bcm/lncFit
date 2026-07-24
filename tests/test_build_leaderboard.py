@@ -46,12 +46,12 @@ def test_valid_submission_scores_correctly(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.9 if r.label == 1 else 0.1)
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "perfect"})
 
-    result = _score_submission(sub_dir, records, truth_map)
+    result = _score_submission(sub_dir, records, truth_map, excluded_keys)
     assert result["submitter"] == "alice"
     assert result["model"] == "perfect"
     assert result["auroc"] == pytest.approx(1.0)
@@ -62,47 +62,47 @@ def test_missing_submission_yaml_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     sub_dir = tmp_path / "sub"
     sub_dir.mkdir()
     _all_keys_df(records, lambda r: 0.5).to_csv(sub_dir / "predictions.csv", index=False)
 
     with pytest.raises(SubmissionError, match="missing submission.yaml"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
 def test_missing_required_field_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.5)
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice"})  # missing "model"
 
     with pytest.raises(SubmissionError, match="missing field"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
 def test_missing_rows_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.5).iloc[:-1]  # drop one row
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
 
     with pytest.raises(SubmissionError, match="missing 1 row"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
 def test_extra_rows_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.5)
     extra = pd.DataFrame([{"target": "NOT_REAL", "cell_line": "HAP1", "y_pred_proba": 0.5}])
@@ -110,31 +110,66 @@ def test_extra_rows_raises(tmp_path):
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
 
     with pytest.raises(SubmissionError, match="not in the held-out test set"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
 def test_duplicate_rows_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.5)
     preds = pd.concat([preds, preds.iloc[[0]]], ignore_index=True)
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
 
     with pytest.raises(SubmissionError, match="duplicate"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
 
 
 def test_missing_column_raises(tmp_path):
     records = _synthetic_test_records()
     test_path = tmp_path / "test.jsonl.gz"
     save_jsonl(records, test_path)
-    records, truth_map = _load_truth(str(test_path))
+    records, truth_map, excluded_keys = _load_truth(str(test_path))
 
     preds = _all_keys_df(records, lambda r: 0.5).drop(columns=["y_pred_proba"])
     sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
 
     with pytest.raises(SubmissionError, match="missing column"):
-        _score_submission(sub_dir, records, truth_map)
+        _score_submission(sub_dir, records, truth_map, excluded_keys)
+
+
+def test_excluded_cell_line_dropped_from_scoring_but_tolerated_in_predictions(tmp_path):
+    all_records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(all_records, test_path)
+
+    records, truth_map, excluded_keys = _load_truth(str(test_path), exclude_cell_lines={"HEK293FT"})
+    assert all(r.cell_line != "HEK293FT" for r in records)
+    assert all(cl == "HEK293FT" for _, cl in excluded_keys)
+
+    # predictions.csv still covers ALL 5 cell lines (as copied straight from a
+    # pipeline run) -- HEK293FT rows should be tolerated, not flagged as "extra".
+    preds = _all_keys_df(all_records, lambda r: 0.9 if r.label == 1 else 0.1)
+    sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
+
+    result = _score_submission(sub_dir, records, truth_map, excluded_keys)
+    assert result["auroc"] == pytest.approx(1.0)
+    assert all(m["split"] != "HEK293FT" for m in result["metrics_rows"])
+
+
+def test_missing_hek293ft_predictions_still_valid_when_excluded(tmp_path):
+    all_records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(all_records, test_path)
+
+    records, truth_map, excluded_keys = _load_truth(str(test_path), exclude_cell_lines={"HEK293FT"})
+
+    # Submitter only predicts the 4 required cell lines, omitting HEK293FT entirely.
+    non_excluded = [r for r in all_records if r.cell_line != "HEK293FT"]
+    preds = _all_keys_df(non_excluded, lambda r: 0.9 if r.label == 1 else 0.1)
+    sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
+
+    result = _score_submission(sub_dir, records, truth_map, excluded_keys)
+    assert result["auroc"] == pytest.approx(1.0)

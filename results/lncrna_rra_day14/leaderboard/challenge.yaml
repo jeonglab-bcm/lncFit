@@ -1,6 +1,8 @@
 test_path: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+exclude_cell_lines: [HEK293FT]
 title: >
   Chromosome-held-out: trained on all chromosomes except 1, evaluated on
-  chromosome 1's lncRNAs (across all 5 cell lines). Tests generalization to an
+  chromosome 1's lncRNAs (across 4 cell lines -- HEK293FT excluded, it's not
+  a real cancer line and has no Celligner data). Tests generalization to an
   unseen lncRNA. See lncrna_rra_day14_cellline_loco for the cell-line-held-out
   variant instead.
