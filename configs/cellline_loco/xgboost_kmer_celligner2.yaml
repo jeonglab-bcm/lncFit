@@ -1,0 +1,34 @@
+# Same as xgboost_kmer.yaml, plus the 2-D Celligner UMAP cell-line embedding.
+# Celligner coordinates come from independent baseline transcriptomic
+# profiling of each cell line (not from the RRA screen labels being
+# predicted), so supplying the held-out cell line's own coordinate at test
+# time is not label leakage -- it lets the model use transcriptomic
+# similarity to the 3 training cell lines to generalize to the 4th.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_kmer_celligner2.yaml
+
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+  exclude_cell_lines: [HEK293FT]
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  cell_embedding_dim: 2     # 2-D Celligner UMAP
+
+model:
+  name: xgboost
+  params:
+    learning_rate: 0.02
+    max_depth: 9
+    subsample: 0.5
+    colsample_bytree: 0.9
+    min_child_weight: 3
+    reg_alpha: 3.188749808609341
+    reg_lambda: 3.078336708769974e-06
+    scale_pos_weight: 1.0
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/runs
