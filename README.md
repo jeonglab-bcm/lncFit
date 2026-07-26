@@ -26,6 +26,20 @@ of generalization:
 | [`lncrna_rra_day14`](results/lncrna_rra_day14/leaderboard/README.md) | chromosome 1 | Does this generalize to an lncRNA the model has never seen? |
 | [`lncrna_rra_day14_cellline_loco`](results/lncrna_rra_day14_cellline_loco/leaderboard/README.md) | one cell line at a time | Does this generalize to a cell line the model has never seen at all? |
 
+The Day-14 chromosome challenge also supports a strictly longitudinal model
+that uses the experiment's earlier Day-7 RRA and guide measurements:
+
+```bash
+uv run python scripts/run_day7_longitudinal.py \
+  --config configs/pipeline/xgboost_day7_longitudinal.yaml
+```
+
+The source workbooks contain Day 7 and Day 14 only (there is no Day 17
+measurement). The longitudinal feature builder never uses Day-14 values as
+features and streams guide records to keep memory bounded. The model combines
+a binary hit classifier with a significance regressor; the latter receives
+continuous Day-14 p-values from training chromosomes only, never chromosome 1.
+
 ### How to submit
 
 1. Train a model and get its `predictions.csv` -- either `scripts/run_pipeline.py`

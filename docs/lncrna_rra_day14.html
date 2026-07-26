@@ -42,6 +42,21 @@ a { color: inherit; }
 <tr class="rank-1">
   <td>1</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
+  <td>XGBoost Day-7 longitudinal classifier + significance-regression rank ensemble</td>
+  <td class="num">0.3058</td>
+  <td class="num">0.8492</td>
+  <td><details><summary>details</summary>
+    <p>Predicts the chromosome-1 Day-14 outcome from strictly earlier Day-7 measurements. Features include the same-cell and cross-cell-line Day-7 RRA values, bounded-memory guide-level Day-7 replicate summaries, replicate disagreement, genomic distance/strand, and prediction-cell indicators. A binary hit classifier is rank-blended 50/50 with a regressor trained on the continuous Day-14 significance values from non-chromosome-1 training rows; held-out Day-14 values are never features or training targets. HEK293FT is excluded exactly as required by the challenge.</p>
+    <table class="detail-table">
+      <tr><th>Split</th><th class="num">n</th><th class="num">AUROC</th><th class="num">AUPRC</th><th class="num">F1</th></tr>
+      <tr><td>Overall</td><td class='num'>1,976</td><td class='num'>0.8492</td><td class='num'>0.3058</td><td class='num'>0.1803</td></tr><tr><td>HAP1</td><td class='num'>494</td><td class='num'>0.8424</td><td class='num'>0.3275</td><td class='num'>0.1758</td></tr><tr><td>K562</td><td class='num'>494</td><td class='num'>0.7918</td><td class='num'>0.2427</td><td class='num'>0.1995</td></tr><tr><td>MDA-MB-231</td><td class='num'>494</td><td class='num'>0.9165</td><td class='num'>0.4443</td><td class='num'>0.1887</td></tr><tr><td>THP1</td><td class='num'>494</td><td class='num'>0.8280</td><td class='num'>0.3259</td><td class='num'>0.1488</td></tr>
+    </table>
+    <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-day7-longitudinal/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-day7-longitudinal/config.yaml'>config.yaml</a></p>
+  </details></td>
+</tr>
+<tr class="rank-2">
+  <td>2</td>
+  <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>SVM (RBF via Nystroem-2000) + DNABERT-2 + Celligner PCA(70) + distance-to-gene</td>
   <td class="num">0.1851</td>
   <td class="num">0.7005</td>
@@ -56,8 +71,8 @@ The exact RBF kernel was both ~50x slower (198s vs 3.8s per fit) and worse (AUPR
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-svm-nystroem/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-svm-nystroem/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-2">
-  <td>2</td>
+<tr class="rank-3">
+  <td>3</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>xgboost + DNABERT-2 + Celligner PCA (dim=70) + distance-to-gene, fixed params (max_depth=9)</td>
   <td class="num">0.1733</td>
@@ -71,8 +86,8 @@ The exact RBF kernel was both ~50x slower (198s vs 3.8s per fit) and worse (AUPR
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner70-dist/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner70-dist/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-3">
-  <td>3</td>
+<tr class="rank-4">
+  <td>4</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5), no cell embedding</td>
   <td class="num">0.1472</td>
@@ -86,8 +101,8 @@ The exact RBF kernel was both ~50x slower (198s vs 3.8s per fit) and worse (AUPR
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-4">
-  <td>4</td>
+<tr class="rank-5">
+  <td>5</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5) + Celligner UMAP (dim=2)</td>
   <td class="num">0.1342</td>
@@ -101,8 +116,8 @@ The exact RBF kernel was both ~50x slower (198s vs 3.8s per fit) and worse (AUPR
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/xgboost-kmer-celligner2/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/xgboost-kmer-celligner2/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-5">
-  <td>5</td>
+<tr class="rank-6">
+  <td>6</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials)</td>
   <td class="num">0.1332</td>

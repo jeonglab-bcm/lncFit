@@ -1,0 +1,45 @@
+# Longitudinal Day-14 challenge model: use only strictly earlier Day-7 RRA and
+# guide-level measurements. The guide JSONL is streamed to keep memory bounded.
+#
+# Run:
+#   uv run python scripts/run_day7_longitudinal.py \
+#     --config configs/pipeline/xgboost_day7_longitudinal.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+  target_workbook: data/raw/mmc2.xlsx
+  screen_workbook: data/raw/mmc3.xlsx
+  guide_records: data/processed/screen_records.jsonl.gz
+  exclude_cell_lines: [HEK293FT]
+
+model:
+  name: xgboost_rank_ensemble
+  # Binary Day-14 hit classifier.
+  classifier_params:
+    n_estimators: 700
+    learning_rate: 0.025
+    max_depth: 2
+    min_child_weight: 10
+    subsample: 0.8
+    colsample_bytree: 0.9
+    reg_lambda: 5.0
+    reg_alpha: 0.2
+    scale_pos_weight: 1.0
+  # Regression head trained on the continuous Day-14 -log10(p-value) of
+  # training chromosomes only. It extracts supervision lost by thresholding
+  # the label at p<0.05.
+  significance_regressor_params:
+    n_estimators: 700
+    learning_rate: 0.025
+    max_depth: 2
+    min_child_weight: 10
+    subsample: 0.8
+    colsample_bytree: 0.9
+    reg_lambda: 5.0
+    reg_alpha: 0.2
+  significance_clip: 4.0
+  classifier_weight: 0.5
+
+seed: 42
+output_dir: results/lncrna_rra_day14/longitudinal_runs

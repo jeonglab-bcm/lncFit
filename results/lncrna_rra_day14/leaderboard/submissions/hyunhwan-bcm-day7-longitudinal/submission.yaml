@@ -1,0 +1,11 @@
+submitter: hyunhwan-bcm
+model: XGBoost Day-7 longitudinal classifier + significance-regression rank ensemble
+description: >
+  Predicts the chromosome-1 Day-14 outcome from strictly earlier Day-7
+  measurements. Features include the same-cell and cross-cell-line Day-7 RRA
+  values, bounded-memory guide-level Day-7 replicate summaries, replicate
+  disagreement, genomic distance/strand, and prediction-cell indicators. A
+  binary hit classifier is rank-blended 50/50 with a regressor trained on the
+  continuous Day-14 significance values from non-chromosome-1 training rows;
+  held-out Day-14 values are never features or training targets. HEK293FT is
+  excluded exactly as required by the challenge.
