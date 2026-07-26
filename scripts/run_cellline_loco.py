@@ -18,14 +18,20 @@ Config schema is the model/features subset of scripts/run_pipeline.py's YAML
     search_space: configs/search_spaces/<model>.yaml
     n_trials: 50
     metric: auprc or auroc
-When tuning.method is "optuna", hyperparameters are selected ONCE via a
-stratified 5-fold CV over the full (non-held-out-cell-line) dataset, then
-that single fixed set of best_params is used for all 4-5 outer
-leave-one-cell-line-out folds. This is a deliberate simplification -- a
-fully nested search (nest an inner nested tuning CV inside each outer fold)
-would cost ~n_folds times as many model fits for a fairly marginal rigor
-gain, since hyperparameters like max_depth/learning_rate are structural
-choices, not label-specific to whichever cell line ends up held out.
+    nested: false
+When tuning.method is "optuna" and nested is false (the default),
+hyperparameters are selected ONCE via a stratified 5-fold CV over the full
+dataset, then reused for every outer leave-one-cell-line-out fold. That is
+cheap but it lets each held-out cell line's own labels influence the
+hyperparameters used to predict it -- an optimistic leak, and a real one on
+this task because the outer folds jointly cover the entire dataset (there is
+no separate untouched test set to fall back on).
+
+Set `nested: true` for the clean version: each outer fold runs its own inner
+stratified CV over ONLY the 3 training cell lines, so no held-out cell line's
+labels inform its own prediction. Costs ~n_folds times as many fits and each
+fold may end up with different hyperparameters (recorded per fold in
+run_info.json).
 
 Usage:
   python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_kmer.yaml
@@ -139,6 +145,7 @@ def run(config: dict) -> dict:
     if tuning_method not in ("fixed", "optuna"):
         raise ValueError(f"tuning.method must be 'fixed' or 'optuna', got {tuning_method!r}")
     metric = tuning_cfg.get("metric", "auprc")
+    nested_tuning = bool(tuning_cfg.get("nested", False))
 
     exclude_cell_lines = set(data_cfg.get("exclude_cell_lines") or [])
 
@@ -179,7 +186,7 @@ def run(config: dict) -> dict:
             recs, embeddings, include_distance=include_distance, celligner_embedding_dim=celligner_dim,
         )
 
-    if tuning_method == "optuna":
+    if tuning_method == "optuna" and not nested_tuning:
         search_space_path = tuning_cfg["search_space"]
         n_trials = tuning_cfg.get("n_trials", 50)
         print(f"Tuning via optuna ({n_trials} trials, metric={metric}) on a stratified "
@@ -201,6 +208,7 @@ def run(config: dict) -> dict:
     n = len(records)
     y_pred_proba = np.full(n, np.nan, dtype=np.float64)
     y_true = np.array([r.label for r in records], dtype=int)
+    per_fold_params: dict[str, dict] = {}
 
     for train_mask, val_mask, fold_label in splits:
         train_recs = [r for r, m in zip(records, train_mask) if m]
@@ -215,7 +223,23 @@ def run(config: dict) -> dict:
         X_train, y_train, _ = build_features(train_recs, vocab=vocab)
         X_val, _, _ = build_features(val_recs, vocab=vocab)
 
-        model = build_classifier(model_name, **{"seed": seed, **params})
+        fold_params = params
+        if tuning_method == "optuna" and nested_tuning:
+            # Inner CV over this fold's TRAINING cell lines only, so the cell line
+            # being predicted never influences the hyperparameters used on it.
+            inner_splits = make_cv_splits(train_recs, strategy="stratified",
+                                          n_splits=3, seed=seed)
+            print(f"  fold {fold_label}: inner optuna ({tuning_cfg.get('n_trials', 50)} trials) "
+                  f"on {len(train_recs):,} rows from the other cell lines ...", flush=True)
+            fold_params = _tune_optuna(
+                model_name, seed, X_train, y_train, inner_splits,
+                tuning_cfg["search_space"], tuning_cfg.get("n_trials", 50), metric,
+                resample_method, resample_ratio,
+            )
+            print(f"  fold {fold_label}: best params {fold_params}", flush=True)
+        per_fold_params[str(fold_label)] = dict(fold_params)
+
+        model = build_classifier(model_name, **{"seed": seed, **fold_params})
         # Resample the training folds only -- never X_val, whose class balance is
         # what we're measuring against.
         X_fit, y_fit = resample(X_train, y_train, method=resample_method,
@@ -251,6 +275,8 @@ def run(config: dict) -> dict:
     run_info = {
         "model": model_name,
         "params": params,
+        "per_fold_params": per_fold_params,
+        "nested_tuning": nested_tuning,
         "tuning_method": tuning_method,
         "resample": resample_method,
         "features": feature_type,

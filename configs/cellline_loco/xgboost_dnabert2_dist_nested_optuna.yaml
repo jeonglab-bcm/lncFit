@@ -1,0 +1,35 @@
+# Nested-tuned version of the current LOCO best
+# (configs/cellline_loco/xgboost_dnabert2_dist_fixed.yaml), whose hyperparameters
+# were inherited from the chr1 task and never tuned for this one.
+#
+# Why nested: this task's 4 outer folds jointly cover the whole dataset, so there
+# is no untouched test set. Tuning once over all rows (tuning.nested: false) would
+# let each held-out cell line's own labels pick the hyperparameters used to
+# predict it -- optimistic. With nested: true each fold tunes on ONLY its 3
+# training cell lines, so the reported score stays honest. Costs ~4x the fits.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_dnabert2_dist_nested_optuna.yaml
+
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  exclude_cell_lines: [HEK293FT]
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: true
+  cell_embedding_dim: 0
+
+model:
+  name: xgboost
+
+tuning:
+  method: optuna
+  nested: true
+  search_space: configs/search_spaces/xgboost.yaml
+  # Modest trial count: nested means 4 outer folds x n_trials x 3 inner folds.
+  n_trials: 20
+  metric: auprc
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/runs

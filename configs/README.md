@@ -236,6 +236,7 @@ so it does not help on either leaderboard (both rank by AUPRC):
 | LOCO | SVM alone | 0.6021 | 0.0835 |
 | LOCO | XGBoost + SVM | **0.6041** | 0.1187 |
 | LOCO | XGBoost x 5 seeds | 0.5877 | 0.1424 |
+| LOCO | XGBoost, nested per-fold tuning | **0.6147** | 0.1337 |
 
 The direction is consistent and has a clear reason: AUPRC is dominated by the
 very top of the ranking, and averaging a strong model with a weaker one dilutes
@@ -247,6 +248,46 @@ Seed-averaging the same model (LOCO x5) behaves like the variance reduction it
 is: 0.1424 beats the 5-seed *mean* of 0.1408 but not the luckiest single seed
 (0.1435, which is the currently-submitted run). Worth knowing that the LOCO #1
 is a best-of-5 rather than a typical result.
+
+## ⚠️ AUPRC on this test set does not respond to model selection
+
+Measured while widening the SVM search on the chr1 task. Selecting `C` by
+**leak-free chromosome-LOCO CV** on the training split, versus what each choice
+actually scores on the held-out chr1 test set:
+
+| C | chrom-CV AUPRC | test AUPRC |
+|---|---|---|
+| 0.05 | **0.1207** (CV's pick) | 0.1664 |
+| 0.1 | 0.1183 | 0.1851 |
+| 0.3 | 0.1128 | 0.2065 |
+| 1.0 | 0.1086 | **0.2068** |
+| 3.0 | 0.1048 | 0.1896 |
+
+**Spearman rho = -1.000 across C=0.05..1.0** -- the legitimate selection signal
+points exactly backwards from test performance. The same anti-correlation shows
+up with stratified CV, so it is not a leakage artifact of one CV scheme.
+
+Why: the HEK293FT-excluded chr1 test set has only **106 positives**, so one
+positive moving through the ranking is worth ~1/106 = 0.0094 AUPRC. The entire
+C=0.1 -> C=1.0 test-score gap (0.0217) is about **2.3 positives' worth of
+movement** -- comfortably within what a handful of genes happening to sit on
+chromosome 1 can produce. Those higher scores are chr1-specific fit, not
+generalization, which is exactly why CV cannot see them.
+
+Practical consequences:
+
+- **Do not tune against the test AUPRC.** A config scoring 0.207 there is
+  reachable, but nothing except the test set itself would ever tell you to pick
+  it. Submitting on that basis is leaderboard overfitting, and it is why this
+  repo's leaderboard entries are chosen from CV or from multi-seed means instead.
+- **Treat AUPRC gaps under ~0.02 on this task as noise**, however they were
+  obtained.
+- **AUROC behaves much better.** Every genuine modelling improvement tried
+  (cross-family ensembling, seed averaging, nested per-fold tuning) moved AUROC
+  in the right direction while AUPRC wandered. If the leaderboards are ever
+  re-cut, ranking on AUROC -- or on a multi-seed mean rather than a single run --
+  would reward real progress far more reliably than single-run AUPRC on 106
+  positives.
 
 ## Choosing a tuning method (`tuning.method`)
 

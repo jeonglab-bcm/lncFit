@@ -196,3 +196,49 @@ def test_resample_rejects_unknown_method(data_files, tmp_path):
     )
     with pytest.raises(ValueError, match="model.resample.method"):
         LncRnaPipeline(config)
+
+
+def test_loco_nested_tuning_uses_only_training_cell_lines(monkeypatch, tmp_path):
+    """Nested LOCO tuning must run its inner CV on the fold's TRAINING cell lines
+    only. If the held-out cell line's rows leaked into the inner search, its own
+    labels would help choose the hyperparameters used to predict it."""
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).parent.parent / "scripts"))
+    import run_cellline_loco as loco
+
+    seen_row_counts = []
+    real_tune = loco._tune_optuna
+
+    def spy(model_name, seed, X, y, splits, *args, **kwargs):
+        seen_row_counts.append(len(y))
+        # Return a cheap fixed param set instead of actually searching.
+        return {"max_depth": 3}
+
+    monkeypatch.setattr(loco, "_tune_optuna", spy)
+
+    records = _synthetic_records(20)
+    data_path = tmp_path / "all.jsonl.gz"
+    save_jsonl(records, data_path)
+    seqs_path = tmp_path / "seqs.json"
+    with open(seqs_path, "w") as fh:
+        json.dump({gid: [seq, ""] for gid, seq in _synthetic_transcript_sequences(20).items()}, fh)
+
+    n_total = len(records)
+    n_cell_lines = len(_CELL_LINES)
+
+    loco.run({
+        "data": {"path": str(data_path), "transcript_sequences": str(seqs_path)},
+        "features": {"type": "kmer", "k": 3, "cell_embedding_dim": 0},
+        "model": {"name": "logreg"},
+        "tuning": {"method": "optuna", "nested": True,
+                   "search_space": "configs/search_spaces/logreg.yaml", "n_trials": 1},
+        "seed": 42,
+        "output_dir": str(tmp_path / "runs"),
+    })
+
+    assert len(seen_row_counts) == n_cell_lines, "expected one inner search per outer fold"
+    # Each inner search sees exactly the other cell lines' rows, never the whole set.
+    expected = n_total - n_total // n_cell_lines
+    assert all(c == expected for c in seen_row_counts), seen_row_counts
+    assert all(c < n_total for c in seen_row_counts)
