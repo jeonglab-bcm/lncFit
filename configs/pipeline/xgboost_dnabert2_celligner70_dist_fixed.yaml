@@ -1,0 +1,36 @@
+# Combines the two best-performing tweaks found: full 70-D Celligner PCA +
+# distance-to-nearest-protein-coding-gene.
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/xgboost_dnabert2_celligner70_dist_fixed.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: true
+  cell_embedding_dim: 70
+
+model:
+  name: xgboost
+  params:
+    learning_rate: 0.02
+    max_depth: 9
+    subsample: 0.5
+    colsample_bytree: 0.9
+    min_child_weight: 3
+    reg_alpha: 3.188749808609341
+    reg_lambda: 3.078336708769974e-06
+    scale_pos_weight: 1.0
+
+tuning:
+  method: fixed
+
+cv:
+  strategy: stratified
+  n_splits: 5
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs
