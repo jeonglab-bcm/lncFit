@@ -1,0 +1,17 @@
+submitter: hyunhwan-bcm
+model: Fold-safe cross-cell depletion prior + pre-screen guide XGBoost
+description: >
+  True four-fold leave-one-cell-line-out prediction for Day 14. Each fold uses
+  the same lncRNA's Day-14 depletion measurements from the three training cell
+  lines, together with pre-screen annotations, expression, transcript sequence,
+  and Cas13 guide-design features. The held-out cell line's labels, p-values,
+  and fold changes are never used by that fold. Day-0 and Day-7 measurements
+  are never used.
+
+  The final score is a fixed 50/50 global-rank ensemble of the training-cell
+  mean depletion and a depth-3 pseudohuber XGBoost depletion regressor. The
+  regressor's cross-cell outcome features are constructed inside each outer
+  fold: a training row sees only its other training cell lines, while a
+  held-out row sees the three allowed training lines. Overall LOCO performance
+  is AUROC 0.7332 and AUPRC 0.1784, improving the prior leader's
+  0.5956/0.1435.

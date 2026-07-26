@@ -1,0 +1,63 @@
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  target_day: 14
+  exclude_cell_lines: [HEK293FT]
+  day0_features_used: false
+  day7_features_used: false
+  supplementary_workbook: data/raw/mmc2.xlsx
+  guide_design_sheet: S1B
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+evaluation:
+  strategy: leave-one-cell-line-out
+  held_out_cell_lines: [HAP1, K562, MDA-MB-231, THP1]
+  held_out_cell_outcomes_used: false
+  train_cell_count_per_fold: 3
+  validation_cell_count_per_fold: 1
+
+features:
+  prescreen:
+    - static S1A annotations
+    - baseline and pre-screen expression from S1C and S1E
+    - handcrafted transcript sequence descriptors
+    - pre-screen guide count and longest-isoform target coverage
+    - guide composition, complexity, homopolymers, and self-complementarity
+    - guide positional bases, dinucleotides, target position, and local context
+    - Celligner PCA(70)
+  outer_training_outcomes:
+    - mean Day-14 depletion for the same lncRNA in the three training cell lines
+    - label, RRA-strength, and depletion summaries from other training cells
+  explicitly_excluded:
+    - Day-0 measurements
+    - Day-7 measurements
+    - outcomes from the held-out cell line
+    - S1A Number of cell lines showing essentiality
+
+model:
+  estimator: XGBoost pseudohuber regressor
+  target: negative Day-14 fold change
+  max_depth: 3
+  n_estimators: 600
+  learning_rate: 0.03
+  min_child_weight: 3
+  subsample: 0.75
+  colsample_bytree: 0.75
+  reg_alpha: 1.0
+  reg_lambda: 1.0
+  seed: 42
+
+ensemble:
+  method: global rank average
+  weights:
+    training_cell_mean_depletion: 0.5
+    depth3_crosscell_guide_depletion_regressor: 0.5
+
+metrics:
+  overall_auroc: 0.7332
+  overall_auprc: 0.1784
+  prior_leader_auroc: 0.5956
+  prior_leader_auprc: 0.1435
+
+implementation:
+  training_script: scripts/run_day14_cellline_loco_guide.py
+
