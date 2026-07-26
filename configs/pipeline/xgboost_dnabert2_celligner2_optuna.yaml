@@ -1,0 +1,36 @@
+# "Best effort" chr1-held-out config: DNABERT-2 embeddings + the 2-D Celligner
+# UMAP cell-line embedding + Optuna TPE hyperparameter search. Uses stratified
+# 5-fold CV for tuning rather than chromosome LOCO-CV (~20 folds) -- with dense
+# 775-dim features, chrom-CV made a single trial take ~60 minutes (1 trial in
+# 50 would be days). Stratified isn't leak-free for embedding features (same
+# caveat as configs/pipeline/xgboost_kmer_fixed.yaml's diagnostic CV), but it's
+# the same tradeoff already accepted elsewhere in this repo for a tractable
+# tuning search; the held-out chr1 test metrics are still leak-free regardless.
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/xgboost_dnabert2_celligner2_optuna.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: false
+  cell_embedding_dim: 2
+
+model:
+  name: xgboost
+
+tuning:
+  method: optuna
+  search_space: configs/search_spaces/xgboost.yaml
+  n_trials: 30
+  metric: auprc
+
+cv:
+  strategy: stratified
+  n_splits: 5
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs

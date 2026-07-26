@@ -1,0 +1,28 @@
+# "Best effort" leave-one-cell-line-out config: DNABERT-2 embeddings + the 2-D
+# Celligner UMAP cell-line embedding + Optuna TPE hyperparameter search (tuned
+# once via a stratified 5-fold CV over the full dataset, then reused for all 4
+# outer LOCO folds -- see scripts/run_cellline_loco.py's module docstring).
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_dnabert2_celligner2_optuna.yaml
+
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  exclude_cell_lines: [HEK293FT]
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: false
+  cell_embedding_dim: 2
+
+model:
+  name: xgboost
+
+tuning:
+  method: optuna
+  search_space: configs/search_spaces/xgboost.yaml
+  n_trials: 50
+  metric: auprc
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/runs

@@ -12,9 +12,20 @@ stitched into one predictions.csv covering the whole dataset -- this is what
 the lncrna_rra_day14_cellline_loco leaderboard challenge scores.
 
 Config schema is the model/features subset of scripts/run_pipeline.py's YAML
-(see configs/README.md) -- no data.train/data.test (one dataset, no held-out
-split) and no tuning/cv sections (only fixed hyperparameters; nested
-per-fold tuning is out of scope here).
+(see configs/README.md), plus an optional `tuning` section:
+  tuning:
+    method: fixed (default) or optuna
+    search_space: configs/search_spaces/<model>.yaml
+    n_trials: 50
+    metric: auprc or auroc
+When tuning.method is "optuna", hyperparameters are selected ONCE via a
+stratified 5-fold CV over the full (non-held-out-cell-line) dataset, then
+that single fixed set of best_params is used for all 4-5 outer
+leave-one-cell-line-out folds. This is a deliberate simplification -- a
+fully nested search (nest an inner nested tuning CV inside each outer fold)
+would cost ~n_folds times as many model fits for a fairly marginal rigor
+gain, since hyperparameters like max_depth/learning_rate are structural
+choices, not label-specific to whichever cell line ends up held out.
 
 Usage:
   python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_kmer.yaml
@@ -26,8 +37,10 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import optuna
 import pandas as pd
 import yaml
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -40,12 +53,55 @@ from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
 
 _DEFAULT_DATA_PATH = "data/processed/lncrna_rra_day14.jsonl.gz"
+_METRIC_FNS = {"auprc": average_precision_score, "auroc": roc_auc_score}
 
 
 def _load_transcript_sequences(path: str) -> dict[str, str]:
     with open(path) as fh:
         raw = json.load(fh)
     return {gene_id: seq for gene_id, (seq, _) in raw.items()}
+
+
+def _cv_score(model_name, params, seed, X, y, splits, metric) -> float:
+    scores = []
+    for train_mask, val_mask, _ in splits:
+        model = build_classifier(model_name, **{"seed": seed, **params})
+        model.fit(X[train_mask], y[train_mask])
+        y_pred = model.predict_proba(X[val_mask])
+        y_val = y[val_mask]
+        if len(np.unique(y_val)) < 2:
+            continue
+        scores.append(_METRIC_FNS[metric](y_val, y_pred))
+    return float(np.nanmean(scores)) if scores else float("nan")
+
+
+def _tune_optuna(model_name, seed, X, y, splits, search_space_path, n_trials, metric) -> dict:
+    with open(search_space_path) as fh:
+        search_space = yaml.safe_load(fh)
+
+    def objective(trial: optuna.Trial) -> float:
+        params = {}
+        for name, spec in search_space.items():
+            param_type = spec.get("type", "float")
+            if param_type == "float":
+                params[name] = trial.suggest_float(name, spec["low"], spec["high"], log=spec.get("log", False))
+            elif param_type == "int":
+                params[name] = trial.suggest_int(name, spec["low"], spec["high"])
+            elif param_type == "categorical":
+                params[name] = trial.suggest_categorical(name, spec["choices"])
+            else:
+                raise ValueError(f"Unknown search-space type {param_type!r} for param {name!r}")
+        return _cv_score(model_name, params, seed, X, y, splits, metric)
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    sampler = optuna.samplers.TPESampler(seed=seed)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+
+    def _trial_callback(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
+        print(f"  trial {trial.number:>3d}  {metric}={trial.value:.4f}  best={study.best_value:.4f}", flush=True)
+
+    study.optimize(objective, n_trials=n_trials, callbacks=[_trial_callback])
+    return study.best_params
 
 
 def run(config: dict) -> dict:
@@ -64,6 +120,12 @@ def run(config: dict) -> dict:
     params = dict(model_cfg.get("params") or {})
     seed = config.get("seed", 42)
     output_dir = Path(config.get("output_dir", "results/lncrna_rra_day14_cellline_loco/runs"))
+
+    tuning_cfg = config.get("tuning") or {"method": "fixed"}
+    tuning_method = tuning_cfg.get("method", "fixed")
+    if tuning_method not in ("fixed", "optuna"):
+        raise ValueError(f"tuning.method must be 'fixed' or 'optuna', got {tuning_method!r}")
+    metric = tuning_cfg.get("metric", "auprc")
 
     exclude_cell_lines = set(data_cfg.get("exclude_cell_lines") or [])
 
@@ -93,6 +155,21 @@ def run(config: dict) -> dict:
         return build_lncrna_embedding_features(
             recs, embeddings, include_distance=include_distance, celligner_embedding_dim=celligner_dim,
         )
+
+    if tuning_method == "optuna":
+        search_space_path = tuning_cfg["search_space"]
+        n_trials = tuning_cfg.get("n_trials", 50)
+        print(f"Tuning via optuna ({n_trials} trials, metric={metric}) on a stratified "
+              "5-fold CV over the full dataset ...")
+        vocab_for_tuning = None
+        if feature_type == "kmer":
+            all_targets = {r.target for r in records}
+            all_seqs = [transcript_sequences[t] for t in all_targets if t in transcript_sequences]
+            vocab_for_tuning = fit_vocab(all_seqs, k)
+        X_all, y_all, _ = build_features(records, vocab=vocab_for_tuning)
+        tuning_splits = make_cv_splits(records, strategy="stratified", n_splits=5, seed=seed)
+        params = _tune_optuna(model_name, seed, X_all, y_all, tuning_splits, search_space_path, n_trials, metric)
+        print(f"Best params: {params}")
 
     splits = make_cv_splits(records, strategy="cellline")
     print(f"Leave-one-cell-line-out: {len(splits)} folds ({[label for _, _, label in splits]})")
@@ -131,6 +208,7 @@ def run(config: dict) -> dict:
     run_dir = output_dir / f"run_{model_name}_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    config["model"]["params"] = params  # reflect the tuned params actually used, not the config's originals
     with open(run_dir / "config.yaml", "w") as fh:
         yaml.safe_dump(config, fh, sort_keys=False)
 
@@ -145,6 +223,7 @@ def run(config: dict) -> dict:
     run_info = {
         "model": model_name,
         "params": params,
+        "tuning_method": tuning_method,
         "features": feature_type,
         "cell_embedding_dim": celligner_dim,
         "eval_strategy": "cellline_loco",
