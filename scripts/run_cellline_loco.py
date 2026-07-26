@@ -46,7 +46,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lncfit.classifiers import build_classifier
 from lncfit.cv import make_cv_splits
-from lncfit.embeddings import load_embeddings
+from lncfit.embeddings import load_embeddings, reduce_embeddings_pca
 from lncfit.features import build_lncrna_embedding_features, build_lncrna_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.screen_data import LncRnaRecord, load_jsonl
@@ -144,6 +144,16 @@ def run(config: dict) -> dict:
         transcript_sequences = _load_transcript_sequences(data_cfg["transcript_sequences"])
     else:
         embeddings = load_embeddings(features_cfg["embeddings"])
+        embedding_pca = int(features_cfg.get("embedding_pca", 0) or 0)
+        if embedding_pca > 0:
+            # Fit on every target, once, rather than per fold: this task's folds
+            # partition by CELL LINE, and every lncRNA appears in all 4 cell lines,
+            # so a fold's training targets are already the full target set. There
+            # is no held-out gene whose embedding could leak in via the projection
+            # (contrast lncfit.pipeline, which holds out chr1's genes and so must
+            # fit PCA on training targets only).
+            embeddings = reduce_embeddings_pca(embeddings, None, embedding_pca, seed=seed)
+            print(f"  PCA -> {embeddings[0].shape[1]} components")
 
     def build_features(recs, vocab=None):
         if feature_type == "kmer":

@@ -20,6 +20,8 @@ only the plug-in *pattern* is borrowed.
 | `knn.py` | `KNNClassifier` — distance-weighted k-nearest-neighbors |
 | `mlp.py` | `MLPClassifier` — one-hidden-layer network, Adam + internal early stopping |
 | `xgboost_clf.py` | `XGBoostClassifier` — gradient-boosted trees, auto `scale_pos_weight` |
+| `histgb.py` | `HistGradientBoostingClassifier` — sklearn histogram GBM, `class_weight="balanced"`, internal early stopping. Dense X only |
+| `balanced_bagging.py` | `BalancedBaggingClassifier` — trees each fit on all positives + an equal-size majority subsample (undersampling ensemble, not loss reweighting) |
 | `__init__.py` | imports the wrappers to trigger registration |
 
 ## Usage

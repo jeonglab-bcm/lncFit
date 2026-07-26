@@ -113,6 +113,27 @@ scripts are still the place for that.
 Both feature types accept `include_distance` and `cell_embedding_dim` identically,
 so a model/feature/cell-embedding comparison is apples-to-apples.
 
+### `features.embedding_pca` (dnabert2 only)
+
+`0`/absent (default) uses the raw 768 embedding dims. Set it to a positive
+integer to PCA-reduce the embedding to that many components first
+(`lncfit.embeddings.reduce_embeddings_pca`) -- the motivation being that
+mean-pooled transformer dims are highly correlated, which is awkward for trees
+(`colsample_bytree` keeps sampling redundant columns).
+
+**In our own sweep this did not help** -- PCA at 64/128 components was
+consistently *worse* than the raw 768 dims on the chr1-held-out task (e.g.
+`balanced_bagging` AUPRC 0.1441 raw vs 0.1236 at 128 components). Kept as an
+option because it's cheap to try and may behave differently with other
+models/embeddings, but don't reach for it expecting a win.
+
+Leakage note: PCA (and its standardization) is fit on **training targets only**
+in `lncfit.pipeline`, then applied to every row -- fitting on the full matrix
+would let held-out chr1 genes' embedding distribution inform the projection.
+`scripts/run_cellline_loco.py` deliberately fits on all targets instead, because
+its folds partition by cell line and every lncRNA appears in all of them, so
+there is no held-out gene to protect.
+
 ## Choosing a cell-line embedding (`features.cell_embedding_dim`)
 
 See `data/external/README.md` for the full methodology and validation. Short
