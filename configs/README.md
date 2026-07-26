@@ -165,6 +165,9 @@ the class balance you measure against and silently invalidate the metrics;
 
 | config | AUPRC mean ± sd | AUROC mean | F1 mean |
 |---|---|---|---|
+| **`svm` rbf, Nystroem(2000), C=0.1** | **0.1813 ± 0.0088** | 0.6982 | 0.1834 |
+| `svm` rbf, Nystroem(1000), C=1.0 | 0.1772 ± 0.0154 | 0.6872 | 0.1774 |
+| `svm` rbf, Nystroem(1000), C=0.1 | 0.1661 ± 0.0055 | 0.6994 | 0.1810 |
 | xgboost + `random_over` | 0.1602 ± 0.0019 | 0.6815 | 0.0412 |
 | **xgboost, no resampling** | **0.1593 ± 0.0123** | **0.6940** | 0.0000 |
 | `balanced_bagging` ratio=3 | 0.1504 ± 0.0052 | 0.6989 | 0.1895 |
@@ -179,8 +182,23 @@ the class balance you measure against and silently invalidate the metrics;
 
 What this says:
 
+- **A Nystroem-approximated RBF SVM is the current best model on this task**
+  (AUPRC 0.1813 ± 0.0088 vs XGBoost's 0.1593 ± 0.0123 -- its *mean* clears the
+  incumbent's luckiest single run). Switching model *family* helped where
+  resampling didn't. Notes:
+  - Use `kernel_approx`, not the exact kernel: exact RBF took ~198s per fit and
+    scored *worse* (0.1581). The low-rank approximation regularizes a kernel that
+    was overfitting 844 correlated dims -- 52x faster and better.
+  - Performance plateaus around 2000 components (3000: 0.1804-0.1886, 4000:
+    0.1847), so there's no reason to pay for more.
+  - Low `C` (0.1) beats 1.0, and with tighter variance.
+  - `kernel: linear` is *bad* here (0.0983) -- the nonlinearity is doing the work.
+  - **This does not transfer to the cell-line-LOCO task**, where the same model
+    gets the best AUROC seen (0.6021) but by far the worst AUPRC (0.0835 vs
+    0.1435): it orders the bulk reasonably but is poor at the top of the ranking,
+    which is what AUPRC weights. Don't assume a chr1 win generalizes.
 - **No resampling strategy beats plain XGBoost on ranking metrics.** Imbalance
-  handling was not the bottleneck here.
+  handling was not the bottleneck here; the model family was.
 - **SMOTE is actively harmful** (0.106-0.116 vs 0.159), and consistently so
   across seeds. Interpolating between neighbours in a 768-dim frozen
   transformer-embedding space evidently manufactures points that don't lie on

@@ -1,0 +1,32 @@
+# Nystroem-approximated RBF SVM for the leave-one-cell-line-out challenge, on
+# that task's best-known feature recipe (DNABERT-2 + distance, no Celligner --
+# Celligner consistently hurt this task, unlike the chr1 one).
+#
+# NOT the best config for this challenge -- kept as a documented negative result.
+# The same model that wins the chr1 task (AUPRC 0.1813 vs XGBoost's 0.1593) does
+# the opposite here: best AUROC of anything tried (0.6021 vs 0.5956) but by far
+# the worst AUPRC (0.0835 vs 0.1435). It orders the bulk of the ranking well but
+# is poor at the very top, which is what AUPRC weights and what the leaderboard
+# sorts on. Use configs/cellline_loco/xgboost_dnabert2_dist_fixed.yaml instead.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/svm_dnabert2_dist_nystroem.yaml
+
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  exclude_cell_lines: [HEK293FT]
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: true
+  cell_embedding_dim: 0
+
+model:
+  name: svm
+  params:
+    kernel: rbf
+    C: 0.1
+    kernel_approx: 2000
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/runs
