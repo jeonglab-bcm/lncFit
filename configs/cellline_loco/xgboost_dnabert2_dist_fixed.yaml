@@ -1,0 +1,30 @@
+# DNABERT-2 embeddings + distance-to-nearest-protein-coding-gene, NO cell
+# embedding -- testing whether Celligner actually helps at all for LOCO
+# (it hurt at dim=70, barely helped at dim=2).
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_dnabert2_dist_fixed.yaml
+
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  exclude_cell_lines: [HEK293FT]
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: true
+  cell_embedding_dim: 0
+
+model:
+  name: xgboost
+  params:
+    learning_rate: 0.02
+    max_depth: 9
+    subsample: 0.5
+    colsample_bytree: 0.9
+    min_child_weight: 3
+    reg_alpha: 3.188749808609341
+    reg_lambda: 3.078336708769974e-06
+    scale_pos_weight: 1.0
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/runs
