@@ -153,3 +153,46 @@ def test_config_validation_requires_embeddings_for_dnabert2(data_files, tmp_path
     config = _base_config(data_files, tmp_path, features={"type": "dnabert2"})
     with pytest.raises(ValueError, match="features.embeddings"):
         LncRnaPipeline(config)
+
+
+def test_resample_applies_to_training_split_only(data_files, tmp_path, monkeypatch):
+    """Resampling must never see validation/test rows -- doing so would change the
+    class balance being measured against and silently invalidate the metrics."""
+    import lncfit.pipeline as pipeline_module
+
+    seen_sizes = []
+    real_resample = pipeline_module.resample
+
+    def spy(X, y, **kwargs):
+        seen_sizes.append(len(y))
+        return real_resample(X, y, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "resample", spy)
+
+    config = _base_config(
+        data_files, tmp_path,
+        model={"name": "logreg", "params": {"C": 1.0},
+               "resample": {"method": "random_over"}},
+        cv={"strategy": "stratified", "n_splits": 2},
+    )
+    # data_files fixture: 30 train targets and 10 test targets, x 5 cell lines
+    n_train = 30 * len(_CELL_LINES)
+    n_test = 10 * len(_CELL_LINES)
+
+    LncRnaPipeline(config).run()
+
+    assert seen_sizes, "resample() should have been called"
+    # Every call is a training split: either a CV fold (< n_train) or the full
+    # training set -- never the test set, and never train+test combined.
+    assert all(s <= n_train for s in seen_sizes), seen_sizes
+    assert n_train in seen_sizes, "final fit should resample the full training set"
+    assert all(s != n_test for s in seen_sizes), "a test-sized split was resampled"
+
+
+def test_resample_rejects_unknown_method(data_files, tmp_path):
+    config = _base_config(
+        data_files, tmp_path,
+        model={"name": "logreg", "resample": {"method": "not_a_method"}},
+    )
+    with pytest.raises(ValueError, match="model.resample.method"):
+        LncRnaPipeline(config)
