@@ -1,0 +1,26 @@
+data:
+  path: data/processed/lncrna_rra_day14.jsonl.gz
+  exclude_cell_lines:
+  - HEK293FT
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: false
+  cell_embedding_dim: 2
+model:
+  name: xgboost
+  params:
+    learning_rate: 0.01288931747163482
+    max_depth: 4
+    subsample: 0.713173333047047
+    colsample_bytree: 0.5334831945668879
+    min_child_weight: 6
+    reg_alpha: 1.009223390062722e-08
+    reg_lambda: 1.7544812178072933e-08
+tuning:
+  method: optuna
+  search_space: configs/search_spaces/xgboost.yaml
+  n_trials: 50
+  metric: auprc
+seed: 42
+output_dir: /tmp/dnabert2_loco_run
