@@ -1,0 +1,9 @@
+submitter: hyunhwan-bcm
+model: xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials)
+description: >
+  Best-effort attempt: DNABERT-2 transcript embeddings (768-dim, precomputed
+  via scripts/embed_sequences.py) + 2-D Celligner UMAP cell-line embedding +
+  Optuna TPE search over configs/search_spaces/xgboost.yaml (30 trials,
+  stratified 5-fold CV, metric=auprc). Best params:
+  learning_rate=0.0069, max_depth=4, subsample=0.523, colsample_bytree=0.663,
+  min_child_weight=4, reg_alpha=2.77e-6, reg_lambda=0.287.
