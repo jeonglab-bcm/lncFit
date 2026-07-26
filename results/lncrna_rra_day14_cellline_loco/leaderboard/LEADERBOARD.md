@@ -7,7 +7,8 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 
 | Rank | Submitter | Model | AUPRC | AUROC | Submission |
 |---|---|---|---|---|---|
-| 1 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + distance-to-gene, fixed params (max_depth=9) | 0.1435 | 0.5956 | [hyunhwan-bcm-dnabert2-dist](submissions/hyunhwan-bcm-dnabert2-dist/) |
-| 2 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1379 | 0.5915 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
-| 3 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1361 | 0.5841 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
-| 4 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials) | 0.1306 | 0.5878 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |
+| 1 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | Fold-safe Day-14 cross-cell guide-transfer XGBoost ensemble | 0.2186 | 0.7781 | [hyunhwan-bcm-crosscell-depletion-guide](submissions/hyunhwan-bcm-crosscell-depletion-guide/) |
+| 2 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + distance-to-gene, fixed params (max_depth=9) | 0.1435 | 0.5956 | [hyunhwan-bcm-dnabert2-dist](submissions/hyunhwan-bcm-dnabert2-dist/) |
+| 3 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1379 | 0.5915 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
+| 4 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1361 | 0.5841 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
+| 5 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials) | 0.1306 | 0.5878 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |

@@ -1,0 +1,86 @@
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+  target_day: 14
+  day0_features_used: false
+  day7_features_used: false
+  supplementary_workbook: data/raw/mmc2.xlsx
+  guide_design_sheet: S1B
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  shared:
+    - static S1A annotations
+    - baseline and pre-screen expression from S1C and S1E
+    - handcrafted transcript length, GC, entropy, and dinucleotide frequencies
+    - pre-screen guide count and longest-isoform target coverage
+    - guide GC, complexity, homopolymers, and self-complementarity
+    - guide position-specific bases and dinucleotide frequencies
+    - guide target position and local transcript context
+    - Celligner PCA(70)
+    - cell-line indicators
+  explicitly_excluded:
+    - Day-0 measurements
+    - Day-7 measurements
+    - Day-14 measurements as model inputs
+    - Number of cell lines showing essentiality
+  frozen_embeddings:
+    dnabert2_5prime: data/processed/dnabert2_transcript_full.npz
+    dnabert2_3prime: data/processed/dnabert2_transcript_last.npz
+    nucleotide_transformer_5prime: data/processed/nucleotide_transformer_transcript_full.npz
+  embedding_models:
+    dnabert2:
+      repository: zhihan1996/DNABERT-2-117M
+      revision: 7bce263b15377fc15361f52cfab88f8b586abda0
+      windows: [first, last]
+    nucleotide_transformer:
+      repository: InstaDeepAI/nucleotide-transformer-v2-50m-multi-species
+      revision: 81b29e5786726d891dbf929404ef20adca5b36f1
+      loader: AutoModelForMaskedLM
+      window: first
+
+models:
+  binary_target: "Day-14 RRA p-value < 0.05"
+  strength_target: "min(-log10(Day-14 RRA p-value), 8)"
+  estimator: XGBoost
+  common_params:
+    n_estimators: 600
+    learning_rate: 0.03
+    max_depth: 5
+    min_child_weight: 3
+    subsample: 0.75
+    colsample_bytree: 0.75
+    reg_alpha: 1.0
+    reg_lambda: 1.0
+    tree_method: hist
+    seed: 42
+  depths: [3, 5, 7]
+  targets_at_each_depth: [binary_target, strength_target]
+
+ensemble:
+  method: weighted rank average
+  selection: fixed from chromosome-grouped OOF predictions only
+  scored_cell_lines: [HAP1, K562, MDA-MB-231, THP1]
+  weights:
+    guide_binary_depth3: 0.15833333333333333
+    guide_strength_depth3: 0.15833333333333333
+    guide_binary_depth5: 0.15833333333333333
+    guide_strength_depth5: 0.15833333333333333
+    guide_binary_depth7: 0.15833333333333333
+    guide_strength_depth7: 0.15833333333333333
+    prior_frozen_multimodal_ensemble: 0.050000
+
+cv:
+  strategy: StratifiedGroupKFold
+  groups: chromosome
+  folds: 5
+  shuffle: true
+  seed: 42
+  scored_oof_auroc: 0.8181
+  scored_oof_auprc: 0.2632
+  heldout_chromosome1_auroc: 0.8330
+  heldout_chromosome1_auprc: 0.3088
+
+implementation:
+  training_script: scripts/run_day14_compliant_multimodal.py
+  embedding_script: scripts/embed_sequences.py

@@ -1,0 +1,27 @@
+evaluation: four-fold leave-one-cancer-cell-line-out
+day0_features_used: false
+day7_features_used: false
+heldout_cell_outcomes_used: false
+
+ablations:
+  - name: previous gene-level cross-cell ensemble
+    auroc: 0.7332
+    auprc: 0.1784
+  - name: raw training-cell Day-14 guide summaries, depth-3 XGBoost
+    auroc: 0.7630
+    auprc: 0.2093
+  - name: expression-only base plus source-count-matched guide transfer
+    auroc: 0.7685
+    auprc: 0.2108
+  - name: source-cell expert ensemble
+    auroc: 0.7593
+    auprc: 0.1955
+  - name: within-screen rank and RRA-like guide summaries
+    auroc: 0.7678
+    auprc: 0.2102
+  - name: DepMap protein-coding dependency features
+    auroc: 0.7670
+    auprc: 0.2094
+  - name: fixed five-component final ensemble
+    auroc: 0.7781
+    auprc: 0.2186
