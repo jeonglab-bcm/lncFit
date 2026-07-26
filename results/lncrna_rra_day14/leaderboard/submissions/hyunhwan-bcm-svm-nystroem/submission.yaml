@@ -1,0 +1,19 @@
+submitter: hyunhwan-bcm
+model: SVM (RBF via Nystroem-2000) + DNABERT-2 + Celligner PCA(70) + distance-to-gene
+description: >
+  Switching model family, not more tuning. RBF SVM with class_weight="balanced",
+  approximated by a 2000-component Nystroem feature map + linear SVM
+  (configs/pipeline/svm_dnabert2_celligner70_dist_nystroem.yaml), C=0.1, on the
+  same feature recipe as the previous best. No Optuna; C and kernel_approx were
+  picked from a small hand-run grid.
+
+  Verified across 4 seeds rather than a single run: AUPRC 0.1813 +/- 0.0088
+  (AUROC 0.6982), against the previous best config's 0.1593 +/- 0.0123. The mean
+  clears that config's luckiest single run (0.1733) and even the worst seed
+  (0.1682) nearly matches it, so this is not seed noise.
+
+  The exact RBF kernel was both ~50x slower (198s vs 3.8s per fit) and worse
+  (AUPRC 0.1581) -- the low-rank approximation regularizes a kernel that
+  overfits 844 correlated embedding dimensions. Performance plateaus around 2000
+  components. Note this model does NOT win the cell-line-LOCO challenge, where
+  it has the best AUROC but by far the worst AUPRC.

@@ -1,0 +1,39 @@
+# RBF SVM via a 2000-component Nystroem kernel approximation, on the same
+# feature recipe as the previous best (DNABERT-2 + Celligner PCA(70) +
+# distance-to-gene).
+#
+# Why the approximation rather than the exact kernel: exact RBF SVC on this
+# 25,010 x 844 matrix takes ~198s per fit AND scores worse (AUPRC 0.1581 vs
+# 0.1813 across seeds here). The low-rank approximation regularizes a kernel
+# that was overfitting 844 correlated dimensions, so it is both ~50x cheaper and
+# better. See lncfit/classifiers/svm.py's docstring for the measurements.
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/svm_dnabert2_celligner70_dist_nystroem.yaml
+
+data:
+  train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
+  test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
+
+features:
+  type: dnabert2
+  embeddings: data/processed/dnabert2_transcript_full.npz
+  include_distance: true
+  cell_embedding_dim: 70
+
+model:
+  name: svm
+  params:
+    kernel: rbf
+    # Low C matters here: C=1.0 gave 0.1772 +/- 0.0154 vs C=0.1's tighter
+    # 0.1813 +/- 0.0088 at 2000 components.
+    C: 0.1
+    kernel_approx: 2000
+
+tuning:
+  method: fixed
+
+cv:
+  strategy: none
+
+seed: 42
+output_dir: results/lncrna_rra_day14/pipeline_runs
