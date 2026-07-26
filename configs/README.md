@@ -51,6 +51,11 @@ model:
   name: xgboost              # any name from lncfit.classifiers.available_classifiers()
   params: {}                 # fixed hyperparameters. Used as-is when tuning.method
                              # is "fixed"; ignored otherwise (tuning picks these instead).
+  resample:                  # optional training-set resampling (lncfit.resample).
+    method: none             # none | random_over | random_under | smote | smote_tomek
+    ratio: auto              # "auto" = balance 1:1; a float = minority:majority
+                             # target (0.3 => partial rebalancing).
+                             # Applied to TRAINING splits only -- see below.
 
 tuning:
   method: fixed              # "fixed" (use model.params as-is), "grid", or "optuna"
@@ -143,6 +148,54 @@ More dimensions is **not** automatically better -- our own sweep
 (`results/lncrna_rra_day14/celligner_embedding_comparison/summary.csv`) found
 AUPRC peaks at `dim=2` and drops at `dim=10`/`70` even though AUROC keeps
 climbing. Try more than one value; don't assume 70 beats 2.
+
+## Handling class imbalance (`model.resample`, and imbalance-aware models)
+
+The task is ~4.5% positive. Two orthogonal levers: resample the training set
+(`model.resample`, any model), or pick a model that reweights its own loss
+(`histgb`, `randomforest`, `logreg`) or ensembles over balanced subsamples
+(`balanced_bagging`).
+
+Resampling is applied to **training splits only** -- both in CV folds and the
+final fit, never to validation/test. Resampling a held-out split would change
+the class balance you measure against and silently invalidate the metrics;
+`tests/test_pipeline.py::test_resample_applies_to_training_split_only` pins this.
+
+### Measured results (chr1-held-out, HEK293FT-excluded, 3 seeds each)
+
+| config | AUPRC mean ± sd | AUROC mean | F1 mean |
+|---|---|---|---|
+| xgboost + `random_over` | 0.1602 ± 0.0019 | 0.6815 | 0.0412 |
+| **xgboost, no resampling** | **0.1593 ± 0.0123** | **0.6940** | 0.0000 |
+| `balanced_bagging` ratio=3 | 0.1504 ± 0.0052 | 0.6989 | 0.1895 |
+| xgboost + `random_under` | 0.1485 ± 0.0201 | 0.6624 | 0.1604 |
+| `balanced_bagging` ratio=5 | 0.1451 ± 0.0029 | 0.6947 | 0.1369 |
+| `balanced_bagging` ratio=1 | 0.1414 ± 0.0051 | 0.6994 | 0.1874 |
+| `randomforest` | 0.1379 ± 0.0058 | 0.6952 | 0.0000 |
+| `histgb` | 0.1315 ± 0.0100 | 0.6703 | 0.2133 |
+| xgboost + `smote` ratio=0.3 | 0.1155 ± 0.0045 | 0.6505 | 0.0354 |
+| xgboost + `smote` | 0.1074 ± 0.0025 | 0.6400 | 0.1810 |
+| xgboost + `smote_tomek` | 0.1063 ± 0.0027 | 0.6386 | 0.1859 |
+
+What this says:
+
+- **No resampling strategy beats plain XGBoost on ranking metrics.** Imbalance
+  handling was not the bottleneck here.
+- **SMOTE is actively harmful** (0.106-0.116 vs 0.159), and consistently so
+  across seeds. Interpolating between neighbours in a 768-dim frozen
+  transformer-embedding space evidently manufactures points that don't lie on
+  the real data manifold. Don't reach for it on embedding features.
+- **`random_over` matches the baseline's mean AUPRC with ~6x lower variance**
+  (sd 0.0019 vs 0.0123). It won't produce a lucky high score, but it also won't
+  produce a bad one -- worth preferring when you want a number you can trust
+  rather than a leaderboard-topping one.
+- **`balanced_bagging`'s `sampling_ratio` matters**: 3.0 clearly beats the 1.0
+  default (0.1504 vs 0.1414), i.e. fully-balanced 1:1 undersampling is too
+  aggressive and throws away too much majority data per estimator.
+- **The reweighting/undersampling models are the only ones that make hard
+  positive calls**: F1 0.14-0.21 vs exactly 0.0000 for unweighted xgboost and
+  randomforest, which never cross the 0.5 threshold. If you need hit/no-hit
+  labels rather than a ranking, use one of those even though AUPRC is lower.
 
 ## Choosing a tuning method (`tuning.method`)
 

@@ -49,6 +49,7 @@ from lncfit.cv import make_cv_splits
 from lncfit.embeddings import load_embeddings, reduce_embeddings_pca
 from lncfit.features import build_lncrna_embedding_features, build_lncrna_features, fit_vocab
 from lncfit.io import git_commit
+from lncfit.resample import METHODS as RESAMPLE_METHODS, resample
 from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
 
@@ -62,11 +63,14 @@ def _load_transcript_sequences(path: str) -> dict[str, str]:
     return {gene_id: seq for gene_id, (seq, _) in raw.items()}
 
 
-def _cv_score(model_name, params, seed, X, y, splits, metric) -> float:
+def _cv_score(model_name, params, seed, X, y, splits, metric,
+              resample_method="none", resample_ratio="auto") -> float:
     scores = []
     for train_mask, val_mask, _ in splits:
         model = build_classifier(model_name, **{"seed": seed, **params})
-        model.fit(X[train_mask], y[train_mask])
+        X_fit, y_fit = resample(X[train_mask], y[train_mask],
+                                method=resample_method, ratio=resample_ratio, seed=seed)
+        model.fit(X_fit, y_fit)
         y_pred = model.predict_proba(X[val_mask])
         y_val = y[val_mask]
         if len(np.unique(y_val)) < 2:
@@ -75,7 +79,8 @@ def _cv_score(model_name, params, seed, X, y, splits, metric) -> float:
     return float(np.nanmean(scores)) if scores else float("nan")
 
 
-def _tune_optuna(model_name, seed, X, y, splits, search_space_path, n_trials, metric) -> dict:
+def _tune_optuna(model_name, seed, X, y, splits, search_space_path, n_trials, metric,
+                 resample_method="none", resample_ratio="auto") -> dict:
     with open(search_space_path) as fh:
         search_space = yaml.safe_load(fh)
 
@@ -91,7 +96,8 @@ def _tune_optuna(model_name, seed, X, y, splits, search_space_path, n_trials, me
                 params[name] = trial.suggest_categorical(name, spec["choices"])
             else:
                 raise ValueError(f"Unknown search-space type {param_type!r} for param {name!r}")
-        return _cv_score(model_name, params, seed, X, y, splits, metric)
+        return _cv_score(model_name, params, seed, X, y, splits, metric,
+                         resample_method, resample_ratio)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     sampler = optuna.samplers.TPESampler(seed=seed)
@@ -118,6 +124,13 @@ def run(config: dict) -> dict:
     model_cfg = config["model"]
     model_name = model_cfg["name"]
     params = dict(model_cfg.get("params") or {})
+    resample_cfg = model_cfg.get("resample") or {}
+    resample_method = resample_cfg.get("method", "none")
+    if resample_method not in RESAMPLE_METHODS:
+        raise ValueError(
+            f"model.resample.method must be one of {RESAMPLE_METHODS}, got {resample_method!r}"
+        )
+    resample_ratio = resample_cfg.get("ratio", "auto")
     seed = config.get("seed", 42)
     output_dir = Path(config.get("output_dir", "results/lncrna_rra_day14_cellline_loco/runs"))
 
@@ -178,7 +191,8 @@ def run(config: dict) -> dict:
             vocab_for_tuning = fit_vocab(all_seqs, k)
         X_all, y_all, _ = build_features(records, vocab=vocab_for_tuning)
         tuning_splits = make_cv_splits(records, strategy="stratified", n_splits=5, seed=seed)
-        params = _tune_optuna(model_name, seed, X_all, y_all, tuning_splits, search_space_path, n_trials, metric)
+        params = _tune_optuna(model_name, seed, X_all, y_all, tuning_splits, search_space_path,
+                              n_trials, metric, resample_method, resample_ratio)
         print(f"Best params: {params}")
 
     splits = make_cv_splits(records, strategy="cellline")
@@ -202,7 +216,11 @@ def run(config: dict) -> dict:
         X_val, _, _ = build_features(val_recs, vocab=vocab)
 
         model = build_classifier(model_name, **{"seed": seed, **params})
-        model.fit(X_train, y_train)
+        # Resample the training folds only -- never X_val, whose class balance is
+        # what we're measuring against.
+        X_fit, y_fit = resample(X_train, y_train, method=resample_method,
+                                ratio=resample_ratio, seed=seed)
+        model.fit(X_fit, y_fit)
         fold_pred = model.predict_proba(X_val)
         y_pred_proba[val_mask] = fold_pred
 
@@ -234,6 +252,7 @@ def run(config: dict) -> dict:
         "model": model_name,
         "params": params,
         "tuning_method": tuning_method,
+        "resample": resample_method,
         "features": feature_type,
         "cell_embedding_dim": celligner_dim,
         "eval_strategy": "cellline_loco",

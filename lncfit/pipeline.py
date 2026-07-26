@@ -30,6 +30,7 @@ from lncfit.cv import make_cv_splits
 from lncfit.embeddings import load_embeddings, reduce_embeddings_pca
 from lncfit.features import build_lncrna_embedding_features, build_lncrna_features, fit_vocab
 from lncfit.io import git_commit
+from lncfit.resample import METHODS as RESAMPLE_METHODS, resample
 from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
 
@@ -72,6 +73,16 @@ class LncRnaPipeline:
             raise ValueError("model.name is required (see lncfit.classifiers.available_classifiers()).")
         self.model_name = model_cfg["name"]
         self.fixed_params = dict(model_cfg.get("params") or {})
+        # Training-set resampling (see lncfit.resample) -- applied to train splits
+        # only, never to validation/test.
+        resample_cfg = model_cfg.get("resample") or {}
+        self.resample_method = resample_cfg.get("method", "none")
+        if self.resample_method not in RESAMPLE_METHODS:
+            raise ValueError(
+                f"model.resample.method must be one of {RESAMPLE_METHODS}, "
+                f"got {self.resample_method!r}"
+            )
+        self.resample_ratio = resample_cfg.get("ratio", "auto")
 
         tuning_cfg = config.get("tuning") or {"method": "fixed"}
         self.tuning_method = tuning_cfg.get("method", "fixed")
@@ -136,6 +147,20 @@ class LncRnaPipeline:
             celligner_embedding_dim=self.celligner_embedding_dim,
         )
 
+    def _fit_resampled(self, model, X_train, y_train):
+        """Fit `model`, resampling the TRAINING data first if configured.
+
+        Kept as one helper so every fit site (CV folds and the final fit) goes
+        through the same path -- resampling one but not the other would make the
+        CV score describe a different procedure than the model actually shipped.
+        """
+        X_res, y_res = resample(
+            X_train, y_train, method=self.resample_method,
+            ratio=self.resample_ratio, seed=self.seed,
+        )
+        model.fit(X_res, y_res)
+        return model
+
     def _build_model(self, params: dict):
         return build_classifier(self.model_name, **{"seed": self.seed, **params})
 
@@ -149,7 +174,7 @@ class LncRnaPipeline:
         scores = []
         for train_mask, val_mask, fold_label in splits:
             model = self._build_model(params)
-            model.fit(X[train_mask], y[train_mask])
+            self._fit_resampled(model, X[train_mask], y[train_mask])
             y_pred = model.predict_proba(X[val_mask])
             score = self._score(y[val_mask], y_pred)
             scores.append(score)
@@ -256,7 +281,7 @@ class LncRnaPipeline:
 
         print(f"\nFitting final {self.model_name} model on all training data ...")
         model = self._build_model(best_params)
-        model.fit(X_train, y_train)
+        self._fit_resampled(model, X_train, y_train)
 
         print("Evaluating on held-out test set ...")
         y_pred_proba = model.predict_proba(X_test)

@@ -25,6 +25,10 @@ dependencies = [
     "pyfaidx>=0.9.0.4",
     "einops>=0.8.2",
     "pyyaml>=6.0",
+    # Training-set resampling strategies (lncfit.resample): SMOTE, random
+    # over/under-sampling. Not needed by the leaderboard scoring path, so the
+    # leaderboard CI workflow deliberately does not install it.
+    "imbalanced-learn>=0.12",
 ]
 
 [dependency-groups]
