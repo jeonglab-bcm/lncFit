@@ -26,6 +26,8 @@ from lncfit.classifiers.xgboost_clf import XGBoostClassifier
 from lncfit.classifiers.randomforest import RandomForestClassifier
 from lncfit.classifiers.knn import KNNClassifier
 from lncfit.classifiers.mlp import MLPClassifier
+from lncfit.classifiers.histgb import HistGradientBoostingClassifier
+from lncfit.classifiers.balanced_bagging import BalancedBaggingClassifier
 
 __all__ = [
     "ClassifierModel",
@@ -39,4 +41,6 @@ __all__ = [
     "RandomForestClassifier",
     "KNNClassifier",
     "MLPClassifier",
+    "HistGradientBoostingClassifier",
+    "BalancedBaggingClassifier",
 ]

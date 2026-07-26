@@ -1,0 +1,29 @@
+# Search space for lncfit.classifiers.balanced_bagging.BalancedBaggingClassifier.
+# `grid`     -> used by tuning.method: grid
+# `type`/`low`/`high`/`log` -> used by tuning.method: optuna
+
+n_estimators:
+  type: int
+  low: 50
+  high: 300
+  grid: [50, 100, 200]
+
+max_depth:
+  type: int
+  low: 3
+  high: 15
+  grid: [6, 9, 12]
+
+min_samples_leaf:
+  type: int
+  low: 1
+  high: 20
+  grid: [1, 2, 5]
+
+# majority:minority ratio per estimator. 1.0 = fully balanced; higher keeps more
+# of the majority class per fit (less aggressive undersampling).
+sampling_ratio:
+  type: float
+  low: 1.0
+  high: 5.0
+  grid: [1.0, 2.0, 3.0]

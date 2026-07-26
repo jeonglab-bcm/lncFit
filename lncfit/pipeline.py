@@ -27,7 +27,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 
 from lncfit.classifiers import build_classifier
 from lncfit.cv import make_cv_splits
-from lncfit.embeddings import load_embeddings
+from lncfit.embeddings import load_embeddings, reduce_embeddings_pca
 from lncfit.features import build_lncrna_embedding_features, build_lncrna_features, fit_vocab
 from lncfit.io import git_commit
 from lncfit.screen_data import LncRnaRecord, load_jsonl
@@ -63,6 +63,9 @@ class LncRnaPipeline:
         self.embeddings_path = features_cfg.get("embeddings")
         if self.feature_type == "dnabert2" and not self.embeddings_path:
             raise ValueError("features.embeddings is required when features.type is 'dnabert2'.")
+        # 0 / absent = use the raw embedding dims; >0 = PCA-reduce to that many
+        # components, fit on training targets only (see reduce_embeddings_pca).
+        self.embedding_pca = int(features_cfg.get("embedding_pca", 0) or 0)
 
         model_cfg = config.get("model", {})
         if "name" not in model_cfg:
@@ -219,6 +222,15 @@ class LncRnaPipeline:
             print(f"Loading DNABERT-2 embeddings from {self.embeddings_path} ...")
             self.embeddings = load_embeddings(self.embeddings_path)
             print(f"  {self.embeddings[0].shape[0]:,} lncRNAs x {self.embeddings[0].shape[1]} dims")
+            if self.embedding_pca > 0:
+                # Fit on training targets only -- the test set's own embeddings must
+                # not influence the projection.
+                train_targets = {r.target for r in train_records}
+                self.embeddings = reduce_embeddings_pca(
+                    self.embeddings, train_targets, self.embedding_pca, seed=self.seed
+                )
+                print(f"  PCA -> {self.embeddings[0].shape[1]} components "
+                      f"(fit on {len(train_targets):,} training targets)")
 
         print(f"Building features (type={self.feature_type}, cell_embedding_dim={self.celligner_embedding_dim}) ...")
         X_train, y_train, feature_cols = self._build_features(train_records)
