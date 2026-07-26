@@ -2,8 +2,10 @@ data:
   train: data/processed/train_lncrna_day14_chrom1.jsonl.gz
   test: data/processed/test_lncrna_day14_chrom1.jsonl.gz
   target_day: 14
+  day0_features_used: false
   day7_features_used: false
   supplementary_workbook: data/raw/mmc2.xlsx
+  guide_design_sheet: S1B
   transcript_sequences: data/processed/body_sequences_transcript.json
 
 features:
@@ -11,12 +13,17 @@ features:
     - static S1A annotations
     - baseline and pre-screen expression from S1C and S1E
     - handcrafted transcript length, GC, entropy, and dinucleotide frequencies
+    - pre-screen guide count and longest-isoform target coverage
+    - guide GC, complexity, homopolymers, and self-complementarity
+    - guide position-specific bases and dinucleotide frequencies
+    - guide target position and local transcript context
     - Celligner PCA(70)
     - cell-line indicators
   explicitly_excluded:
+    - Day-0 measurements
     - Day-7 measurements
+    - Day-14 measurements as model inputs
     - Number of cell lines showing essentiality
-    - guide-sequence and guide-design features
   frozen_embeddings:
     dnabert2_5prime: data/processed/dnabert2_transcript_full.npz
     dnabert2_3prime: data/processed/dnabert2_transcript_last.npz
@@ -47,23 +54,21 @@ models:
     reg_lambda: 1.0
     tree_method: hist
     seed: 42
-  depth3_strength_ablation:
-    max_depth: 3
+  depths: [3, 5, 7]
+  targets_at_each_depth: [binary_target, strength_target]
 
 ensemble:
   method: weighted rank average
   selection: fixed from chromosome-grouped OOF predictions only
   scored_cell_lines: [HAP1, K562, MDA-MB-231, THP1]
   weights:
-    static_binary_depth5: 0.0798
-    static_strength_depth5: 0.0798
-    static_strength_depth3: 0.0500
-    dnabert2_5prime_binary: 0.1064
-    dnabert2_5prime_strength: 0.2660
-    dnabert2_3prime_binary: 0.1140
-    dnabert2_3prime_strength: 0.1140
-    nucleotide_transformer_5prime_binary: 0.0950
-    nucleotide_transformer_5prime_strength: 0.0950
+    guide_binary_depth3: 0.15833333333333333
+    guide_strength_depth3: 0.15833333333333333
+    guide_binary_depth5: 0.15833333333333333
+    guide_strength_depth5: 0.15833333333333333
+    guide_binary_depth7: 0.15833333333333333
+    guide_strength_depth7: 0.15833333333333333
+    prior_frozen_multimodal_ensemble: 0.050000
 
 cv:
   strategy: StratifiedGroupKFold
@@ -71,8 +76,10 @@ cv:
   folds: 5
   shuffle: true
   seed: 42
-  scored_oof_auroc: 0.7233
-  scored_oof_auprc: 0.1935
+  scored_oof_auroc: 0.8181
+  scored_oof_auprc: 0.2632
+  heldout_chromosome1_auroc: 0.8330
+  heldout_chromosome1_auprc: 0.3088
 
 implementation:
   training_script: scripts/run_day14_compliant_multimodal.py

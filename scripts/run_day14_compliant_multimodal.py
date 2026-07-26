@@ -19,7 +19,7 @@ import json
 import math
 import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +37,7 @@ from lncfit.screen_data import LncRnaRecord, load_jsonl
 
 
 EVALUATED_CELL_LINES = {"HAP1", "K562", "MDA-MB-231", "THP1"}
+ALL_CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
 BASES = "ACGT"
 DEPMAP_MODEL_IDS = {
     "HAP1": "ACH-002475",
@@ -230,6 +231,471 @@ def _supplementary_features(
     return np.asarray(matrix, dtype=np.float32), names
 
 
+def _normalized_entropy(values: np.ndarray) -> float:
+    values = np.maximum(np.nan_to_num(values, nan=0.0), 0.0)
+    total = float(values.sum())
+    if total <= 0.0:
+        return 0.0
+    probabilities = values[values > 0] / total
+    return float(
+        -np.sum(probabilities * np.log(probabilities))
+        / math.log(max(len(values), 2))
+    )
+
+
+def _cross_cell_summaries(
+    values: np.ndarray, matched_index: int
+) -> list[float]:
+    values = np.maximum(np.nan_to_num(values, nan=0.0), 0.0)
+    logged = np.log1p(values)
+    matched = float(values[matched_index])
+    matched_log = float(logged[matched_index])
+    others = np.delete(values, matched_index)
+    other_logs = np.delete(logged, matched_index)
+    mean_other = float(others.mean())
+    maximum = float(values.max())
+    mean = float(values.mean())
+    std = float(values.std())
+    tau = (
+        float(np.sum(1.0 - values / maximum) / max(len(values) - 1, 1))
+        if maximum > 0
+        else 0.0
+    )
+    return [
+        matched_log,
+        float(other_logs.mean()),
+        float(other_logs.max()),
+        math.log2((matched + 0.1) / (mean_other + 0.1)),
+        matched / max(float(values.sum()), 1e-6),
+        float((values <= matched).mean()),
+        std / max(mean, 1e-6),
+        tau,
+        _normalized_entropy(values),
+        float((values > 0).sum()),
+        float((values >= 1).sum()),
+    ]
+
+
+def _expression_specificity_features(
+    records: list[LncRnaRecord], mmc2_path: Path
+) -> tuple[np.ndarray, list[str]]:
+    """Explicit cross-cell expression contrasts from pre-screen RNA-seq."""
+    total = pd.read_excel(mmc2_path, sheet_name="S1C", header=2).set_index("lncRNA")
+    mrna = pd.read_excel(mmc2_path, sheet_name="S1E", header=2).set_index("lncRNA")
+    total_base_cols = ALL_CELL_LINES
+    total_rfx_cols = [
+        cell if cell == "MDA-MB-231" else f"{cell} RfxCas13d"
+        for cell in ALL_CELL_LINES
+    ]
+    mrna_rfx_cols = [f"{cell} RfxCas13d" for cell in ALL_CELL_LINES]
+    suffixes = [
+        "matched_log",
+        "other_mean_log",
+        "other_max_log",
+        "matched_vs_other_log2_ratio",
+        "matched_fraction",
+        "matched_within_gene_percentile",
+        "cross_cell_cv",
+        "cross_cell_tau",
+        "cross_cell_entropy",
+        "expressing_cell_count",
+        "cell_count_tpm_ge_1",
+    ]
+    names = [
+        f"expr_specificity_{modality}_{suffix}"
+        for modality in ("total_base", "total_rfx", "mrna_rfx")
+        for suffix in suffixes
+    ]
+    names.extend(
+        [
+            "expr_specificity_total_base_global_percentile",
+            "expr_specificity_total_rfx_global_percentile",
+            "expr_specificity_mrna_rfx_global_percentile",
+        ]
+    )
+
+    total_base_percentiles = total[total_base_cols].rank(pct=True)
+    total_rfx_percentiles = total[total_rfx_cols].rank(pct=True)
+    mrna_rfx_percentiles = mrna[mrna_rfx_cols].rank(pct=True)
+    matrix: list[list[float]] = []
+    for record in records:
+        matched_index = ALL_CELL_LINES.index(record.cell_line)
+        base_values = pd.to_numeric(
+            total.loc[record.target, total_base_cols], errors="coerce"
+        ).to_numpy(dtype=float)
+        total_rfx_values = pd.to_numeric(
+            total.loc[record.target, total_rfx_cols], errors="coerce"
+        ).to_numpy(dtype=float)
+        mrna_rfx_values = pd.to_numeric(
+            mrna.loc[record.target, mrna_rfx_cols], errors="coerce"
+        ).to_numpy(dtype=float)
+        row = [
+            *_cross_cell_summaries(base_values, matched_index),
+            *_cross_cell_summaries(total_rfx_values, matched_index),
+            *_cross_cell_summaries(mrna_rfx_values, matched_index),
+            float(
+                total_base_percentiles.at[
+                    record.target, total_base_cols[matched_index]
+                ]
+            ),
+            float(
+                total_rfx_percentiles.at[
+                    record.target, total_rfx_cols[matched_index]
+                ]
+            ),
+            float(
+                mrna_rfx_percentiles.at[
+                    record.target, mrna_rfx_cols[matched_index]
+                ]
+            ),
+        ]
+        matrix.append(row)
+    return np.asarray(matrix, dtype=np.float32), names
+
+
+_GTF_GENE_RE = re.compile(r"gene_id\s+(\S+?);")
+_GTF_TRANSCRIPT_RE = re.compile(r"transcript_id\s+(\S+?);")
+
+
+def _transcript_architecture_features(
+    records: list[LncRnaRecord], gtf_path: Path
+) -> tuple[np.ndarray, list[str]]:
+    """Summarize isoform/exon architecture without using screen measurements."""
+    wanted = {record.target for record in records}
+    exons: dict[str, dict[str, list[tuple[int, int]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    with gtf_path.open() as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) < 9 or fields[2] != "exon":
+                continue
+            gene_match = _GTF_GENE_RE.search(fields[8])
+            transcript_match = _GTF_TRANSCRIPT_RE.search(fields[8])
+            if not gene_match or not transcript_match:
+                continue
+            gene = gene_match.group(1)
+            if gene not in wanted:
+                continue
+            exons[gene][transcript_match.group(1)].append(
+                (int(fields[3]), int(fields[4]))
+            )
+
+    names = [
+        "architecture_log_transcript_count",
+        "architecture_log_longest_exonic_length",
+        "architecture_log_mean_exonic_length",
+        "architecture_log_shortest_exonic_length",
+        "architecture_transcript_length_cv",
+        "architecture_longest_to_mean_length",
+        "architecture_mean_exon_count",
+        "architecture_max_exon_count",
+        "architecture_exon_count_cv",
+        "architecture_log_union_exonic_bp",
+        "architecture_log_genomic_span",
+        "architecture_union_to_longest_ratio",
+    ]
+    cache: dict[str, np.ndarray] = {}
+    for gene in wanted:
+        transcripts = exons.get(gene, {})
+        lengths = np.asarray(
+            [
+                sum(end - start + 1 for start, end in transcript_exons)
+                for transcript_exons in transcripts.values()
+            ],
+            dtype=float,
+        )
+        exon_counts = np.asarray(
+            [len(transcript_exons) for transcript_exons in transcripts.values()],
+            dtype=float,
+        )
+        intervals = sorted(
+            interval
+            for transcript_exons in transcripts.values()
+            for interval in transcript_exons
+        )
+        merged: list[list[int]] = []
+        for start, end in intervals:
+            if not merged or start > merged[-1][1] + 1:
+                merged.append([start, end])
+            else:
+                merged[-1][1] = max(merged[-1][1], end)
+        union_bp = sum(end - start + 1 for start, end in merged)
+        genomic_span = (
+            max(end for _, end in intervals) - min(start for start, _ in intervals) + 1
+            if intervals
+            else 0
+        )
+        if lengths.size:
+            mean_length = float(lengths.mean())
+            longest = float(lengths.max())
+            shortest = float(lengths.min())
+            length_cv = float(lengths.std() / max(mean_length, 1e-6))
+            mean_exons = float(exon_counts.mean())
+            max_exons = float(exon_counts.max())
+            exon_cv = float(exon_counts.std() / max(mean_exons, 1e-6))
+        else:
+            mean_length = longest = shortest = length_cv = 0.0
+            mean_exons = max_exons = exon_cv = 0.0
+        cache[gene] = np.asarray(
+            [
+                math.log1p(len(transcripts)),
+                math.log1p(longest),
+                math.log1p(mean_length),
+                math.log1p(shortest),
+                length_cv,
+                longest / max(mean_length, 1e-6),
+                mean_exons,
+                max_exons,
+                exon_cv,
+                math.log1p(union_bp),
+                math.log1p(genomic_span),
+                union_bp / max(longest, 1e-6),
+            ],
+            dtype=np.float32,
+        )
+    return np.vstack([cache[record.target] for record in records]), names
+
+
+def _max_homopolymer(sequence: str) -> int:
+    if not sequence:
+        return 0
+    maximum = run = 1
+    for left, right in zip(sequence, sequence[1:], strict=False):
+        run = run + 1 if left == right else 1
+        maximum = max(maximum, run)
+    return maximum
+
+
+def _self_complementarity(sequence: str) -> int:
+    reverse_complement = sequence.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+    maximum = 0
+    length = len(sequence)
+    for shift in range(-length + 1, length):
+        run = 0
+        for index in range(length):
+            other = index + shift
+            if 0 <= other < length and sequence[index] == reverse_complement[other]:
+                run += 1
+                maximum = max(maximum, run)
+            else:
+                run = 0
+    return maximum
+
+
+def _guide_design_features(
+    records: list[LncRnaRecord], mmc2_path: Path, sequence_path: Path
+) -> tuple[np.ndarray, list[str]]:
+    """Aggregate pre-screen guide design and longest-isoform coverage."""
+    guides = pd.read_excel(
+        mmc2_path, sheet_name="S1B", header=2, dtype=str
+    ).dropna(subset=["Target", "Sequence (5' - 3')"])
+    wanted = {record.target for record in records}
+    guides = guides[guides["Target"].isin(wanted)]
+    guides_by_target = {
+        target: group["Sequence (5' - 3')"].str.upper().tolist()
+        for target, group in guides.groupby("Target")
+    }
+    with sequence_path.open() as fh:
+        raw_sequences: dict[str, list[str]] = json.load(fh)
+
+    metrics = [
+        "gc",
+        "entropy",
+        "homopolymer",
+        "complexity3",
+        "self_complementarity",
+        "exact_match_count",
+        "position",
+        "local_gc",
+        "local_entropy",
+    ]
+    names = ["guide_count"]
+    names.extend(
+        f"guide_{metric}_{stat}"
+        for metric in metrics
+        for stat in ("mean", "std", "min", "max")
+    )
+    names.extend(
+        [
+            "guide_exact_match_fraction",
+            "guide_unique_match_fraction",
+            "guide_high_quality_fraction",
+            "guide_position_range",
+            "guide_position_unique_fraction",
+        ]
+    )
+    names.extend(f"guide_base_{position}_{base}" for position in range(23) for base in BASES)
+    names.extend(f"guide_dinucleotide_{left}{right}" for left in BASES for right in BASES)
+
+    complement = str.maketrans("ACGT", "TGCA")
+    cache: dict[str, np.ndarray] = {}
+    for target in wanted:
+        target_guides = guides_by_target.get(target, [])
+        transcript = raw_sequences[target][0].upper()
+        guide_rows: list[list[float]] = []
+        base_counts = np.zeros((23, 4), dtype=float)
+        dinucleotide_counts = Counter()
+        positions: list[float] = []
+        high_quality = 0
+        exact_matches = 0
+        unique_matches = 0
+        for guide in target_guides:
+            guide = guide.upper()
+            reverse_complement = guide.translate(complement)[::-1]
+            counts = Counter(base for base in guide if base in BASES)
+            valid = sum(counts.values())
+            probabilities = [
+                counts[base] / max(valid, 1) for base in BASES if counts[base]
+            ]
+            entropy = float(-sum(p * math.log2(p) for p in probabilities))
+            kmers3 = {
+                guide[index : index + 3]
+                for index in range(max(len(guide) - 2, 0))
+            }
+            complexity = len(kmers3) / max(len(guide) - 2, 1)
+            matches = transcript.count(reverse_complement)
+            position = transcript.find(reverse_complement)
+            normalized_position = (
+                position / max(len(transcript) - len(guide), 1)
+                if position >= 0
+                else 0.0
+            )
+            if position >= 0:
+                context = transcript[max(0, position - 50) : position + len(guide) + 50]
+                context_counts = Counter(base for base in context if base in BASES)
+                context_valid = sum(context_counts.values())
+                local_gc = (
+                    context_counts["G"] + context_counts["C"]
+                ) / max(context_valid, 1)
+                context_probabilities = [
+                    context_counts[base] / max(context_valid, 1)
+                    for base in BASES
+                    if context_counts[base]
+                ]
+                local_entropy = float(
+                    -sum(p * math.log2(p) for p in context_probabilities)
+                )
+                positions.append(normalized_position)
+            else:
+                local_gc = local_entropy = 0.0
+            gc = (counts["G"] + counts["C"]) / max(valid, 1)
+            homopolymer = _max_homopolymer(guide)
+            self_complementarity = _self_complementarity(guide)
+            exact_matches += int(matches > 0)
+            unique_matches += int(matches == 1)
+            high_quality += int(
+                0.35 <= gc <= 0.65
+                and homopolymer < 4
+                and self_complementarity < 7
+                and matches == 1
+            )
+            guide_rows.append(
+                [
+                    gc,
+                    entropy,
+                    homopolymer,
+                    complexity,
+                    self_complementarity,
+                    matches,
+                    normalized_position,
+                    local_gc,
+                    local_entropy,
+                ]
+            )
+            for index, base in enumerate(guide[:23]):
+                if base in BASES:
+                    base_counts[index, BASES.index(base)] += 1
+            dinucleotide_counts.update(
+                guide[index : index + 2]
+                for index in range(max(len(guide) - 1, 0))
+                if set(guide[index : index + 2]) <= set(BASES)
+            )
+
+        n_guides = len(target_guides)
+        values = np.asarray(guide_rows, dtype=float)
+        row: list[float] = [float(n_guides)]
+        for metric_index in range(len(metrics)):
+            column = values[:, metric_index] if values.size else np.zeros(1)
+            row.extend(
+                [
+                    float(column.mean()),
+                    float(column.std()),
+                    float(column.min()),
+                    float(column.max()),
+                ]
+            )
+        row.extend(
+            [
+                exact_matches / max(n_guides, 1),
+                unique_matches / max(n_guides, 1),
+                high_quality / max(n_guides, 1),
+                max(positions) - min(positions) if positions else 0.0,
+                len(set(positions)) / max(n_guides, 1),
+            ]
+        )
+        row.extend((base_counts / max(n_guides, 1)).ravel())
+        total_dinucleotides = max(sum(dinucleotide_counts.values()), 1)
+        row.extend(
+            dinucleotide_counts[left + right] / total_dinucleotides
+            for left in BASES
+            for right in BASES
+        )
+        cache[target] = np.asarray(row, dtype=np.float32)
+    return np.vstack([cache[record.target] for record in records]), names
+
+
+def _guide_flank_features(
+    records: list[LncRnaRecord], mmc2_path: Path, sequence_path: Path
+) -> tuple[np.ndarray, list[str]]:
+    """Aggregate immediate target-site context for the pre-designed guides."""
+    guides = pd.read_excel(
+        mmc2_path, sheet_name="S1B", header=2, dtype=str
+    ).dropna(subset=["Target", "Sequence (5' - 3')"])
+    wanted = {record.target for record in records}
+    guides = guides[guides["Target"].isin(wanted)]
+    guides_by_target = {
+        target: group["Sequence (5' - 3')"].str.upper().tolist()
+        for target, group in guides.groupby("Target")
+    }
+    with sequence_path.open() as fh:
+        raw_sequences: dict[str, list[str]] = json.load(fh)
+
+    offsets = [*range(-5, 0), *range(1, 6)]
+    names = [
+        f"guide_flank_{offset:+d}_{base}"
+        for offset in offsets
+        for base in BASES
+    ]
+    complement = str.maketrans("ACGT", "TGCA")
+    cache: dict[str, np.ndarray] = {}
+    for target in wanted:
+        transcript = raw_sequences[target][0].upper()
+        target_guides = guides_by_target.get(target, [])
+        counts = np.zeros((len(offsets), len(BASES)), dtype=float)
+        for guide in target_guides:
+            reverse_complement = guide.translate(complement)[::-1]
+            position = transcript.find(reverse_complement)
+            if position < 0:
+                continue
+            for offset_index, offset in enumerate(offsets):
+                transcript_index = (
+                    position + offset
+                    if offset < 0
+                    else position + len(guide) + offset - 1
+                )
+                if 0 <= transcript_index < len(transcript):
+                    base = transcript[transcript_index]
+                    if base in BASES:
+                        counts[offset_index, BASES.index(base)] += 1
+        cache[target] = (
+            counts / max(len(target_guides), 1)
+        ).ravel().astype(np.float32)
+    return np.vstack([cache[record.target] for record in records]), names
+
+
 def _load_depmap_rows(path: Path) -> tuple[dict[str, np.ndarray], dict[str, int]]:
     """Load only the four relevant DepMap rows without materializing the huge CSV."""
     wanted = set(DEPMAP_MODEL_IDS.values())
@@ -350,6 +816,8 @@ def build_features(
     mmc2_path: Path,
     sequence_path: Path,
     embeddings_path: Path | None,
+    gtf_path: Path = Path("data/raw/human.lncRNA.hg19.gtf"),
+    feature_blocks: tuple[str, ...] = (),
     depmap_dir: Path | None = None,
     feature_set: str = "multimodal",
 ) -> tuple[np.ndarray, list[str]]:
@@ -366,6 +834,79 @@ def build_features(
         sequence, sequence_names = _sequence_features(records, sequence_path)
         blocks.append(sequence)
         names.extend(sequence_names)
+
+        if "expression_specificity" in feature_blocks:
+            expression, expression_names = _expression_specificity_features(
+                records, mmc2_path
+            )
+            blocks.append(expression)
+            names.extend(expression_names)
+
+        if "transcript_architecture" in feature_blocks:
+            architecture, architecture_names = _transcript_architecture_features(
+                records, gtf_path
+            )
+            blocks.append(architecture)
+            names.extend(architecture_names)
+
+        guide_blocks = {
+            block
+            for block in feature_blocks
+            if block
+            in {
+                "guide_qc",
+                "guide_sequence",
+                "guide_context",
+                "guide_design",
+            }
+        }
+        if guide_blocks:
+            guides, guide_names = _guide_design_features(
+                records, mmc2_path, sequence_path
+            )
+            if "guide_design" not in guide_blocks:
+                selected = []
+                for index, name in enumerate(guide_names):
+                    is_qc = (
+                        name == "guide_count"
+                        or "exact_match" in name
+                        or "unique_match" in name
+                        or "high_quality" in name
+                        or "position_" in name
+                    )
+                    is_sequence = (
+                        any(
+                            token in name
+                            for token in (
+                                "_gc_",
+                                "_entropy_",
+                                "_homopolymer_",
+                                "_complexity3_",
+                                "_self_complementarity_",
+                                "guide_base_",
+                                "guide_dinucleotide_",
+                            )
+                        )
+                        and "local_" not in name
+                    )
+                    is_context = "local_gc" in name or "local_entropy" in name
+                    if (
+                        ("guide_qc" in guide_blocks and is_qc)
+                        or ("guide_sequence" in guide_blocks and is_sequence)
+                        or ("guide_context" in guide_blocks and is_context)
+                    ):
+                        selected.append(index)
+                guides = guides[:, selected]
+                guide_names = [guide_names[index] for index in selected]
+            blocks.append(guides)
+            names.extend(guide_names)
+
+        if "guide_flanks" in feature_blocks:
+            guide_flanks, guide_flank_names = _guide_flank_features(
+                records, mmc2_path, sequence_path
+            )
+            blocks.append(guide_flanks)
+            names.extend(guide_flank_names)
 
     celligner, celligner_names = cell_embedding_block(records, dim=70)
     blocks.append(celligner)
@@ -424,10 +965,13 @@ def _make_model(name: str, seed: int, positive_weight: float):
     if name in {
         "xgboost",
         "xgboost_strength",
+        "xgboost_effect",
         "xgboost_d3",
         "xgboost_d3_strength",
+        "xgboost_d3_effect",
         "xgboost_d7",
         "xgboost_d7_strength",
+        "xgboost_d7_effect",
     }:
         from xgboost import XGBClassifier, XGBRegressor
 
@@ -445,7 +989,7 @@ def _make_model(name: str, seed: int, positive_weight: float):
             n_jobs=8,
             random_state=seed,
         )
-        if name.endswith("_strength"):
+        if name.endswith(("_strength", "_effect")):
             return XGBRegressor(
                 **common,
                 objective="reg:pseudohubererror",
@@ -583,6 +1127,14 @@ def _is_strength_model(name: str) -> bool:
     return name.removeprefix("per_cell_").endswith("_strength")
 
 
+def _is_effect_model(name: str) -> bool:
+    return name.removeprefix("per_cell_").endswith("_effect")
+
+
+def _is_regression_model(name: str) -> bool:
+    return _is_strength_model(name) or _is_effect_model(name)
+
+
 def _metrics(y: np.ndarray, predictions: np.ndarray, mask: np.ndarray) -> dict[str, float]:
     return {
         "auroc": float(roc_auc_score(y[mask], predictions[mask])),
@@ -590,8 +1142,8 @@ def _metrics(y: np.ndarray, predictions: np.ndarray, mask: np.ndarray) -> dict[s
     }
 
 
-def _predict_values(model, X: np.ndarray, strength_model: bool) -> np.ndarray:
-    if strength_model:
+def _predict_values(model, X: np.ndarray, regression_model: bool) -> np.ndarray:
+    if regression_model:
         return np.asarray(model.predict(X), dtype=float)
     probabilities = np.asarray(model.predict_proba(X))
     return (
@@ -615,11 +1167,29 @@ def main() -> None:
     )
     parser.add_argument("--mmc2", type=Path, default=Path("data/raw/mmc2.xlsx"))
     parser.add_argument(
+        "--gtf", type=Path, default=Path("data/raw/human.lncRNA.hg19.gtf")
+    )
+    parser.add_argument(
         "--sequences",
         type=Path,
         default=Path("data/processed/body_sequences_transcript.json"),
     )
     parser.add_argument("--embeddings", type=Path, default=None)
+    parser.add_argument(
+        "--feature-blocks",
+        nargs="*",
+        choices=[
+            "expression_specificity",
+            "transcript_architecture",
+            "guide_qc",
+            "guide_sequence",
+            "guide_context",
+            "guide_design",
+            "guide_flanks",
+        ],
+        default=[],
+        help="Optional pre-screen feature blocks added to the multimodal core.",
+    )
     parser.add_argument("--depmap-dir", type=Path, default=None)
     parser.add_argument(
         "--feature-set",
@@ -647,6 +1217,8 @@ def main() -> None:
         args.mmc2,
         args.sequences,
         args.embeddings,
+        args.gtf,
+        tuple(args.feature_blocks),
         args.depmap_dir,
         args.feature_set,
     )
@@ -654,6 +1226,7 @@ def main() -> None:
     strength = np.minimum(
         -np.log10(np.maximum([record.rra_pvalue for record in records], 1e-12)), 8.0
     )
+    effect = np.maximum(-np.asarray([record.fold_change for record in records]), 0.0)
     groups = np.asarray([record.chrom for record in records])
     evaluated = np.asarray([record.cell_line in EVALUATED_CELL_LINES for record in records])
     positive_weight = float((y == 0).sum() / (y == 1).sum())
@@ -680,7 +1253,12 @@ def main() -> None:
                     args.seed + fold,
                 )
                 continue
-            target = strength if _is_strength_model(name) else y
+            if _is_strength_model(name):
+                target = strength
+            elif _is_effect_model(name):
+                target = effect
+            else:
+                target = y
             if name.startswith("per_cell_"):
                 for cell_line in sorted({record.cell_line for record in records}):
                     train_cell = train_idx[
@@ -696,13 +1274,13 @@ def main() -> None:
                     model = _make_model(name, args.seed + fold, positive_weight)
                     model.fit(X[train_cell], target[train_cell])
                     oof[valid_cell] = _predict_values(
-                        model, X[valid_cell], _is_strength_model(name)
+                        model, X[valid_cell], _is_regression_model(name)
                     )
             else:
                 model = _make_model(name, args.seed + fold, positive_weight)
                 model.fit(X[train_idx], target[train_idx])
                 oof[valid_idx] = _predict_values(
-                    model, X[valid_idx], _is_strength_model(name)
+                    model, X[valid_idx], _is_regression_model(name)
                 )
         assert np.isfinite(oof).all()
         predictions_by_model[name] = oof
@@ -729,7 +1307,9 @@ def main() -> None:
             "input": str(args.train),
             "feature_count": len(feature_names),
             "features": feature_names,
+            "feature_blocks": args.feature_blocks,
             "models": results,
+            "day0_features_used": False,
             "day7_features_used": False,
         }
         args.output.write_text(json.dumps(payload, indent=2) + "\n")
@@ -760,6 +1340,8 @@ def main() -> None:
                 args.mmc2,
                 args.sequences,
                 args.embeddings,
+                args.gtf,
+                tuple(args.feature_blocks),
                 args.depmap_dir,
                 args.feature_set,
             )
@@ -768,10 +1350,15 @@ def main() -> None:
             test_predictions: dict[str, np.ndarray] = {}
             for name in predictions_by_model:
                 model = _make_model(name, args.seed, positive_weight)
-                target = strength if _is_strength_model(name) else y
+                if _is_strength_model(name):
+                    target = strength
+                elif _is_effect_model(name):
+                    target = effect
+                else:
+                    target = y
                 model.fit(X, target)
                 test_predictions[name] = _predict_values(
-                    model, X_test, _is_strength_model(name)
+                    model, X_test, _is_regression_model(name)
                 )
             np.savez_compressed(
                 args.output.with_suffix(".test.npz"),
