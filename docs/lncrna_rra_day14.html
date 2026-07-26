@@ -41,6 +41,21 @@ a { color: inherit; }
 
 <tr class="rank-1">
   <td>1</td>
+  <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
+  <td>xgboost + DNABERT-2 + Celligner PCA (dim=70) + distance-to-gene, fixed params (max_depth=9)</td>
+  <td class="num">0.1733</td>
+  <td class="num">0.7010</td>
+  <td><details><summary>details</summary>
+    <p>No hyperparameter search -- fixed params matching the project&#x27;s established best-known xgboost config (configs/pipeline/xgboost_kmer_fixed.yaml, max_depth=9 etc). Manually tried 8 fixed-param variants (cell_embedding_dim in {0,2,70}, include_distance, scale_pos_weight reweighting) and kept this one: DNABERT-2 embeddings + full 70-D Celligner PCA + distance-to-nearest- protein-coding-gene. Beats the k-mer baseline by a real margin: AUROC 0.6902-&gt;0.7010, AUPRC 0.1472-&gt;0.1733 (~18% relative AUPRC improvement).</p>
+    <table class="detail-table">
+      <tr><th>Split</th><th class="num">n</th><th class="num">AUROC</th><th class="num">AUPRC</th><th class="num">F1</th></tr>
+      <tr><td>Overall</td><td class='num'>1,976</td><td class='num'>0.7010</td><td class='num'>0.1733</td><td class='num'>0.0000</td></tr><tr><td>HAP1</td><td class='num'>494</td><td class='num'>0.5957</td><td class='num'>0.1306</td><td class='num'>0.0000</td></tr><tr><td>K562</td><td class='num'>494</td><td class='num'>0.7759</td><td class='num'>0.2674</td><td class='num'>0.0000</td></tr><tr><td>MDA-MB-231</td><td class='num'>494</td><td class='num'>0.6995</td><td class='num'>0.2192</td><td class='num'>0.0000</td></tr><tr><td>THP1</td><td class='num'>494</td><td class='num'>0.6308</td><td class='num'>0.2084</td><td class='num'>0.0000</td></tr>
+    </table>
+    <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner70-dist/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner70-dist/config.yaml'>config.yaml</a></p>
+  </details></td>
+</tr>
+<tr class="rank-2">
+  <td>2</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5), no cell embedding</td>
   <td class="num">0.1472</td>
@@ -54,8 +69,8 @@ a { color: inherit; }
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/baseline-xgboost-kmer/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-2">
-  <td>2</td>
+<tr class="rank-3">
+  <td>3</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5) + Celligner UMAP (dim=2)</td>
   <td class="num">0.1342</td>
@@ -69,8 +84,8 @@ a { color: inherit; }
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14/leaderboard/submissions/xgboost-kmer-celligner2/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14/leaderboard/submissions/xgboost-kmer-celligner2/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-3">
-  <td>3</td>
+<tr class="rank-4">
+  <td>4</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials)</td>
   <td class="num">0.1332</td>
