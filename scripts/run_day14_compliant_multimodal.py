@@ -966,16 +966,26 @@ def _make_model(name: str, seed: int, positive_weight: float):
         "xgboost",
         "xgboost_strength",
         "xgboost_effect",
+        "xgboost_d1",
+        "xgboost_d1_strength",
+        "xgboost_d1_effect",
+        "xgboost_d2",
+        "xgboost_d2_strength",
+        "xgboost_d2_effect",
         "xgboost_d3",
         "xgboost_d3_strength",
         "xgboost_d3_effect",
+        "xgboost_d4",
+        "xgboost_d4_strength",
+        "xgboost_d4_effect",
         "xgboost_d7",
         "xgboost_d7_strength",
         "xgboost_d7_effect",
     }:
         from xgboost import XGBClassifier, XGBRegressor
 
-        max_depth = 3 if "_d3" in name else 7 if "_d7" in name else 5
+        depth_match = re.search(r"_d(\d+)", name)
+        max_depth = int(depth_match.group(1)) if depth_match else 5
         common = dict(
             n_estimators=600,
             learning_rate=0.03,

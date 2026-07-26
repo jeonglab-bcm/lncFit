@@ -34,6 +34,12 @@ from scripts.run_day14_compliant_multimodal import (
 
 
 EVALUATED_CELL_LINES = ("HAP1", "K562", "MDA-MB-231", "THP1")
+DAY14_GUIDE_SHEETS = {
+    "HAP1": "S2A",
+    "K562": "S2C",
+    "MDA-MB-231": "S2D",
+    "THP1": "S2E",
+}
 DEFAULT_MODELS = (
     "xgboost",
     "xgboost_strength",
@@ -42,6 +48,19 @@ DEFAULT_MODELS = (
     "xgboost_d7",
     "xgboost_d7_strength",
 )
+
+
+def _target_for_model(
+    model_name: str,
+    y: np.ndarray,
+    strength: np.ndarray,
+    depletion: np.ndarray,
+) -> np.ndarray:
+    if _is_strength_model(model_name):
+        return strength
+    if _is_effect_model(model_name):
+        return depletion
+    return y
 
 
 def _metrics(y: np.ndarray, predictions: np.ndarray) -> dict[str, float]:
@@ -98,13 +117,16 @@ def _training_cell_priors(
 
 
 def _cross_cell_prior_matrix(
-    records: list[LncRnaRecord], outer_train_mask: np.ndarray
+    records: list[LncRnaRecord],
+    outer_train_mask: np.ndarray,
+    excluded_source_cell: str | None = None,
 ) -> tuple[np.ndarray, list[str]]:
     """Build row features from other outer-training cell lines only."""
     allowed_cells = {
         record.cell_line
         for record, is_train in zip(records, outer_train_mask, strict=True)
         if is_train
+        and record.cell_line != excluded_source_cell
     }
     lookup = {
         (record.target, record.cell_line): record
@@ -168,6 +190,209 @@ def _cross_cell_prior_matrix(
     return np.asarray(matrix, dtype=np.float32), names
 
 
+def _cross_cell_source_matrix(
+    records: list[LncRnaRecord],
+    outer_train_mask: np.ndarray,
+    excluded_source_cell: str | None = None,
+) -> tuple[np.ndarray, list[str]]:
+    """Keep each allowed source cell's outcome in a distinct column."""
+    allowed_cells = {
+        record.cell_line
+        for record, is_train in zip(records, outer_train_mask, strict=True)
+        if is_train
+        and record.cell_line != excluded_source_cell
+    }
+    lookup = {
+        (record.target, record.cell_line): record
+        for record, is_train in zip(records, outer_train_mask, strict=True)
+        if is_train
+    }
+    names = [
+        f"source_{cell_line}_{metric}"
+        for cell_line in EVALUATED_CELL_LINES
+        for metric in ("available", "label", "strength", "depletion", "effect")
+    ]
+    matrix: list[list[float]] = []
+    for record in records:
+        row: list[float] = []
+        for cell_line in EVALUATED_CELL_LINES:
+            source = (
+                lookup.get((record.target, cell_line))
+                if cell_line in allowed_cells
+                and cell_line != record.cell_line
+                else None
+            )
+            if source is None:
+                row.extend([0.0] * 5)
+                continue
+            row.extend(
+                [
+                    1.0,
+                    float(source.label),
+                    min(-np.log10(max(source.rra_pvalue, 1e-12)), 8.0),
+                    -float(source.fold_change),
+                    max(-float(source.fold_change), 0.0),
+                ]
+            )
+        matrix.append(row)
+    return np.asarray(matrix, dtype=np.float32), names
+
+
+def _load_day14_guide_summaries(
+    mmc2_path: Path, mmc3_path: Path
+) -> tuple[dict[str, dict[str, np.ndarray]], list[str]]:
+    """Read Day-14 guide outcomes; Day-0 and Day-7 columns are not loaded."""
+    guide_map = pd.read_excel(
+        mmc2_path,
+        sheet_name="S1B",
+        header=2,
+        dtype=str,
+        usecols=["ID", "Target"],
+    ).dropna(subset=["ID", "Target"])
+    guide_to_target = dict(zip(guide_map["ID"], guide_map["Target"], strict=False))
+    names = [
+        "guide14_depletion_mean",
+        "guide14_depletion_median",
+        "guide14_depletion_max",
+        "guide14_depletion_min",
+        "guide14_depletion_std",
+        "guide14_depletion_q75",
+        "guide14_mean_depletion_mean",
+        "guide14_mean_depletion_median",
+        "guide14_mean_depletion_max",
+        "guide14_mean_depletion_std",
+        "guide14_fraction_depleted",
+        "guide14_fraction_depleted_0p5",
+        "guide14_fraction_depleted_1p0",
+        "guide14_fraction_both_reps_depleted",
+        "guide14_fraction_both_reps_depleted_0p5",
+        "guide14_replicate_correlation",
+        "guide14_mean_replicate_abs_difference",
+        "guide14_guide_count",
+    ]
+    summaries: dict[str, dict[str, np.ndarray]] = {}
+    for cell_line, sheet_name in DAY14_GUIDE_SHEETS.items():
+        frame = pd.read_excel(
+            mmc3_path,
+            sheet_name=sheet_name,
+            header=2,
+            usecols=[
+                "ID",
+                "Day14 Replicate 1  (Fold-change)",
+                "Day14 Replicate 2  (Fold-change)",
+            ],
+        )
+        frame["target"] = frame["ID"].astype(str).map(guide_to_target)
+        frame = frame.dropna(subset=["target"])
+        by_target: dict[str, np.ndarray] = {}
+        for target, group in frame.groupby("target", sort=False):
+            replicate_1 = pd.to_numeric(
+                group["Day14 Replicate 1  (Fold-change)"],
+                errors="coerce",
+            ).to_numpy(dtype=float)
+            replicate_2 = pd.to_numeric(
+                group["Day14 Replicate 2  (Fold-change)"],
+                errors="coerce",
+            ).to_numpy(dtype=float)
+            valid = np.isfinite(replicate_1) & np.isfinite(replicate_2)
+            replicate_1 = replicate_1[valid]
+            replicate_2 = replicate_2[valid]
+            if not len(replicate_1):
+                by_target[str(target)] = np.zeros(len(names), dtype=np.float32)
+                continue
+            depletion = -np.concatenate([replicate_1, replicate_2])
+            mean_depletion = -(replicate_1 + replicate_2) / 2.0
+            correlation = (
+                float(np.corrcoef(replicate_1, replicate_2)[0, 1])
+                if len(replicate_1) > 1
+                and np.std(replicate_1) > 0
+                and np.std(replicate_2) > 0
+                else 0.0
+            )
+            by_target[str(target)] = np.asarray(
+                [
+                    depletion.mean(),
+                    np.median(depletion),
+                    depletion.max(),
+                    depletion.min(),
+                    depletion.std(),
+                    np.quantile(depletion, 0.75),
+                    mean_depletion.mean(),
+                    np.median(mean_depletion),
+                    mean_depletion.max(),
+                    mean_depletion.std(),
+                    (depletion > 0).mean(),
+                    (depletion > 0.5).mean(),
+                    (depletion > 1.0).mean(),
+                    ((replicate_1 < 0) & (replicate_2 < 0)).mean(),
+                    ((replicate_1 < -0.5) & (replicate_2 < -0.5)).mean(),
+                    correlation,
+                    np.mean(np.abs(replicate_1 - replicate_2)),
+                    len(replicate_1),
+                ],
+                dtype=np.float32,
+            )
+        summaries[cell_line] = by_target
+    return summaries, names
+
+
+def _cross_cell_guide_outcome_matrix(
+    records: list[LncRnaRecord],
+    outer_train_mask: np.ndarray,
+    summaries: dict[str, dict[str, np.ndarray]],
+    summary_names: list[str],
+    excluded_source_cell: str | None = None,
+) -> tuple[np.ndarray, list[str]]:
+    """Expose guide consistency from allowed source cell lines only."""
+    allowed_cells = {
+        record.cell_line
+        for record, is_train in zip(records, outer_train_mask, strict=True)
+        if is_train and record.cell_line != excluded_source_cell
+    }
+    names = [
+        f"source_{cell_line}_{name}"
+        for cell_line in EVALUATED_CELL_LINES
+        for name in summary_names
+    ]
+    names.extend(
+        f"source_aggregate_{stat}_{name}"
+        for stat in ("mean", "max", "min", "std")
+        for name in summary_names
+    )
+    matrix: list[np.ndarray] = []
+    zeros = np.zeros(len(summary_names), dtype=np.float32)
+    for record in records:
+        source_values = [
+            summaries[cell_line].get(record.target, zeros)
+            if cell_line in allowed_cells
+            and cell_line != record.cell_line
+            else zeros
+            for cell_line in EVALUATED_CELL_LINES
+        ]
+        available_values = [
+            summaries[cell_line].get(record.target, zeros)
+            for cell_line in allowed_cells
+            if cell_line != record.cell_line
+        ]
+        stacked = (
+            np.vstack(available_values)
+            if available_values
+            else np.zeros((1, len(summary_names)), dtype=np.float32)
+        )
+        matrix.append(
+            np.concatenate(
+                [
+                    *source_values,
+                    stacked.mean(axis=0),
+                    stacked.max(axis=0),
+                    stacked.min(axis=0),
+                    stacked.std(axis=0),
+                ]
+            )
+        )
+    return np.vstack(matrix).astype(np.float32), names
+
+
 def run(args: argparse.Namespace) -> dict:
     records: list[LncRnaRecord] = [
         record
@@ -184,8 +409,19 @@ def run(args: argparse.Namespace) -> dict:
         args.embeddings,
         args.gtf,
         tuple(args.feature_blocks),
-        None,
+        args.depmap_dir,
         "multimodal",
+    )
+    if args.base_feature_set == "expression":
+        selected = [
+            index
+            for index, name in enumerate(feature_names)
+            if name.startswith("expr_")
+        ]
+        X = X[:, selected]
+        feature_names = [feature_names[index] for index in selected]
+    guide_outcome_summaries, guide_outcome_names = (
+        _load_day14_guide_summaries(args.mmc2, args.mmc3)
     )
     y = np.asarray([record.label for record in records], dtype=np.int8)
     strength = np.minimum(
@@ -208,6 +444,24 @@ def run(args: argparse.Namespace) -> dict:
         )
         for model_name in args.prior_feature_models
     }
+    source_feature_predictions = {
+        f"source_features_{model_name}": np.full(
+            len(records), np.nan, dtype=float
+        )
+        for model_name in args.source_feature_models
+    }
+    guide_outcome_predictions = {
+        f"guide_outcomes_{model_name}": np.full(
+            len(records), np.nan, dtype=float
+        )
+        for model_name in args.guide_outcome_models
+    }
+    matched_guide_outcome_predictions = {
+        f"matched_guide_outcomes_{model_name}": np.full(
+            len(records), np.nan, dtype=float
+        )
+        for model_name in args.guide_outcome_models
+    }
     prior_predictions = {
         name: np.full(len(records), np.nan, dtype=float)
         for name in (
@@ -226,13 +480,11 @@ def run(args: argparse.Namespace) -> dict:
         train_mask = cell_lines != held_out
         valid_mask = cell_lines == held_out
         for model_name in args.models:
-            model = _make_model(model_name, args.seed + fold, positive_weight)
-            target = (
-                strength
-                if _is_strength_model(model_name)
-                else depletion
-                if _is_effect_model(model_name)
-                else y
+            model = _make_model(
+                model_name, args.seed + fold, positive_weight
+            )
+            target = _target_for_model(
+                model_name, y, strength, depletion
             )
             model.fit(X[train_mask], target[train_mask])
             predictions[model_name][valid_mask] = _predict_values(
@@ -241,13 +493,11 @@ def run(args: argparse.Namespace) -> dict:
         prior_matrix, _ = _cross_cell_prior_matrix(records, train_mask)
         X_with_priors = np.hstack([X, prior_matrix])
         for model_name in args.prior_feature_models:
-            model = _make_model(model_name, args.seed + fold, positive_weight)
-            target = (
-                strength
-                if _is_strength_model(model_name)
-                else depletion
-                if _is_effect_model(model_name)
-                else y
+            model = _make_model(
+                model_name, args.seed + fold, positive_weight
+            )
+            target = _target_for_model(
+                model_name, y, strength, depletion
             )
             model.fit(X_with_priors[train_mask], target[train_mask])
             prior_feature_predictions[f"prior_features_{model_name}"][
@@ -257,6 +507,83 @@ def run(args: argparse.Namespace) -> dict:
                 X_with_priors[valid_mask],
                 _is_regression_model(model_name),
             )
+        source_matrix, _ = _cross_cell_source_matrix(records, train_mask)
+        X_with_sources = np.hstack([X_with_priors, source_matrix])
+        guide_outcome_matrix, _ = _cross_cell_guide_outcome_matrix(
+            records,
+            train_mask,
+            guide_outcome_summaries,
+            guide_outcome_names,
+        )
+        X_with_guide_outcomes = np.hstack(
+            [X_with_sources, guide_outcome_matrix]
+        )
+        allowed_source_cells = sorted(set(cell_lines[train_mask]))
+        for model_name in args.source_feature_models:
+            model = _make_model(
+                model_name, args.seed + fold, positive_weight
+            )
+            target = _target_for_model(
+                model_name, y, strength, depletion
+            )
+            model.fit(X_with_sources[train_mask], target[train_mask])
+            source_feature_predictions[f"source_features_{model_name}"][
+                valid_mask
+            ] = _predict_values(
+                model,
+                X_with_sources[valid_mask],
+                _is_regression_model(model_name),
+            )
+        for model_name in args.guide_outcome_models:
+            model = _make_model(
+                model_name, args.seed + fold, positive_weight
+            )
+            target = _target_for_model(
+                model_name, y, strength, depletion
+            )
+            model.fit(
+                X_with_guide_outcomes[train_mask], target[train_mask]
+            )
+            guide_outcome_predictions[f"guide_outcomes_{model_name}"][
+                valid_mask
+            ] = _predict_values(
+                model,
+                X_with_guide_outcomes[valid_mask],
+                _is_regression_model(model_name),
+            )
+            matched_fold_predictions = []
+            for dropped_cell in allowed_source_cells:
+                dropped_prior_matrix, _ = _cross_cell_prior_matrix(
+                    records, train_mask, dropped_cell
+                )
+                dropped_source_matrix, _ = _cross_cell_source_matrix(
+                    records, train_mask, dropped_cell
+                )
+                dropped_guide_matrix, _ = _cross_cell_guide_outcome_matrix(
+                    records,
+                    train_mask,
+                    guide_outcome_summaries,
+                    guide_outcome_names,
+                    dropped_cell,
+                )
+                X_matched = np.hstack(
+                    [
+                        X,
+                        dropped_prior_matrix,
+                        dropped_source_matrix,
+                        dropped_guide_matrix,
+                    ]
+                )
+                matched_fold_predictions.append(
+                    _predict_values(
+                        model,
+                        X_matched[valid_mask],
+                        _is_regression_model(model_name),
+                    )
+                )
+            matched_guide_outcome_predictions[
+                f"matched_guide_outcomes_{model_name}"
+            ][valid_mask] = np.mean(matched_fold_predictions, axis=0)
         priors = _training_cell_priors(records, train_mask, valid_mask)
         for name, values in priors.items():
             prior_predictions[name][valid_mask] = values
@@ -274,6 +601,9 @@ def run(args: argparse.Namespace) -> dict:
     all_predictions = {
         **predictions,
         **prior_feature_predictions,
+        **source_feature_predictions,
+        **guide_outcome_predictions,
+        **matched_guide_outcome_predictions,
         **prior_predictions,
     }
     results: list[dict[str, float | str]] = []
@@ -295,6 +625,17 @@ def run(args: argparse.Namespace) -> dict:
         ],
         axis=0,
     )
+    source_model_rank = (
+        np.mean(
+            [
+                _rank_within_cell(values, cell_lines)
+                for values in source_feature_predictions.values()
+            ],
+            axis=0,
+        )
+        if source_feature_predictions
+        else prior_model_rank
+    )
     effect_rank = _rank_within_cell(
         prior_predictions["prior_effect_mean"], cell_lines
     )
@@ -307,6 +648,7 @@ def run(args: argparse.Namespace) -> dict:
     ensembles = {
         "guide_rank_mean": guide_rank,
         "prior_model_rank_mean": prior_model_rank,
+        "source_model_rank_mean": source_model_rank,
         "effect_strength_rank_mean": (effect_rank + strength_rank) / 2.0,
         "depletion_strength_rank_mean": (
             depletion_rank + strength_rank
@@ -364,6 +706,7 @@ def run(args: argparse.Namespace) -> dict:
     payload = {
         "data": str(args.data),
         "feature_blocks": args.feature_blocks,
+        "base_feature_set": args.base_feature_set,
         "feature_count": len(feature_names),
         "models": results,
         "per_cell": per_cell,
@@ -391,6 +734,7 @@ def main() -> None:
         default=Path("data/processed/lncrna_rra_day14.jsonl.gz"),
     )
     parser.add_argument("--mmc2", type=Path, default=Path("data/raw/mmc2.xlsx"))
+    parser.add_argument("--mmc3", type=Path, default=Path("data/raw/mmc3.xlsx"))
     parser.add_argument(
         "--gtf", type=Path, default=Path("data/raw/human.lncRNA.hg19.gtf")
     )
@@ -400,6 +744,16 @@ def main() -> None:
         default=Path("data/processed/body_sequences_transcript.json"),
     )
     parser.add_argument("--embeddings", type=Path, default=None)
+    parser.add_argument("--depmap-dir", type=Path, default=None)
+    parser.add_argument(
+        "--base-feature-set",
+        choices=["full", "expression"],
+        default="full",
+        help=(
+            "Select the pre-screen block supplied alongside cross-cell "
+            "outcomes."
+        ),
+    )
     parser.add_argument(
         "--feature-blocks",
         nargs="*",
@@ -419,6 +773,16 @@ def main() -> None:
         "--prior-feature-models",
         nargs="+",
         default=["xgboost", "xgboost_strength"],
+    )
+    parser.add_argument(
+        "--source-feature-models",
+        nargs="*",
+        default=[],
+    )
+    parser.add_argument(
+        "--guide-outcome-models",
+        nargs="*",
+        default=[],
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(

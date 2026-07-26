@@ -27,6 +27,7 @@ features:
   outer_training_outcomes:
     - mean Day-14 depletion for the same lncRNA in the three training cell lines
     - label, RRA-strength, and depletion summaries from other training cells
+    - raw Day-14 guide depletion and replicate-consistency summaries from other training cells
   explicitly_excluded:
     - Day-0 measurements
     - Day-7 measurements
@@ -34,9 +35,9 @@ features:
     - S1A Number of cell lines showing essentiality
 
 model:
-  estimator: XGBoost pseudohuber regressor
+  estimator: XGBoost pseudohuber regressors
   target: negative Day-14 fold change
-  max_depth: 3
+  max_depths: [1, 3, 5]
   n_estimators: 600
   learning_rate: 0.03
   min_child_weight: 3
@@ -47,17 +48,30 @@ model:
   seed: 42
 
 ensemble:
-  method: global rank average
+  method: fixed min-max-normalized weighted average
   weights:
-    training_cell_mean_depletion: 0.5
-    depth3_crosscell_guide_depletion_regressor: 0.5
+    expression_matched_crosscell_guide_depth3: 0.36
+    source_specific_gene_outcome_depth1: 0.11
+    expression_only_depth1: 0.14
+    full_crosscell_guide_depth5: 0.18
+    full_crosscell_guide_depth3: 0.21
 
 metrics:
-  overall_auroc: 0.7332
-  overall_auprc: 0.1784
+  overall_auroc: 0.7781
+  overall_auprc: 0.2186
+  per_cell_auroc:
+    HAP1: 0.7698
+    K562: 0.7216
+    MDA-MB-231: 0.7931
+    THP1: 0.7599
+  per_cell_auprc:
+    HAP1: 0.2212
+    K562: 0.1864
+    MDA-MB-231: 0.2617
+    THP1: 0.2364
   prior_leader_auroc: 0.5956
   prior_leader_auprc: 0.1435
 
 implementation:
   training_script: scripts/run_day14_cellline_loco_guide.py
-
+  ensemble_script: scripts/build_day14_loco_ensemble.py
