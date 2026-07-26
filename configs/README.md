@@ -215,6 +215,39 @@ What this says:
   randomforest, which never cross the 0.5 threshold. If you need hit/no-hit
   labels rather than a ranking, use one of those even though AUPRC is lower.
 
+## Ensembling runs (`scripts/ensemble_predictions.py`)
+
+Rank-averages several runs' `predictions.csv` into one. Ranks rather than raw
+scores because the inputs are on incomparable scales (XGBoost emits ~[0, 0.5]
+probabilities; the `svm` wrapper emits an uncalibrated `sigmoid(margin)`), so a
+plain mean would let the wider-spread model dominate. Weights are equal by
+default on purpose -- fitting blend weights to maximize the held-out score is
+leaderboard overfitting, not a result.
+
+**Measured: ensembling reliably improves AUROC and reliably *hurts* AUPRC here**,
+so it does not help on either leaderboard (both rank by AUPRC):
+
+| task | combination | AUROC | AUPRC |
+|---|---|---|---|
+| chr1 | SVM alone (current #1) | 0.7005 | **0.1851** |
+| chr1 | XGBoost alone | 0.7010 | 0.1733 |
+| chr1 | SVM + XGBoost | **0.7074** | 0.1697 |
+| LOCO | XGBoost alone (current #1) | 0.5956 | **0.1435** |
+| LOCO | SVM alone | 0.6021 | 0.0835 |
+| LOCO | XGBoost + SVM | **0.6041** | 0.1187 |
+| LOCO | XGBoost x 5 seeds | 0.5877 | 0.1424 |
+
+The direction is consistent and has a clear reason: AUPRC is dominated by the
+very top of the ranking, and averaging a strong model with a weaker one dilutes
+exactly the confident top-of-list calls that AUPRC rewards, while the extra
+robustness shows up in the bulk ordering that AUROC measures. **If a future
+challenge ranks by AUROC, ensemble; while it ranks by AUPRC, don't.**
+
+Seed-averaging the same model (LOCO x5) behaves like the variance reduction it
+is: 0.1424 beats the 5-seed *mean* of 0.1408 but not the luckiest single seed
+(0.1435, which is the currently-submitted run). Worth knowing that the LOCO #1
+is a best-of-5 rather than a typical result.
+
 ## Choosing a tuning method (`tuning.method`)
 
 - **`fixed`**: use `model.params` as-is, no search. If `cv.strategy` is also set,
