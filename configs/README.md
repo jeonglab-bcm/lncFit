@@ -110,7 +110,10 @@ scripts are still the place for that.
   (`lncfit.features.build_lncrna_embedding_features`). Requires precomputing
   embeddings first:
   ```bash
-  uv run python scripts/embed_sequences.py --sequence-type transcript \
+  uv run python scripts/embed_sequences.py --source body \
+      --body-sequences data/processed/body_sequences_transcript.json \
+      --target-records data/processed/train_lncrna_day14_chrom1.jsonl.gz \
+                       data/processed/test_lncrna_day14_chrom1.jsonl.gz \
       --output data/processed/dnabert2_transcript_full.npz
   ```
   then pointing `features.embeddings` at that file.

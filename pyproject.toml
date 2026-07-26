@@ -29,6 +29,7 @@ dependencies = [
     # over/under-sampling. Not needed by the leaderboard scoring path, so the
     # leaderboard CI workflow deliberately does not install it.
     "imbalanced-learn>=0.12",
+    "lightgbm>=4.7.0",
 ]
 
 [dependency-groups]

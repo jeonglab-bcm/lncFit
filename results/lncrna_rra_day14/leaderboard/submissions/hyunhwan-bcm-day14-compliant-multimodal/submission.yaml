@@ -1,0 +1,17 @@
+submitter: hyunhwan-bcm
+model: Day-14-only multimodal XGBoost rank ensemble (baseline expression + DNA language models)
+description: >
+  Leakage-audited de novo Day-14 prediction with no Day-7 measurements or
+  Day-7-derived features. The ensemble combines fixed-parameter XGBoost
+  classifiers and continuous-significance regressors over static annotations,
+  baseline expression, Celligner PCA(70), handcrafted transcript descriptors,
+  DNABERT-2 5-prime and 3-prime transcript-window embeddings, and a Nucleotide
+  Transformer 5-prime embedding. The target-derived S1A column "Number of cell
+  lines showing essentiality" is explicitly excluded.
+
+  Model families and coarse rank weights were frozen using five-fold
+  chromosome-grouped out-of-fold predictions (seed 42), with all rows for a
+  chromosome held together. On the four scored cell lines, the frozen OOF
+  ensemble reached AUROC 0.7233 and AUPRC 0.1935. Chromosome 1 was used only
+  once after selection for final leaderboard evaluation, where the repository
+  scorer measured AUROC 0.7200 and AUPRC 0.2259.

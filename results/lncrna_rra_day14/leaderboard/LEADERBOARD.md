@@ -7,8 +7,9 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 
 | Rank | Submitter | Model | AUPRC | AUROC | Submission |
 |---|---|---|---|---|---|
-| 1 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | SVM (RBF via Nystroem-2000) + DNABERT-2 + Celligner PCA(70) + distance-to-gene | 0.1851 | 0.7005 | [hyunhwan-bcm-svm-nystroem](submissions/hyunhwan-bcm-svm-nystroem/) |
-| 2 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner PCA (dim=70) + distance-to-gene, fixed params (max_depth=9) | 0.1733 | 0.7010 | [hyunhwan-bcm-dnabert2-celligner70-dist](submissions/hyunhwan-bcm-dnabert2-celligner70-dist/) |
-| 3 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1472 | 0.6902 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
-| 4 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1342 | 0.6500 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
-| 5 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials) | 0.1332 | 0.6672 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |
+| 1 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | Day-14-only multimodal XGBoost rank ensemble (baseline expression + DNA language models) | 0.2259 | 0.7200 | [hyunhwan-bcm-day14-compliant-multimodal](submissions/hyunhwan-bcm-day14-compliant-multimodal/) |
+| 2 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | SVM (RBF via Nystroem-2000) + DNABERT-2 + Celligner PCA(70) + distance-to-gene | 0.1851 | 0.7005 | [hyunhwan-bcm-svm-nystroem](submissions/hyunhwan-bcm-svm-nystroem/) |
+| 3 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner PCA (dim=70) + distance-to-gene, fixed params (max_depth=9) | 0.1733 | 0.7010 | [hyunhwan-bcm-dnabert2-celligner70-dist](submissions/hyunhwan-bcm-dnabert2-celligner70-dist/) |
+| 4 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1472 | 0.6902 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
+| 5 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1342 | 0.6500 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
+| 6 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials) | 0.1332 | 0.6672 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |
