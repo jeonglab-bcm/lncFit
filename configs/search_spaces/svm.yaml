@@ -1,0 +1,38 @@
+# Search space for lncfit.classifiers.svm.SVMClassifier.
+# `grid`     -> used by tuning.method: grid
+# `type`/`low`/`high`/`log` -> used by tuning.method: optuna
+#
+# NOTE ON COST: exact RBF SVC is ~quadratic in rows (~198s per fit at n=25,000 on
+# the 844-column recipe), so a 50-trial Optuna search over CV folds is hours.
+# Set kernel_approx (Nystroem, ~linear in rows) to make tuning tractable -- it was
+# 52x faster AND scored better than the exact kernel, so there's no reason to tune
+# the exact path. kernel_approx is included in the space below.
+#
+# class_weight is deliberately not searched -- "balanced" is the point of using
+# this wrapper on a 4.5%-positive task.
+
+C:
+  type: float
+  low: 0.01
+  high: 100.0
+  log: true
+  grid: [0.1, 1.0, 10.0]
+
+gamma:
+  type: categorical
+  choices: ["scale", "auto"]
+  grid: ["scale", "auto"]
+
+kernel:
+  type: categorical
+  choices: ["rbf", "linear"]
+  grid: ["rbf", "linear"]
+
+# Nystroem components. More = closer to the exact kernel and slower; 0 would mean
+# the exact kernel, deliberately left out of the space because it is ~50x slower
+# for no measured gain.
+kernel_approx:
+  type: int
+  low: 250
+  high: 2000
+  grid: [500, 1000, 2000]

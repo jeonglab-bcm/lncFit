@@ -28,6 +28,7 @@ from lncfit.classifiers.knn import KNNClassifier
 from lncfit.classifiers.mlp import MLPClassifier
 from lncfit.classifiers.histgb import HistGradientBoostingClassifier
 from lncfit.classifiers.balanced_bagging import BalancedBaggingClassifier
+from lncfit.classifiers.svm import SVMClassifier
 
 __all__ = [
     "ClassifierModel",
@@ -43,4 +44,5 @@ __all__ = [
     "MLPClassifier",
     "HistGradientBoostingClassifier",
     "BalancedBaggingClassifier",
+    "SVMClassifier",
 ]

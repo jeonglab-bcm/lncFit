@@ -22,6 +22,7 @@ only the plug-in *pattern* is borrowed.
 | `xgboost_clf.py` | `XGBoostClassifier` — gradient-boosted trees, auto `scale_pos_weight` |
 | `histgb.py` | `HistGradientBoostingClassifier` — sklearn histogram GBM, `class_weight="balanced"`, internal early stopping. Dense X only |
 | `balanced_bagging.py` | `BalancedBaggingClassifier` — trees each fit on all positives + an equal-size majority subsample (undersampling ensemble, not loss reweighting) |
+| `svm.py` | `SVMClassifier` — max-margin SVM, `class_weight="balanced"`, **standardizes features internally** (mandatory: per-column std spans 0.019→197,000 on this project's recipe). `kernel="linear"` routes to the faster LinearSVC |
 | `__init__.py` | imports the wrappers to trigger registration |
 
 ## Usage
