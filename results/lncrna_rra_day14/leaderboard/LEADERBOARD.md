@@ -9,3 +9,4 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 |---|---|---|---|---|---|
 | 1 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1472 | 0.6902 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
 | 2 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1342 | 0.6500 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
+| 3 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (30 trials) | 0.1332 | 0.6672 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |
