@@ -39,7 +39,20 @@ scores here sit well below what a within-cell-line split would give.
 
 **Full walkthrough: [`docs/PARTICIPATE.md`](../../../docs/PARTICIPATE.md)** -- setup
 (including the one genome download the k-mer path needs), a runnable starter config,
-CI troubleshooting, and a summary of what's already been tried. The short version:
+CI troubleshooting, and a summary of what's already been tried.
+
+Fastest possible entry, no install and no genome download:
+
+```bash
+python3 scripts/make_barebones_submission.py --submitter <handle> \
+    --out results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/<handle>-barebones
+```
+
+That writes a valid submission scoring AUROC 0.7085 / AUPRC 0.2000 from one line of
+arithmetic (negated mean training fold-change per gene). It beats most of the board,
+so read it as the bar to clear rather than a floor.
+
+The longer version:
 
 1. Train on `data/holdout_thp1/train_thp1_holdout.jsonl.gz` (16,488 rows across the
    3 public cell lines, labels included) and predict every row of

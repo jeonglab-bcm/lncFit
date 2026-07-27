@@ -22,7 +22,37 @@ line you've trained on, and it's why scores here look low — a leading AUPRC of
 
 ---
 
+## The 60-second version
+
+Three commands, nothing to install beyond Python, no genome download:
+
+```bash
+git clone https://github.com/jeonglab-bcm/lncFit.git && cd lncFit
+git lfs pull
+python3 scripts/make_barebones_submission.py \
+    --submitter YOUR-GITHUB-HANDLE \
+    --out results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+```
+
+That writes a complete, valid submission. Push it on a `submission/` branch (§4) and
+it will score **AUROC 0.7085 / AUPRC 0.2000**.
+
+The model is one line of arithmetic — for each lncRNA, the negated mean knockout
+fold-change across the three training cell lines, a pan-essentiality prior with no
+learned parameters, no sequence features and no cell-line features. Read the script;
+it's 60 lines of standard library.
+
+**Its score currently beats four of the five real submissions on the board**,
+including every entry built on DNABERT-2 embeddings and tuned XGBoost. So treat it
+as the bar, not the floor: if your model can't clear 0.2000 AUPRC, it hasn't learned
+anything a one-liner doesn't already know. The rest of this document is about
+clearing it.
+
+---
+
 ## 1. Set up
+
+For anything beyond the barebones baseline:
 
 ```bash
 git clone https://github.com/jeonglab-bcm/lncFit.git
@@ -58,13 +88,15 @@ curl -o data/raw/genome/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz \
 uv run python -m lncfit.sequence --sequence-type transcript
 ```
 
-You can skip this entirely if you only use the non-sequence columns (cell line,
-`distance_to_closest_pc_gene`, Celligner coordinates) or bring your own embeddings.
+You can skip this entirely if you bring your own embeddings, or if you work from the
+training-outcome columns the way the barebones baseline does.
 
 ## 2. Make a prediction
 
 A starter config is committed. It trains XGBoost on 5-mer frequencies and writes a
-submittable `predictions.csv`:
+submittable `predictions.csv` — a real model rather than a one-liner, though note it
+scores *below* the barebones baseline (AUPRC 0.1456 vs 0.2000), which tells you
+something about how much of this task sequence features actually explain:
 
 ```bash
 uv run python scripts/run_pipeline.py --config configs/pipeline/thp1_holdout_starter.yaml
@@ -218,7 +250,8 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 
 | Tried | Outcome |
 |---|---|
-| Celligner cell-line embeddings (UMAP-2, PCA-10/70) | The only way to say anything cell-line-specific about an unseen line. Mixed on AUPRC. |
+| **`-mean(training fold_change)`, no learning at all** | **AUROC 0.7085 / AUPRC 0.2000 — beats 4 of 5 real submissions.** Start here. |
+| Celligner cell-line embeddings (UMAP-2, PCA-10/70) | Cannot help *on this challenge*: see below. Mixed on AUPRC when it was scored across cell lines. |
 | DNABERT-2 embeddings (768-dim, mean-pooled) | Beat k-mers modestly. |
 | PCA on embeddings | Looked like a win at one seed; vanished under 4-seed testing. |
 | Optuna tuning | Converged to `max_depth=4`, which *underperformed* a fixed `max_depth=9`. |
@@ -228,6 +261,18 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 
 The strongest entry so far treats it as a guide-level transfer problem rather than a
 gene-level one.
+
+### Cell-line features cannot move this metric
+
+Worth internalizing before you spend time on cell embeddings: **the test set is a
+single cell line.** Every cell-line-level feature — the one-hot, all 70 Celligner
+dimensions — takes the same value on all 5,496 scored rows, so it cannot change their
+relative order, and AUROC and AUPRC read nothing but the order. Such features can
+still help *indirectly*, by shaping what the model learns from the three training
+cell lines, but they carry zero direct signal at scoring time.
+
+Only gene-level signal moves the needle here. That's also why the barebones
+pan-essentiality prior does as well as it does.
 
 ## Checklist
 
@@ -239,5 +284,6 @@ gene-level one.
 - [ ] Branch is `submission/<handle>-<slug>` on this repo, not a fork
 - [ ] You didn't look at THP1's labels
 - [ ] Your improvement is bigger than ±0.02, or you validated it across seeds
+- [ ] You beat the barebones baseline (AUPRC 0.2000) — or you know why you didn't
 
 Questions, or something in here wrong or unclear? Open an issue.
