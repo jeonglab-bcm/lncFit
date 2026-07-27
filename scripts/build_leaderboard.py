@@ -19,6 +19,10 @@ results/<challenge>/leaderboard/challenge.yaml:
   exclude_cell_lines: optional list, e.g. [HEK293FT] -- dropped from scoring
     entirely. A submission's predictions.csv may still include rows for an
     excluded cell line (harmless, ignored); it just isn't required to.
+  only_cell_lines: optional list, e.g. [THP1] -- score ONLY these cell lines.
+    Lets a single-held-out-cell-line challenge reuse the full dataset as its
+    ground truth instead of shipping a separate answers file. Applied after
+    exclude_cell_lines.
 
 Usage:
   python scripts/build_leaderboard.py --challenge lncrna_rra_day14
@@ -71,7 +75,8 @@ class SubmissionError(Exception):
     pass
 
 
-def _load_truth(test_path: str, exclude_cell_lines: set[str] | None = None):
+def _load_truth(test_path: str, exclude_cell_lines: set[str] | None = None,
+                only_cell_lines: set[str] | None = None):
     """Returns (scored_records, truth, excluded_keys).
 
     exclude_cell_lines are dropped from scoring entirely (e.g. HEK293FT, which
@@ -82,11 +87,21 @@ def _load_truth(test_path: str, exclude_cell_lines: set[str] | None = None):
     """
     exclude_cell_lines = exclude_cell_lines or set()
     all_records = load_jsonl(test_path, record_cls=LncRnaRecord)
-    records = [r for r in all_records if r.cell_line not in exclude_cell_lines]
+
+    def _scored(r) -> bool:
+        if r.cell_line in exclude_cell_lines:
+            return False
+        return not only_cell_lines or r.cell_line in only_cell_lines
+
+    records = [r for r in all_records if _scored(r)]
+    if not records:
+        raise ValueError(
+            f"no rows left to score from {test_path} after applying "
+            f"exclude_cell_lines={sorted(exclude_cell_lines)} / "
+            f"only_cell_lines={sorted(only_cell_lines or [])}"
+        )
     truth = {(r.target, r.cell_line): r.label for r in records}
-    excluded_keys = {
-        (r.target, r.cell_line) for r in all_records if r.cell_line in exclude_cell_lines
-    }
+    excluded_keys = {(r.target, r.cell_line) for r in all_records if not _scored(r)}
     return records, truth, excluded_keys
 
 
@@ -333,18 +348,20 @@ def main() -> None:
     test_path = args.test_path
     title = ""
     exclude_cell_lines = set()
+    only_cell_lines = set()
     if challenge_config_path.exists():
         with open(challenge_config_path) as fh:
             challenge_config = yaml.safe_load(fh) or {}
         test_path = test_path or challenge_config.get("test_path")
         title = challenge_config.get("title", "").strip()
         exclude_cell_lines = set(challenge_config.get("exclude_cell_lines") or [])
+        only_cell_lines = set(challenge_config.get("only_cell_lines") or [])
     if not test_path:
         sys.exit(
             f"No test set specified -- pass --test-path or add test_path to {challenge_config_path}"
         )
 
-    records, truth, excluded_keys = _load_truth(test_path, exclude_cell_lines)
+    records, truth, excluded_keys = _load_truth(test_path, exclude_cell_lines, only_cell_lines)
 
     rows = []
     errors = []

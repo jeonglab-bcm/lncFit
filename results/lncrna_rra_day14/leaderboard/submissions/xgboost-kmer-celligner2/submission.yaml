@@ -1,7 +1,0 @@
-submitter: jeonglab-bcm
-model: xgboost + kmer (k=5) + Celligner UMAP (dim=2)
-description: >
-  Same fixed hyperparameters as the no-cell-embedding baseline
-  (configs/pipeline/xgboost_kmer_celligner2.yaml), plus the 2-D Celligner
-  UMAP cell-line embedding -- the best-performing dimensionality in the
-  project's own sweep (data/external/README.md).

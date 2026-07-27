@@ -1,6 +1,0 @@
-submitter: jeonglab-bcm
-model: xgboost + kmer (k=5), no cell embedding
-description: >
-  The project's established reference config (configs/pipeline/xgboost_kmer_fixed.yaml)
-  -- fixed hyperparameters, k-mer frequency features only, no Celligner cell-line
-  embedding. Submitted as the leaderboard's first entry for others to beat.

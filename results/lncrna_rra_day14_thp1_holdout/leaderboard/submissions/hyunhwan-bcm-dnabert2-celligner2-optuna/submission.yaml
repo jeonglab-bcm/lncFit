@@ -1,0 +1,15 @@
+submitter: hyunhwan-bcm
+model: xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials)
+description: 'Best-effort attempt via scripts/run_cellline_loco.py, unmodified: DNABERT-2
+  transcript embeddings (768-dim) + 2-D Celligner UMAP cell-line embedding + Optuna TPE search
+  over configs/search_spaces/xgboost.yaml (50 trials, stratified 5-fold CV over the full dataset,
+  metric=auprc), then that one fixed set of best params used across all 4 leave-one-cell-line-out
+  folds (HAP1/K562/MDA-MB-231/THP1; HEK293FT excluded). Best params: learning_rate=0.0129,
+  max_depth=4, subsample=0.713, colsample_bytree=0.533, min_child_weight=6, reg_alpha=1.01e-8,
+  reg_lambda=1.75e-8.
+
+
+  Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping only its
+  THP1 rows. Those predictions came from a model trained on HAP1/K562/MDA-MB-231 with THP1
+  entirely held out, which is exactly this challenge''s protocol -- so the score is valid
+  here, and was produced before THP1''s labels were made private.'
