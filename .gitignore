@@ -238,6 +238,11 @@ data/processed/body_sequences_transcript.json
 data/processed/body_sequences_genomic_full.json
 data/processed/*.npz
 
+# Leaderboard answer keys. scripts/split_holdout_cellline.py writes these next to
+# the public files it also writes; ignoring them keeps a stray `git add data/` from
+# committing a held-out cell line's labels.
+data/holdout_*/holdout_*_labels.jsonl.gz
+
 # Claude Code project file
 CLAUDE.md
 

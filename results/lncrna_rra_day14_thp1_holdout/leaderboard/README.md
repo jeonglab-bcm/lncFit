@@ -19,10 +19,14 @@ was clear the same labels sit in the published supplement, in this repo's own
 `y_true` columns.
 
 What the repo *does* do is make the honest path the easy one: `data/holdout_thp1/`
-provides a training file with THP1 removed and a THP1 features file with `label`
-blanked to `-1`, so following the instructions never puts the answers in front of
-you. Please don't go looking. A genuinely blind evaluation would need ground truth
-that isn't in the paper -- an unpublished cell line, timepoint, or replicate.
+provides a training file with THP1 removed and a THP1 features file with `label`,
+`rra_pvalue` and `fold_change` all omitted. All three, because `label` is *defined*
+as `rra_pvalue < 0.05 and fold_change < 0` -- this file previously shipped those two
+columns with only `label` blanked to `-1`, which withheld nothing at all: one line
+of pandas recovered every one of the 202 THP1 positives. Follow the instructions and
+you never hold the answers. Please don't go looking elsewhere. A genuinely blind
+evaluation would need ground truth that isn't in the paper -- an unpublished cell
+line, timepoint, or replicate.
 
 HEK293FT is excluded from the challenge entirely: it isn't a real cancer cell line
 (never in CCLE/DepMap) and has no Celligner coordinates.
@@ -33,14 +37,20 @@ scores here sit well below what a within-cell-line split would give.
 
 ## How to submit
 
+**Full walkthrough: [`docs/PARTICIPATE.md`](../../../docs/PARTICIPATE.md)** -- setup
+(including the one genome download the k-mer path needs), a runnable starter config,
+CI troubleshooting, and a summary of what's already been tried. The short version:
+
 1. Train on `data/holdout_thp1/train_thp1_holdout.jsonl.gz` (16,488 rows across the
    3 public cell lines, labels included) and predict every row of
    `data/holdout_thp1/holdout_thp1_features.jsonl.gz` (5,496 THP1 rows).
 
    Any model is fair game. `scripts/run_pipeline.py` is the supported path --
-   point `data.train` at the training file and `data.test` at the features file.
-   Sequence features come from `data/processed/body_sequences_transcript.json`
-   (k-mer) or a precomputed embedding `.npz` (see [`configs/README.md`](../../../configs/README.md)).
+   `configs/pipeline/thp1_holdout_starter.yaml` is wired up for this challenge and
+   writes a submittable `predictions.csv`. Because the test file's labels are
+   withheld, that run reports no test metrics; that's expected. Sequence features
+   come from `data/processed/body_sequences_transcript.json` (k-mer) or a
+   precomputed embedding `.npz` (see [`configs/README.md`](../../../configs/README.md)).
 
 2. Create a branch named `submission/<your-github-handle>-<short-slug>`. The
    `submission/` prefix is required -- CI only runs for those. Open the PR **from
@@ -88,8 +98,9 @@ means.
 python scripts/split_holdout_cellline.py --holdout THP1 --out data/holdout_thp1
 ```
 
-The script also writes `holdout_thp1_labels.jsonl.gz`; it is deliberately **not**
-committed, since scoring reads THP1's rows from
-`data/processed/lncrna_rra_day14.jsonl.gz` instead. It exists for the case where a
-future challenge holds out genuinely unpublished data and the labels really do
-need to live somewhere private.
+The script also writes `holdout_thp1_labels.jsonl.gz` -- the answer key. It is
+gitignored (`data/holdout_*/holdout_*_labels.jsonl.gz`) so a stray `git add data/`
+can't publish it, and scoring doesn't need it: the scorer reads THP1's rows from
+`data/processed/lncrna_rra_day14.jsonl.gz`. It exists for the case where a future
+challenge holds out genuinely unpublished data and the labels really do need to live
+somewhere private.

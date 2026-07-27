@@ -19,23 +19,29 @@ Anyone can train a model with the pipeline above and submit its predictions to b
 scored. CI validates and scores every submission independently -- it never trusts a
 submitted metrics file.
 
+**New here? Start with [`docs/PARTICIPATE.md`](docs/PARTICIPATE.md)** -- setup,
+a runnable starter config, the submission format, CI troubleshooting, and what has
+already been tried.
+
 > **This is an honour-system board, not a blind benchmark.** The `label` being
 > predicted is computed from the *published* supplementary tables of the source
 > screen paper (`data/raw/mmc3.xlsx`, sheets S2F-S2J), so THP1's answers are
 > derivable from public data no matter what this repo ships -- we tried
 > encrypting them and it was security theatre. What the repo does do is make the
 > honest path the easy one: `data/holdout_thp1/` gives you a training file with
-> THP1 removed and a THP1 features file with `label` blanked to `-1`, so following
-> the instructions never puts the answers in front of you. Please don't go
-> looking. If you need a genuinely blind evaluation, it has to hold out data that
-> isn't in the paper.
+> THP1 removed, and a THP1 features file with `label`, `rra_pvalue` and
+> `fold_change` all omitted -- all three, because `label` is *defined* as
+> `rra_pvalue < 0.05 and fold_change < 0`, so shipping those two columns would
+> ship the answer key. Follow the instructions and you never hold the answers.
+> Please don't go looking elsewhere. A genuinely blind evaluation would have to
+> hold out data that isn't in the paper.
 
-### The challenge: blind THP1 hold-out
+### The challenge: THP1 hold-out
 
 | | |
 |---|---|
-| **Train on** | HAP1, K562, MDA-MB-231 (labels public) |
-| **Predict** | THP1 (5,496 rows, labels private) |
+| **Train on** | HAP1, K562, MDA-MB-231 (labels included) |
+| **Predict** | THP1 (5,496 rows, labels withheld) |
 | **Excluded** | HEK293FT -- not a real cancer line, no Celligner data |
 | **Ranked by** | AUPRC, with AUROC shown alongside |
 

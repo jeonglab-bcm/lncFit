@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""Split the day14 dataset into a public training set and a private label set.
+"""Split the day14 dataset into a training set and a label-withheld features set.
 
-The leaderboard's held-out cell line is a *blind* test: submitters get its rows
-(so they know what to predict) but not its labels. Those labels live in a
-separate private repo and are only ever read by CI.
+This is NOT a blind test and cannot be made one: `label` is derived from the
+*published* supplementary tables of the source screen paper, so the held-out cell
+line's answers are downloadable by anyone. The board runs on trust. What these
+files do is make the honest path the easy one -- follow the instructions and you
+never have the answer key in hand.
+
+For that to be true the features file must omit the label AND the two columns the
+label is computed from. It previously shipped `rra_pvalue` and `fold_change` with
+only `label` blanked to -1, which withheld nothing: `label` is exactly
+`rra_pvalue < 0.05 and fold_change < 0`, so one line of pandas recovered all 202
+THP1 positives at 100% agreement.
 
 Writes three files:
 
-  <out>/train_<public cell lines>.jsonl.gz   public. The non-held-out cell lines,
-                                             labels included -- this is what
-                                             submitters train on.
-  <out>/holdout_<line>_features.jsonl.gz     public. The held-out cell line's rows
-                                             with `label` forced to -1, so nobody
-                                             can read the answer out of the file
-                                             they're told to predict.
-  <out>/holdout_<line>_labels.jsonl.gz       PRIVATE. The same rows with real
-                                             labels. Push this to the private
-                                             ground-truth repo, never to the
-                                             public one.
+  <out>/train_<line>_holdout.jsonl.gz        The non-held-out cell lines, labels
+                                             included -- this is what you train on.
+  <out>/holdout_<line>_features.jsonl.gz     The held-out cell line's rows with
+                                             label, rra_pvalue and fold_change all
+                                             omitted -- this is what you predict.
+  <out>/holdout_<line>_labels.jsonl.gz       The same rows with real labels. Not
+                                             committed; scoring reads the held-out
+                                             rows from the full processed dataset
+                                             instead. Kept for the case where a
+                                             future challenge holds out genuinely
+                                             unpublished data.
 
 Usage:
   python scripts/split_holdout_cellline.py --holdout THP1 --out data/holdout_thp1
 """
 import argparse
-import dataclasses
 import sys
 from pathlib import Path
 
@@ -35,6 +42,10 @@ _DEFAULT_DATA = "data/processed/lncrna_rra_day14.jsonl.gz"
 # HEK293FT is excluded from the challenge entirely (not a real cancer line, no
 # Celligner data) -- see results/*/leaderboard/challenge.yaml.
 _ALWAYS_EXCLUDE = {"HEK293FT"}
+
+# label == (rra_pvalue < 0.05 and fold_change < 0), so all three must go together.
+# Withholding `label` alone leaves the answer key in the file.
+_WITHHELD_FIELDS = ("label", "rra_pvalue", "fold_change")
 
 
 def main() -> None:
@@ -62,21 +73,18 @@ def main() -> None:
     labels_path = out / f"holdout_{args.holdout.lower()}_labels.jsonl.gz"
 
     save_jsonl(public, train_path)
-    # Blank the label so the public file cannot be used to recover the answer.
-    # -1 rather than 0: a wrong-but-plausible 0 would silently score as a real
-    # label if anything ever read this file as ground truth by mistake.
-    blinded = [dataclasses.replace(r, label=-1) for r in holdout]
-    save_jsonl(blinded, features_path)
+    # Drop the label AND its two ingredients. Omitted rather than blanked: a reader
+    # that wants the answer gets a KeyError, not a plausible-looking -1.
+    save_jsonl(holdout, features_path, drop_fields=_WITHHELD_FIELDS)
     save_jsonl(holdout, labels_path)
 
     n_pos = sum(r.label for r in holdout)
-    print(f"public train : {train_path}  n={len(public):,}  "
+    print(f"train    : {train_path}  n={len(public):,}  "
           f"cell lines={sorted({r.cell_line for r in public})}")
-    print(f"public blind : {features_path}  n={len(blinded):,}  labels blanked to -1")
-    print(f"PRIVATE truth: {labels_path}  n={len(holdout):,}  positives={n_pos} "
-          f"({n_pos / len(holdout):.1%})")
-    print()
-    print(f"Push ONLY {labels_path.name} to the private ground-truth repo.")
+    print(f"features : {features_path}  n={len(holdout):,}  "
+          f"withheld columns={list(_WITHHELD_FIELDS)}")
+    print(f"labels   : {labels_path}  n={len(holdout):,}  positives={n_pos} "
+          f"({n_pos / len(holdout):.1%})  -- do not commit")
 
 
 if __name__ == "__main__":

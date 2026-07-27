@@ -283,18 +283,28 @@ class LncRnaPipeline:
         model = self._build_model(best_params)
         self._fit_resampled(model, X_train, y_train)
 
-        print("Evaluating on held-out test set ...")
         y_pred_proba = model.predict_proba(X_test)
-        metrics_rows = evaluate_lncrna_by_group(test_records, y_test, y_pred_proba)
-        overall = next(r for r in metrics_rows if r["split"] == "Overall")
-        print(f"  Overall AUROC={overall['auroc']:.4f}  AUPRC={overall['auprc']:.4f}")
+
+        # A leaderboard features file has its labels withheld, which arrives here as
+        # label == -1 (the from_dict default for a file that omits the column). Scoring
+        # that would either crash in roc_auc_score or, worse, report a metric computed
+        # against -1s as if it meant something.
+        unlabeled = bool(np.any(np.asarray(y_test) < 0))
+        if unlabeled:
+            print("Test set has no labels (withheld) -- skipping metrics, writing predictions only.")
+            metrics_rows, overall = [], None
+        else:
+            print("Evaluating on held-out test set ...")
+            metrics_rows = evaluate_lncrna_by_group(test_records, y_test, y_pred_proba)
+            overall = next(r for r in metrics_rows if r["split"] == "Overall")
+            print(f"  Overall AUROC={overall['auroc']:.4f}  AUPRC={overall['auprc']:.4f}")
 
         run_dir = self._save(best_params, metrics_rows, test_records, y_test, y_pred_proba,
-                              feature_cols, cv_scores_df)
+                              feature_cols, cv_scores_df, unlabeled=unlabeled)
         return {"run_dir": str(run_dir), "best_params": best_params, "overall": overall}
 
     def _save(self, best_params, metrics_rows, test_records, y_test, y_pred_proba,
-              feature_cols, cv_scores_df) -> Path:
+              feature_cols, cv_scores_df, unlabeled: bool = False) -> Path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         run_dir = self.output_dir / f"run_{self.model_name}_{timestamp}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -308,15 +318,21 @@ class LncRnaPipeline:
         if cv_scores_df is not None:
             cv_scores_df.to_csv(run_dir / "cv_scores.csv", index=False)
 
-        pd.DataFrame(metrics_rows).to_csv(run_dir / "metrics.csv", index=False)
+        if metrics_rows:
+            pd.DataFrame(metrics_rows).to_csv(run_dir / "metrics.csv", index=False)
 
+        # Omit y_true entirely when the labels were withheld, rather than writing a
+        # column of -1 that a downstream reader could mistake for ground truth. The
+        # remaining columns are exactly what a leaderboard submission needs.
         preds_rows = [
-            {"target": rec.target, "cell_line": rec.cell_line, "y_true": float(y_t), "y_pred_proba": float(y_p)}
+            {"target": rec.target, "cell_line": rec.cell_line, "y_pred_proba": float(y_p)}
+            | ({} if unlabeled else {"y_true": float(y_t)})
             for rec, y_t, y_p in zip(test_records, y_test, y_pred_proba)
         ]
-        pd.DataFrame(preds_rows).to_csv(run_dir / "predictions.csv", index=False)
+        preds_path = run_dir / "predictions.csv"
+        pd.DataFrame(preds_rows).to_csv(preds_path, index=False)
 
-        overall = next(r for r in metrics_rows if r["split"] == "Overall")
+        overall = next((r for r in metrics_rows if r["split"] == "Overall"), {})
         run_info = {
             "model": self.model_name,
             "best_params": best_params,
@@ -325,8 +341,8 @@ class LncRnaPipeline:
             "tuning_method": self.tuning_method,
             "cv_strategy": self.cv_strategy,
             "n_features": len(feature_cols),
-            "auroc": overall["auroc"],
-            "auprc": overall["auprc"],
+            "auroc": overall.get("auroc"),
+            "auprc": overall.get("auprc"),
             "timestamp": timestamp,
             "git_commit": git_commit(),
         }
@@ -335,4 +351,6 @@ class LncRnaPipeline:
             fh.write("\n")
 
         print(f"\nRun saved -> {run_dir}")
+        if unlabeled:
+            print(f"Predictions for submission -> {preds_path}")
         return run_dir

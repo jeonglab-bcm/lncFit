@@ -52,6 +52,16 @@ dropped in substance.
 
 ## File-by-file (1 test each unless noted)
 
+> **This table covers the round-5 core only.** The suite is now **95 tests**: the
+> consolidation above was a one-off exercise, and everything added since has been
+> written to a normal bar rather than the ~20-test target. Not in the table below:
+> `test_pipeline.py`, `test_build_leaderboard.py`, `test_split_holdout_cellline.py`,
+> `test_resample.py`, `test_embeddings_pca.py`, `test_ensemble_predictions.py`,
+> `test_build_day14_loco_ensemble.py`, `test_day14_cellline_loco_guide.py`,
+> `test_day14_compliant_multimodal.py`. Each of those files documents its own
+> rationale in a module docstring; the leaderboard and hold-out-split tests in
+> particular guard scoring integrity and are worth reading before touching either.
+
 | File | Test | Covers |
 |---|---|---|
 | `test_cv.py` | `test_excludes_chroms_below_min_fold_records` | A chromosome under `MIN_FOLD_RECORDS` never becomes a validation fold. |
