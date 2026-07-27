@@ -1,0 +1,16 @@
+# Scored on THP1 rows only, taken from the full day14 dataset.
+#
+# NOT a blind test, and the docs say so plainly: `label` is computed from the
+# published supplementary tables of the source screen paper (data/raw/mmc3.xlsx,
+# sheets S2F-S2J), so anyone can derive THP1's answers from public data regardless
+# of what this repo ships. The board therefore runs on trust. What the repo does
+# do is make the honest path the easy one -- data/holdout_thp1/ contains a
+# training file without THP1 and a THP1 features file with `label` blanked to -1,
+# so following the instructions never puts the answers in front of you.
+test_path: data/processed/lncrna_rra_day14.jsonl.gz
+only_cell_lines: [THP1]
+title: >
+  Single-cell-line hold-out: train on HAP1/K562/MDA-MB-231, predict THP1 (5,496
+  rows, 202 positives). Tests generalization to a cell line the model has never
+  seen a row of. HEK293FT is excluded entirely (not a real cancer line, no
+  Celligner data). Honour-system scoring -- see the challenge README.

@@ -1,0 +1,13 @@
+submitter: jeonglab-bcm
+model: xgboost + kmer (k=5), no cell embedding
+description: 'Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified -- same
+  fixed hyperparameters as the chromosome-held-out baseline (configs/cellline_loco/xgboost_kmer.yaml).
+  HEK293FT excluded (not a real cancer line). 4 folds: HAP1, K562, MDA-MB-231, THP1, each
+  held out in turn from a model trained on the other 3. Submitted as this challenge''s first
+  entry for others to beat.
+
+
+  Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping only its
+  THP1 rows. Those predictions came from a model trained on HAP1/K562/MDA-MB-231 with THP1
+  entirely held out, which is exactly this challenge''s protocol -- so the score is valid
+  here, and was produced before THP1''s labels were made private.'

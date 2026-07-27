@@ -1,0 +1,15 @@
+submitter: hyunhwan-bcm
+model: xgboost + DNABERT-2 + distance-to-gene, fixed params (max_depth=9)
+description: 'No hyperparameter search -- fixed params matching the project''s established
+  best-known xgboost config (max_depth=9 etc). Via scripts/run_cellline_loco.py, unmodified.
+  Manually tried Celligner at dim 0/2/70 with/without distance-to-nearest-protein-coding-gene;
+  Celligner consistently hurt LOCO (unlike the chr1 task, where it helped) -- this variant
+  (DNABERT-2 + distance, no Celligner) won. AUROC 0.5915->0.5956, AUPRC 0.1379->0.1435 vs.
+  the k-mer baseline (~4% relative AUPRC improvement -- more modest than the chr1 win, but
+  a genuine one). 4 folds: HAP1/K562/MDA-MB-231/THP1, HEK293FT excluded.
+
+
+  Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping only its
+  THP1 rows. Those predictions came from a model trained on HAP1/K562/MDA-MB-231 with THP1
+  entirely held out, which is exactly this challenge''s protocol -- so the score is valid
+  here, and was produced before THP1''s labels were made private.'

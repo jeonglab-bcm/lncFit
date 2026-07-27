@@ -188,3 +188,33 @@ def test_missing_hek293ft_predictions_still_valid_when_excluded(tmp_path):
 
     result = _score_submission(sub_dir, records, truth_map, excluded_keys)
     assert result["auroc"] == pytest.approx(1.0)
+
+
+def test_only_cell_lines_scores_just_that_line(tmp_path):
+    """A single-held-out-cell-line challenge reuses the full dataset and narrows to
+    one line, rather than shipping a separate answers file."""
+    all_records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(all_records, test_path)
+
+    records, truth, excluded = _load_truth(str(test_path), only_cell_lines={"THP1"})
+    assert records, "expected THP1 rows to be scored"
+    assert all(r.cell_line == "THP1" for r in records)
+    # everything else must land in excluded_keys so extra prediction rows are tolerated
+    assert all(cl != "THP1" for _, cl in excluded)
+
+    preds = _all_keys_df(all_records, lambda r: 0.9 if r.label == 1 else 0.1)
+    sub_dir = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
+    result = _score_submission(sub_dir, records, truth, excluded)
+    assert result["auroc"] == pytest.approx(1.0)
+    assert [m["split"] for m in result["metrics_rows"]] == ["Overall", "THP1"]
+
+
+def test_only_and_exclude_combined_leaving_nothing_raises():
+    # A config that filters everything out should fail loudly, not silently score 0 rows.
+    import tempfile, os
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "t.jsonl.gz")
+        save_jsonl(_synthetic_test_records(), p)
+        with pytest.raises(ValueError, match="no rows left to score"):
+            _load_truth(p, exclude_cell_lines={"THP1"}, only_cell_lines={"THP1"})
