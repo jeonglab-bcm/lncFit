@@ -242,3 +242,69 @@ def test_loco_nested_tuning_uses_only_training_cell_lines(monkeypatch, tmp_path)
     expected = n_total - n_total // n_cell_lines
     assert all(c == expected for c in seen_row_counts), seen_row_counts
     assert all(c < n_total for c in seen_row_counts)
+
+
+# --- label-withheld test sets (leaderboard features files) ------------------
+#
+# A challenge's public features file omits `label` (and the columns it is derived
+# from), which LncRnaRecord.from_dict turns into label == -1. Scoring that would
+# crash in roc_auc_score, or -- worse -- silently report a metric computed against
+# a column of -1s.
+
+
+def _unlabeled_data_files(tmp_path):
+    """Same as `data_files`, but the test file has its label column withheld."""
+    train_records = _synthetic_records(30, offset=0)
+    test_records = _synthetic_records(10, offset=30)
+    train_path = tmp_path / "train.jsonl.gz"
+    test_path = tmp_path / "test_features.jsonl.gz"
+    save_jsonl(train_records, train_path)
+    save_jsonl(test_records, test_path, drop_fields=("label", "rra_pvalue", "fold_change"))
+
+    seqs = {**_synthetic_transcript_sequences(30, 0), **_synthetic_transcript_sequences(10, 30)}
+    seqs_path = tmp_path / "transcript_sequences.json"
+    with open(seqs_path, "w") as fh:
+        json.dump({gid: [seq, ""] for gid, seq in seqs.items()}, fh)
+
+    return {"train": str(train_path), "test": str(test_path), "transcript_sequences": str(seqs_path)}
+
+
+def test_unlabeled_test_set_produces_predictions_without_metrics(tmp_path):
+    """The whole point of the starter path: predict a features file whose answers
+    you do not have, and get a submittable predictions.csv out."""
+    import pandas as pd
+
+    config = _base_config(_unlabeled_data_files(tmp_path), tmp_path)
+    pipeline = LncRnaPipeline(config)
+    result = pipeline.run()
+
+    assert result["overall"] is None, "nothing to score against -- must not invent a metric"
+
+    run_dir = list(pipeline.output_dir.iterdir())[0]
+    files = {p.name for p in run_dir.iterdir()}
+    assert "predictions.csv" in files
+    assert "metrics.csv" not in files, "a metrics file here could only hold garbage"
+
+    predictions = pd.read_csv(run_dir / "predictions.csv")
+    assert len(predictions) == 10 * len(_CELL_LINES)
+    # y_true omitted rather than written as -1: a -1 column invites a downstream
+    # reader to treat it as ground truth.
+    assert list(predictions.columns) == ["target", "cell_line", "y_pred_proba"]
+    assert predictions["y_pred_proba"].between(0, 1).all()
+
+    with open(run_dir / "run_info.json") as fh:
+        run_info = json.load(fh)
+    assert run_info["auroc"] is None and run_info["auprc"] is None
+
+
+def test_labeled_test_set_still_reports_metrics_and_y_true(data_files, tmp_path):
+    """Guard the other direction: the fix must not quietly stop scoring real runs."""
+    import pandas as pd
+
+    pipeline = LncRnaPipeline(_base_config(data_files, tmp_path))
+    result = pipeline.run()
+
+    assert result["overall"] is not None
+    run_dir = list(pipeline.output_dir.iterdir())[0]
+    assert (run_dir / "metrics.csv").exists()
+    assert "y_true" in pd.read_csv(run_dir / "predictions.csv").columns

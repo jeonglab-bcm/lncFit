@@ -85,9 +85,14 @@ class LncRnaRecord:
     target: str
     cell_line: str
     day: int
-    rra_pvalue: float
-    fold_change: float
-    label: int
+    # These three carry defaults so a *label-withheld* file can legally omit them.
+    # label is defined as (rra_pvalue < 0.05 and fold_change < 0), so publishing the
+    # p-value and fold-change is publishing the label -- a leaderboard's public
+    # features file must drop all three together or it hands out the answer key.
+    # See scripts/split_holdout_cellline.py.
+    rra_pvalue: float = float("nan")
+    fold_change: float = float("nan")
+    label: int = -1
     chrom: str = ""
     strand: str = ""
     closest_pc_gene: str = ""
@@ -283,13 +288,20 @@ def load_rra(
     return records
 
 
-def save_jsonl(records: list, path: Path | str) -> None:
-    """Write records to a gzip-compressed JSONL file, one JSON object per line, stamped with schema version."""
+def save_jsonl(records: list, path: Path | str, drop_fields: tuple[str, ...] = ()) -> None:
+    """Write records to a gzip-compressed JSONL file, one JSON object per line, stamped with schema version.
+
+    drop_fields omits those keys entirely. Used to publish a features file with the
+    label and everything the label is computed from removed -- omitting rather than
+    blanking, so a reader gets a KeyError instead of a plausible-looking sentinel.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8") as f:
         for r in records:
             d = dataclasses.asdict(r)
+            for name in drop_fields:
+                d.pop(name, None)
             d["_v"] = SCHEMA_VERSION
             f.write(json.dumps(d) + "\n")
 

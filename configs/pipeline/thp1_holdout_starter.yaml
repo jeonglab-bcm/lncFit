@@ -1,0 +1,46 @@
+# Starter config for the THP1 hold-out leaderboard challenge.
+# Copy this, change one thing, submit. See docs/PARTICIPATE.md.
+#
+# Run: uv run python scripts/run_pipeline.py --config configs/pipeline/thp1_holdout_starter.yaml
+#
+# data.test is the label-withheld features file, so there is nothing to score
+# against: the run prints no test metrics and writes predictions.csv WITHOUT a
+# y_true column. That file is your submission. This is expected, not a failure.
+#
+# The CV number this prints is stratified K-fold over the three TRAINING cell
+# lines, so the same cell line appears in train and validation. It is optimistic
+# for a task that scores generalization to an unseen cell line -- treat it as a
+# smoke test, not as model selection. For an honest estimate use
+# scripts/run_cellline_loco.py, which holds out one training cell line at a time.
+
+data:
+  train: data/holdout_thp1/train_thp1_holdout.jsonl.gz
+  test: data/holdout_thp1/holdout_thp1_features.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  # 0 = one-hot cell line only. 2/10/70 add Celligner coordinates, which are what
+  # let a model say anything cell-line-specific about a line it never trained on.
+  cell_embedding_dim: 0
+
+model:
+  name: xgboost
+  params:
+    max_depth: 9
+    n_estimators: 400
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+
+tuning:
+  method: fixed
+
+cv:
+  strategy: stratified
+  n_splits: 5
+
+seed: 42
+output_dir: results/lncrna_rra_day14_thp1_holdout/pipeline_runs
