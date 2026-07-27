@@ -9,6 +9,8 @@ Usage — body sequences (primary use case):
     python scripts/embed_sequences.py \\
         --source body \\
         --body-sequences data/processed/body_sequences_transcript.json \\
+        --target-records data/processed/train_lncrna_day14_chrom1.jsonl.gz \\
+                         data/processed/test_lncrna_day14_chrom1.jsonl.gz \\
         --output data/processed/dnabert2_body.npz
 
 Usage — guide sequences (secondary / ablation):
@@ -26,16 +28,29 @@ Requires:  transformers, torch  (both already project dependencies)
 DNABERT-2-117M uses custom model code; trust_remote_code=True is required.
 """
 import argparse
+import importlib.util
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+DNABERT_MODEL = "zhihan1996/DNABERT-2-117M"
+DNABERT_REVISION = "7bce263b15377fc15361f52cfab88f8b586abda0"
+PINNED_REVISIONS = {
+    DNABERT_MODEL: DNABERT_REVISION,
+    "InstaDeepAI/nucleotide-transformer-v2-50m-multi-species":
+        "81b29e5786726d891dbf929404ef20adca5b36f1",
+}
 
-def _embed_batch(model, tokenizer, seqs: list[str], device: str) -> np.ndarray:
+
+def _embed_batch(
+    model, tokenizer, seqs: list[str], device: str, masked_lm: bool = False
+) -> np.ndarray:
     """Mean-pool last hidden states over non-padding tokens -> (batch, n_dims)."""
     import torch
 
@@ -47,23 +62,64 @@ def _embed_batch(model, tokenizer, seqs: list[str], device: str) -> np.ndarray:
         max_length=512,
     ).to(device)
     with torch.no_grad():
-        out = model(**enc)
+        out = model(**enc, output_hidden_states=True) if masked_lm else model(**enc)
     mask = enc["attention_mask"].unsqueeze(-1).float()
     # DNABERT-2's BertModel returns a tuple; index 0 is last_hidden_state
-    hidden = out[0] if isinstance(out, tuple) else out.last_hidden_state
+    if masked_lm:
+        hidden = out.hidden_states[-1]
+    else:
+        hidden = out[0] if isinstance(out, tuple) else out.last_hidden_state
     vecs = (hidden * mask).sum(1) / mask.sum(1)
     return vecs.cpu().numpy().astype(np.float32)
 
 
-def _embed_all(model, tokenizer, seqs: list[str], device: str, batch_size: int) -> np.ndarray:
+def _embed_all(
+    model,
+    tokenizer,
+    seqs: list[str],
+    device: str,
+    batch_size: int,
+    masked_lm: bool = False,
+) -> np.ndarray:
     all_vecs = []
     for i in range(0, len(seqs), batch_size):
         batch = seqs[i : i + batch_size]
-        all_vecs.append(_embed_batch(model, tokenizer, batch, device))
+        all_vecs.append(_embed_batch(model, tokenizer, batch, device, masked_lm))
         done = min(i + batch_size, len(seqs))
         if done % (batch_size * 10) == 0 or done == len(seqs):
             print(f"  {done:,}/{len(seqs):,}", flush=True)
     return np.concatenate(all_vecs, axis=0)
+
+
+def _prepare_model_source(model: str, revision: str) -> str:
+    """Create a no-Triton local snapshot when the accelerator is unavailable.
+
+    DNABERT-2's ``bert_layers.py`` has an official PyTorch attention fallback,
+    but Transformers' remote-code dependency scanner rejects the auxiliary
+    ``flash_attn_triton.py`` before that fallback can run.  Replacing only that
+    optional auxiliary module with an ImportError stub lets ``bert_layers`` take
+    its existing fallback path.  Model weights and all numerical layer code are
+    unchanged.
+    """
+    if importlib.util.find_spec("triton") is not None or Path(model).exists():
+        return model
+
+    from huggingface_hub import snapshot_download
+
+    cache_root = Path(
+        os.environ.get(
+            "HF_HOME", str(Path(tempfile.gettempdir()) / "lncfit-huggingface")
+        )
+    )
+    local_dir = cache_root / "dnabert2-no-triton" / revision
+    print(f"Triton unavailable; preparing PyTorch-fallback snapshot at {local_dir}")
+    snapshot_download(repo_id=model, revision=revision, local_dir=local_dir)
+    triton_module = local_dir / "flash_attn_triton.py"
+    if triton_module.exists():
+        triton_module.write_text(
+            'raise ImportError("Triton unavailable; use DNABERT-2 PyTorch attention fallback")\n'
+        )
+    return str(local_dir)
 
 
 def main() -> None:
@@ -81,6 +137,14 @@ def main() -> None:
              "Required when --source=body.",
     )
     parser.add_argument(
+        "--target-records",
+        nargs="+",
+        default=None,
+        help="Optional JSONL/JSONL.GZ record files whose target IDs define the "
+             "body-sequence subset to embed. This avoids embedding unrelated "
+             "transcripts from a genome-wide sequence file.",
+    )
+    parser.add_argument(
         "--train", default="data/processed/train_chrom1.jsonl.gz",
         help="Training JSONL used to collect unique guide sequences. "
              "Required when --source=guide.",
@@ -90,10 +154,22 @@ def main() -> None:
         help="Output .npz path (e.g. data/processed/dnabert2_body.npz).",
     )
     parser.add_argument(
-        "--model", default="zhihan1996/DNABERT-2-117M",
-        help="HuggingFace model name or local checkpoint path. Default: zhihan1996/DNABERT-2-117M.",
+        "--model", default=DNABERT_MODEL,
+        help=f"HuggingFace model name or local checkpoint path. Default: {DNABERT_MODEL}.",
+    )
+    parser.add_argument(
+        "--revision",
+        default=None,
+        help="Optional HuggingFace revision. DNABERT-2 uses the project's pinned "
+             "revision by default; other models use their repository default.",
     )
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--masked-lm",
+        action="store_true",
+        help="Load AutoModelForMaskedLM and pool its final hidden state. Required "
+             "for repositories that do not expose an AutoModel mapping.",
+    )
     parser.add_argument(
         "--device", default=None,
         help="'cuda' or 'cpu'. Auto-detected when not specified.",
@@ -106,19 +182,35 @@ def main() -> None:
     args = parser.parse_args()
 
     import torch
-    from transformers import AutoModel, AutoTokenizer
+    from transformers import AutoModel, AutoModelForMaskedLM, AutoTokenizer
 
-    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    if args.device:
+        device = args.device
+    elif torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
     print(f"Device: {device}")
 
     print(f"Loading model {args.model!r} ...")
     # Pin revision so transformers does not re-download and overwrite the patched
     # flash_attn_triton.py (trans_b -> tl.trans() fix for Triton >= 2.3).
-    _revision = "7bce263b15377fc15361f52cfab88f8b586abda0"
+    revision = args.revision or PINNED_REVISIONS.get(args.model)
+    model_source = (
+        _prepare_model_source(args.model, revision)
+        if args.model == DNABERT_MODEL
+        else args.model
+    )
+    revision_kwargs = {"revision": revision} if revision is not None else {}
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model, trust_remote_code=True, revision=_revision)
-    model = AutoModel.from_pretrained(
-        args.model, trust_remote_code=True, revision=_revision)
+        model_source, trust_remote_code=True, **revision_kwargs
+    )
+    model_class = AutoModelForMaskedLM if args.masked_lm else AutoModel
+    model = model_class.from_pretrained(
+        model_source, trust_remote_code=True, **revision_kwargs
+    )
     model.eval().to(device)
 
     if args.source == "body":
@@ -128,22 +220,54 @@ def main() -> None:
         print(f"Loading body sequences from {body_path} ...")
         with open(body_path) as fh:
             raw: dict[str, list[str]] = json.load(fh)
-        gene_ids = list(raw.keys())
+        if args.target_records:
+            from lncfit.screen_data import LncRnaRecord, load_jsonl
+
+            requested = {
+                record.target
+                for record_path in args.target_records
+                for record in load_jsonl(Path(record_path), record_cls=LncRnaRecord)
+            }
+            missing = sorted(requested - raw.keys())
+            if missing:
+                preview = ", ".join(missing[:5])
+                sys.exit(
+                    f"{len(missing):,} requested target(s) are missing from "
+                    f"{body_path}: {preview}"
+                )
+            gene_ids = sorted(requested)
+        else:
+            gene_ids = list(raw.keys())
         print(f"  {len(gene_ids):,} genes")
 
         if args.window == "mean":
             seqs_first = [raw[g][0] for g in gene_ids]
-            seqs_last  = [raw[g][1] for g in gene_ids]
+            seqs_last = [
+                raw[g][1] if len(raw[g]) > 1 and raw[g][1] else raw[g][0][-1000:]
+                for g in gene_ids
+            ]
             print(f"Embedding first windows ...")
-            emb_first = _embed_all(model, tokenizer, seqs_first, device, args.batch_size)
+            emb_first = _embed_all(
+                model, tokenizer, seqs_first, device, args.batch_size, args.masked_lm
+            )
             print(f"Embedding last windows ...")
-            emb_last  = _embed_all(model, tokenizer, seqs_last,  device, args.batch_size)
+            emb_last = _embed_all(
+                model, tokenizer, seqs_last, device, args.batch_size, args.masked_lm
+            )
             embeddings = (emb_first + emb_last) / 2.0
         else:
             window_idx = 0 if args.window == "first" else 1
-            seqs = [raw[g][window_idx] for g in gene_ids]
+            if window_idx == 0:
+                seqs = [raw[g][0] for g in gene_ids]
+            else:
+                seqs = [
+                    raw[g][1] if len(raw[g]) > 1 and raw[g][1] else raw[g][0][-1000:]
+                    for g in gene_ids
+                ]
             print(f"Embedding {len(seqs):,} {args.window}-window sequences ...")
-            embeddings = _embed_all(model, tokenizer, seqs, device, args.batch_size)
+            embeddings = _embed_all(
+                model, tokenizer, seqs, device, args.batch_size, args.masked_lm
+            )
 
         index = {g: i for i, g in enumerate(gene_ids)}
 
@@ -164,7 +288,9 @@ def main() -> None:
                 seen.add(r.target_sequence)
         print(f"  {len(unique_seqs):,} unique guide sequences (from {len(records):,} records)")
         print(f"Embedding {len(unique_seqs):,} guide sequences ...")
-        embeddings = _embed_all(model, tokenizer, unique_seqs, device, args.batch_size)
+        embeddings = _embed_all(
+            model, tokenizer, unique_seqs, device, args.batch_size, args.masked_lm
+        )
         index = {s: i for i, s in enumerate(unique_seqs)}
 
     print(f"\nEmbedding matrix: {embeddings.shape}  dtype={embeddings.dtype}")

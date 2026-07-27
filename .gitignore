@@ -229,6 +229,7 @@ logs/
 *.fai
 *.2bit
 data/raw/genome/
+data/external/depmap24q4/
 
 # Large derived data files — reproducible, do not commit
 data/raw/human.lncRNA.hg38.gtf

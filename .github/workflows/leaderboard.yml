@@ -47,13 +47,16 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Validate submissions, rebuild LEADERBOARD.md and the Pages site
+        env:
+          CHANGED_CHALLENGES: ${{ steps.challenges.outputs.list }}
         run: |
           status=0
-          for challenge in ${{ steps.challenges.outputs.list }}; do
+          while IFS= read -r challenge; do
+            [ -z "$challenge" ] && continue
             echo "::group::$challenge"
             python scripts/build_leaderboard.py --challenge "$challenge" || status=1
             echo "::endgroup::"
-          done
+          done <<< "$CHANGED_CHALLENGES"
           exit $status
 
       # Runs even if the step above failed, so a partially-valid leaderboard
