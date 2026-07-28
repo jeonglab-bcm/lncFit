@@ -52,7 +52,7 @@ dropped in substance.
 
 ## File-by-file (1 test each unless noted)
 
-> **This table covers the round-5 core only.** The suite is now **95 tests**: the
+> **This table covers the round-5 core only.** The suite is now **107 tests**: the
 > consolidation above was a one-off exercise, and everything added since has been
 > written to a normal bar rather than the ~20-test target. Not in the table below:
 > `test_pipeline.py`, `test_build_leaderboard.py`, `test_score_submission.py`,

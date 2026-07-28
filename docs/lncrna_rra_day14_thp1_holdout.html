@@ -37,32 +37,17 @@ a { color: inherit; }
 <h1>lncrna_rra_day14_thp1_holdout</h1>
 <p class="subtitle">Single-cell-line hold-out: train on HAP1/K562/MDA-MB-231, predict THP1 (5,496 rows, 202 positives). Tests generalization to a cell line the model has never seen a row of. HEK293FT is excluded entirely (not a real cancer line, no Celligner data). Honour-system scoring -- see the challenge README.</p>
 <p><strong><a href="https://github.com/jeonglab-bcm/lncFit/blob/main/docs/PARTICIPATE.md">How to enter &rarr;</a></strong></p>
+<p><strong>AUPRC carries a 95% bootstrap CI about 0.12 wide here (202 positives).
+Gaps smaller than the intervals' overlap are noise, not progress.</strong></p>
 <table>
-<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">AUROC</th><th></th></tr>
+<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">95% CI</th><th class="num">AUROC</th><th></th></tr>
 
 <tr class="rank-1">
   <td>1</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
-  <td>Fold-safe Day-14 cross-cell guide-transfer XGBoost ensemble</td>
-  <td class="num">0.2364</td>
-  <td class="num">0.7599</td>
-  <td><details><summary>details</summary>
-    <p>True four-fold leave-one-cell-line-out prediction for Day 14. Each fold uses the same lncRNA&#x27;s gene-level and individual-guide Day-14 depletion measurements from the three training cell lines, together with pre-screen annotations, cell-specific expression, transcript sequence, and Cas13 guide-design features. Guide summaries include depletion order statistics, replicate agreement, and the fraction of consistently depleted guides. The held-out cell line&#x27;s labels, p-values, fold changes, and guide outcomes are never used by that fold. Day-0 and Day-7 measurements are never loaded.
-The final prediction is a fixed min-max-normalized blend of five pseudohuber XGBoost depletion regressors (depths 1, 3, and 5). Its strongest component explicitly matches source count: a training row sees two other training lines, and each held-out prediction is averaged across the three possible two-source views. Fixed weights are 0.36 expression-matched guide-depth3, 0.11 source-specific gene-depth1, 0.14 expression-only-depth1, 0.18 full guide-depth5, and 0.21 full guide-depth3. Overall LOCO performance is AUROC 0.7781 and AUPRC 0.2186, up from this submission&#x27;s previous 0.7332/0.1784.
-
-Carried over from the retired 4-fold leave-one-cell-line-out challenge, keeping only its THP1 rows. That fold trained on HAP1/K562/MDA-MB-231 with THP1&#x27;s labels, p-values, fold changes and guide outcomes all withheld, which is exactly this challenge&#x27;s protocol, so the score transfers unchanged.</p>
-    <table class="detail-table">
-      <tr><th>Split</th><th class="num">n</th><th class="num">AUROC</th><th class="num">AUPRC</th><th class="num">F1</th></tr>
-      <tr><td>Overall</td><td class='num'>5,496</td><td class='num'>0.7599</td><td class='num'>0.2364</td><td class='num'>0.0670</td></tr><tr><td>THP1</td><td class='num'>5,496</td><td class='num'>0.7599</td><td class='num'>0.2364</td><td class='num'>0.0670</td></tr>
-    </table>
-    <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-crosscell-depletion-guide/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-crosscell-depletion-guide/config.yaml'>config.yaml</a></p>
-  </details></td>
-</tr>
-<tr class="rank-2">
-  <td>2</td>
-  <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>xgboost + DNABERT-2 + distance-to-gene, fixed params (max_depth=9)</td>
   <td class="num">0.1696</td>
+  <td class="num">[0.1219, 0.2246]</td>
   <td class="num">0.6391</td>
   <td><details><summary>details</summary>
     <p>No hyperparameter search -- fixed params matching the project&#x27;s established best-known xgboost config (max_depth=9 etc). Via scripts/run_cellline_loco.py, unmodified. Manually tried Celligner at dim 0/2/70 with/without distance-to-nearest-protein-coding-gene; Celligner consistently hurt LOCO (unlike the chr1 task, where it helped) -- this variant (DNABERT-2 + distance, no Celligner) won. AUROC 0.5915-&gt;0.5956, AUPRC 0.1379-&gt;0.1435 vs. the k-mer baseline (~4% relative AUPRC improvement -- more modest than the chr1 win, but a genuine one). 4 folds: HAP1/K562/MDA-MB-231/THP1, HEK293FT excluded.
@@ -75,11 +60,12 @@ Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping 
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-dnabert2-dist/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-dnabert2-dist/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-3">
-  <td>3</td>
+<tr class="rank-2">
+  <td>2</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5), no cell embedding</td>
   <td class="num">0.1636</td>
+  <td class="num">[0.1174, 0.2187]</td>
   <td class="num">0.6220</td>
   <td><details><summary>details</summary>
     <p>Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified -- same fixed hyperparameters as the chromosome-held-out baseline (configs/cellline_loco/xgboost_kmer.yaml). HEK293FT excluded (not a real cancer line). 4 folds: HAP1, K562, MDA-MB-231, THP1, each held out in turn from a model trained on the other 3. Submitted as this challenge&#x27;s first entry for others to beat.
@@ -92,11 +78,12 @@ Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping 
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/baseline-xgboost-kmer/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/baseline-xgboost-kmer/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-4">
-  <td>4</td>
+<tr class="rank-3">
+  <td>3</td>
   <td><a href="https://github.com/jeonglab-bcm">@jeonglab-bcm</a></td>
   <td>xgboost + kmer (k=5) + Celligner UMAP (dim=2)</td>
   <td class="num">0.1423</td>
+  <td class="num">[0.1020, 0.1976]</td>
   <td class="num">0.6315</td>
   <td><details><summary>details</summary>
     <p>Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified -- same fixed hyperparameters as the no-cell-embedding LOCO baseline, plus the 2-D Celligner UMAP cell-line embedding. Celligner coordinates come from independent baseline transcriptomic profiling of each cell line (not the RRA screen labels), so supplying the held-out cell line&#x27;s own coordinate at test time is not label leakage -- it tests whether transcriptomic similarity to the 3 training cell lines helps the model generalize to the 4th. HEK293FT excluded (not a real cancer line).
@@ -109,11 +96,12 @@ Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping 
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/xgboost-kmer-celligner2/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/xgboost-kmer-celligner2/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
-<tr class="rank-5">
-  <td>5</td>
+<tr class="rank-4">
+  <td>4</td>
   <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
   <td>xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials)</td>
   <td class="num">0.1268</td>
+  <td class="num">[0.0880, 0.1757]</td>
   <td class="num">0.6289</td>
   <td><details><summary>details</summary>
     <p>Best-effort attempt via scripts/run_cellline_loco.py, unmodified: DNABERT-2 transcript embeddings (768-dim) + 2-D Celligner UMAP cell-line embedding + Optuna TPE search over configs/search_spaces/xgboost.yaml (50 trials, stratified 5-fold CV over the full dataset, metric=auprc), then that one fixed set of best params used across all 4 leave-one-cell-line-out folds (HAP1/K562/MDA-MB-231/THP1; HEK293FT excluded). Best params: learning_rate=0.0129, max_depth=4, subsample=0.713, colsample_bytree=0.533, min_child_weight=6, reg_alpha=1.01e-8, reg_lambda=1.75e-8.
@@ -124,6 +112,37 @@ Carried over from the earlier 4-fold leave-one-cell-line-out challenge, keeping 
       <tr><td>Overall</td><td class='num'>5,496</td><td class='num'>0.6289</td><td class='num'>0.1268</td><td class='num'>0.1280</td></tr><tr><td>THP1</td><td class='num'>5,496</td><td class='num'>0.6289</td><td class='num'>0.1268</td><td class='num'>0.1280</td></tr>
     </table>
     <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/config.yaml'>config.yaml</a></p>
+  </details></td>
+</tr>
+</table>
+
+<h2>Ineligible &mdash; used measured depletion as a feature</h2>
+<p>Scored but not ranked: these declared <code>uses_measured_depletion: true</code>,
+using measured fold-change / p-value / guide depletion from the training cell lines as
+input features. That predicts pan-essentiality without needing to understand sequence,
+so it does not answer this challenge's question. Kept visible, with scores, because each
+declared its features openly and complied with the rules as written at submission time
+&mdash; this is a rule change, not a finding of misconduct.</p>
+<table>
+<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">95% CI</th><th class="num">AUROC</th><th></th></tr>
+
+<tr class="rank-x">
+  <td>&mdash;</td>
+  <td><a href="https://github.com/hyunhwan-bcm">@hyunhwan-bcm</a></td>
+  <td>Fold-safe Day-14 cross-cell guide-transfer XGBoost ensemble</td>
+  <td class="num">0.2364</td>
+  <td class="num">[0.1819, 0.3030]</td>
+  <td class="num">0.7599</td>
+  <td><details><summary>details</summary>
+    <p>True four-fold leave-one-cell-line-out prediction for Day 14. Each fold uses the same lncRNA&#x27;s gene-level and individual-guide Day-14 depletion measurements from the three training cell lines, together with pre-screen annotations, cell-specific expression, transcript sequence, and Cas13 guide-design features. Guide summaries include depletion order statistics, replicate agreement, and the fraction of consistently depleted guides. The held-out cell line&#x27;s labels, p-values, fold changes, and guide outcomes are never used by that fold. Day-0 and Day-7 measurements are never loaded.
+The final prediction is a fixed min-max-normalized blend of five pseudohuber XGBoost depletion regressors (depths 1, 3, and 5). Its strongest component explicitly matches source count: a training row sees two other training lines, and each held-out prediction is averaged across the three possible two-source views. Fixed weights are 0.36 expression-matched guide-depth3, 0.11 source-specific gene-depth1, 0.14 expression-only-depth1, 0.18 full guide-depth5, and 0.21 full guide-depth3. Overall LOCO performance is AUROC 0.7781 and AUPRC 0.2186, up from this submission&#x27;s previous 0.7332/0.1784.
+
+Carried over from the retired 4-fold leave-one-cell-line-out challenge, keeping only its THP1 rows. That fold trained on HAP1/K562/MDA-MB-231 with THP1&#x27;s labels, p-values, fold changes and guide outcomes all withheld, which is exactly this challenge&#x27;s protocol, so the score transfers unchanged.</p>
+    <table class="detail-table">
+      <tr><th>Split</th><th class="num">n</th><th class="num">AUROC</th><th class="num">AUPRC</th><th class="num">F1</th></tr>
+      <tr><td>Overall</td><td class='num'>5,496</td><td class='num'>0.7599</td><td class='num'>0.2364</td><td class='num'>0.0670</td></tr><tr><td>THP1</td><td class='num'>5,496</td><td class='num'>0.7599</td><td class='num'>0.2364</td><td class='num'>0.0670</td></tr>
+    </table>
+    <p><a href="https://github.com/jeonglab-bcm/lncFit/tree/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-crosscell-depletion-guide/">submission folder</a> &middot; <a href='https://github.com/jeonglab-bcm/lncFit/blob/main/results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/hyunhwan-bcm-crosscell-depletion-guide/config.yaml'>config.yaml</a></p>
   </details></td>
 </tr>
 </table>

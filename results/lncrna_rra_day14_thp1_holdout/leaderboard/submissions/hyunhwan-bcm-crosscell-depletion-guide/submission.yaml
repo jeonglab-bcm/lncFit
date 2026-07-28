@@ -1,5 +1,7 @@
 submitter: hyunhwan-bcm
 model: Fold-safe Day-14 cross-cell guide-transfer XGBoost ensemble
+# gene- and guide-level Day-14 depletion from the 3 training cell lines
+uses_measured_depletion: true
 description: 'True four-fold leave-one-cell-line-out prediction for Day 14. Each fold uses
   the same lncRNA''s gene-level and individual-guide Day-14 depletion measurements from the
   three training cell lines, together with pre-screen annotations, cell-specific expression,

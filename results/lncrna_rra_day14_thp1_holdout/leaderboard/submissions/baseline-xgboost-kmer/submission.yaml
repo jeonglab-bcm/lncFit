@@ -1,5 +1,7 @@
 submitter: jeonglab-bcm
 model: xgboost + kmer (k=5), no cell embedding
+# k-mer composition only
+uses_measured_depletion: false
 description: 'Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified -- same
   fixed hyperparameters as the chromosome-held-out baseline (configs/cellline_loco/xgboost_kmer.yaml).
   HEK293FT excluded (not a real cancer line). 4 folds: HAP1, K562, MDA-MB-231, THP1, each

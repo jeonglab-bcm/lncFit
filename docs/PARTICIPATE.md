@@ -27,35 +27,50 @@ line you've trained on, and it's why scores here look low — a leading AUPRC of
 
 ## The 60-second version
 
-Four commands, nothing to install beyond Python, no genome download:
-
 ```bash
 git clone https://github.com/jeonglab-bcm/lncFit.git && cd lncFit
 git lfs pull
+uv sync
 
-# build a complete, valid submission
-python3 scripts/make_barebones_submission.py \
-    --submitter YOUR-GITHUB-HANDLE \
-    --out results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+# train a compliant sequence-based model (k-mer XGBoost, leave-one-cell-line-out)
+uv run python scripts/run_cellline_loco.py \
+    --config configs/cellline_loco/xgboost_kmer.yaml
 
-# score it locally -- the same numbers CI will publish
-python3 scripts/score_submission.py \
-    results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+# copy its predictions.csv into a submission dir, add submission.yaml, then:
+uv run python scripts/score_submission.py \
+    results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-kmer
 ```
 
-The last command prints **AUROC 0.7085 / AUPRC 0.2000 (5.4x base rate)**. Push it on
-a `submission/` branch ([§4](#4-open-the-pr)) and that is what appears on the board.
+That reproduces the `baseline-xgboost-kmer` entry, **AUPRC 0.1636**. Push it on a
+`submission/` branch ([§4](#4-open-the-pr)) and it appears on the board. Full detail in
+[§2](#2-make-a-prediction) and [§3](#3-package-the-submission).
 
-[`scripts/make_barebones_submission.py`](../scripts/make_barebones_submission.py) is
-one line of arithmetic — for each lncRNA, the negated mean knockout fold-change across
-the three training cell lines, a pan-essentiality prior with no learned parameters, no
-sequence features and no cell-line features. It's 60 lines of standard library; read it.
+### Read this before you pick a method
 
-**That score currently beats four of the five real submissions on the board**,
-including every entry built on DNABERT-2 embeddings and tuned XGBoost — because
-essentiality is partly shared across cell lines, and the sequence-only models were
-never given that signal. So treat 0.2000 AUPRC as the bar, not the floor. The rest of
-this document is about clearing it.
+The single most important fact about this challenge:
+
+| Model | AUPRC | Eligible? |
+|---|---|---|
+| `-mean(training fold_change)` — one line, no parameters | 0.2000 | **No** — measured depletion |
+| Best sequence-only entry (DNABERT-2 + distance) | 0.1696 | Yes |
+| Tuned DNABERT-2 + Celligner + Optuna, 50 trials | 0.1268 | Yes |
+
+A one-liner that averages three columns of measured depletion beats every model that
+tried to learn biology from sequence. That is why **measured depletion is now banned as
+a feature** ([the rules](#no-measured-depletion-as-a-feature--any-cell-line-any-day)) —
+it answers "is this gene pan-essential?", which needs no sequence understanding and
+cannot generalise to an unscreened lncRNA.
+
+So the honest bar is **0.1696, not 0.2000**, and clearing it is genuinely open. Measured
+attempts to date, all fold-safe and selected on training-line CV, land in a narrow band:
+
+| Approach | training-line LOCO | THP1 |
+|---|---|---|
+| k-mer / DNABERT-2 / both, 9 configs (depth 3–7) | 0.1585–0.1726 | 0.1331–0.1585 |
+
+and remember the **±0.06 CI** — everything in that table is statistically one number.
+[`scripts/make_barebones_submission.py`](../scripts/make_barebones_submission.py) still
+exists, now labelled ineligible, as the demonstration of the shortcut it represents.
 
 ---
 
@@ -257,14 +272,60 @@ So the ask is simple: **don't look.** Concretely, do not read THP1's labels from
 `data/holdout_thp1/` exists so that following these instructions never puts the
 answer key in front of you.
 
+### No measured depletion as a feature — any cell line, any day
+
+**Your model may not use measured knockdown outcomes as input features.** Not
+THP1's, and *not the training cell lines' either*. Specifically banned as features:
+
+- `fold_change` / log2FC, from any cell line, any day
+- `rra_pvalue`, from any cell line
+- guide-level depletion from `data/processed/screen_records.jsonl.gz`
+- anything derived from the above (per-gene mean depletion, hit counts across
+  training lines, replicate-consistency summaries, depletion order statistics)
+
+The training lines' **`label` is still your supervision target** — without it there
+is no supervised task. The rule is about what goes into `X`, not `y`.
+
+**Why:** this challenge is meant to ask *can you predict lncRNA essentiality from
+sequence?* A model that averages measured depletion in three other cell lines is
+answering a different and much easier question — "is this gene pan-essential?" — and
+it needs no sequence understanding whatsoever. It also cannot generalise to an
+unscreened lncRNA, which is the only case where a predictor would actually be
+useful. The zero-parameter baseline `-mean(training fold_change)` scores 0.2000
+AUPRC, beating four of five sequence-based entries; that gap measures the shortcut,
+not progress.
+
+Legal: transcript sequence and anything computed from it (k-mers, DNABERT-2 or other
+sequence-model embeddings, length, GC, structure), guide-design descriptors, static
+annotation (`distance_to_closest_pc_gene`, strand, chrom), and cell-line covariates
+such as Celligner. Note that cell-line features cannot change your THP1 ranking at
+all — every scored row is THP1, so they are constant across the whole test set.
+
+This rule was added **2026-07-28** and is not retroactive blame: entries submitted
+before it declared their features openly and complied with the rules as written.
+Affected entries are marked ineligible on the board, with their scores kept visible.
+
 The other rule, less about honesty than about not fooling yourself: **don't tune
 against the leaderboard.** Pick your model with CV on the training cell lines.
 
 ## How to read the scores
 
 **THP1 has 202 positives, so a single-run AUPRC carries a 95% bootstrap CI roughly
-±0.02 wide. Treat smaller gaps as noise.** One positive gene moving in the ranking
+±0.06 wide. Treat smaller gaps as noise.** One positive gene moving in the ranking
 is worth ~0.005 AUPRC.
+
+Measured, not estimated — 2000 row-bootstrap resamples of the submitted
+`predictions.csv` files:
+
+| Entry | AUPRC | 95% CI | width |
+|---|---|---|---|
+| crosscell-depletion-guide | 0.2364 | [0.1819, 0.3030] | 0.121 |
+| dnabert2-dist | 0.1696 | [0.1212, 0.2234] | 0.102 |
+
+So **any gap under ~0.06 AUPRC is not measurable on this board.** Chasing a
+"marginal" improvement over the leader is chasing noise. (The 0.067 gap between
+those two *is* real — paired bootstrap p≈0.001 — so the top slot itself is not an
+artefact. It is small gaps that mean nothing.)
 
 This is not a hypothetical caution. On an earlier chromosome-held-out version of
 this task, CV ranking and test AUPRC came out perfectly *anti*-correlated (Spearman

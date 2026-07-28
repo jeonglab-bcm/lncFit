@@ -1,5 +1,7 @@
 submitter: hyunhwan-bcm
 model: xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials)
+# DNABERT-2 + Celligner embedding
+uses_measured_depletion: false
 description: 'Best-effort attempt via scripts/run_cellline_loco.py, unmodified: DNABERT-2
   transcript embeddings (768-dim) + 2-D Celligner UMAP cell-line embedding + Optuna TPE search
   over configs/search_spaces/xgboost.yaml (50 trials, stratified 5-fold CV over the full dataset,

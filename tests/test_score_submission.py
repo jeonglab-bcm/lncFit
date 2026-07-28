@@ -64,7 +64,8 @@ def _make_submission(submissions_dir, name="octocat-test", scores=None):
         writer.writeheader()
         for target, score in scores.items():
             writer.writerow({"target": target, "cell_line": "THP1", "y_pred_proba": score})
-    (sub / "submission.yaml").write_text("submitter: octocat\nmodel: test model\n")
+    (sub / "submission.yaml").write_text(
+        "submitter: octocat\nmodel: test model\nuses_measured_depletion: false\n")
     return sub
 
 
@@ -97,7 +98,8 @@ def test_exits_non_zero_and_names_the_problem_when_invalid(challenge):
     the process, not just print something unhappy."""
     sub = challenge["submissions"] / "octocat-broken"
     sub.mkdir()
-    (sub / "submission.yaml").write_text("submitter: octocat\nmodel: m\n")
+    (sub / "submission.yaml").write_text(
+        "submitter: octocat\nmodel: m\nuses_measured_depletion: false\n")
     # predictions.csv missing entirely.
     result = _run(sub)
 
