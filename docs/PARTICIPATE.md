@@ -4,10 +4,13 @@ Predict which lncRNAs are essential in a cell line your model has never seen.
 
 Live board: **https://jeonglab-bcm.github.io/lncFit/**
 
+**This is the only document you need.** The READMEs all link here rather than
+repeat any of it. If you read one section, read [the 60-second version](#the-60-second-version).
+
 | | |
 |---|---|
-| **Train on** | HAP1, K562, MDA-MB-231 — 16,488 rows, labels included |
-| **Predict** | THP1 — 5,496 rows, labels withheld |
+| **Train on** | [HAP1, K562, MDA-MB-231](../data/holdout_thp1/train_thp1_holdout.jsonl.gz) — 16,488 rows, labels included |
+| **Predict** | [THP1](../data/holdout_thp1/holdout_thp1_features.jsonl.gz) — 5,496 rows, labels withheld |
 | **Ranked by** | AUPRC (AUROC shown alongside) |
 | **Positives in the test set** | 202 (3.7%) |
 | **Excluded entirely** | HEK293FT — not a real cancer line, no Celligner coordinates |
@@ -22,7 +25,43 @@ line you've trained on, and it's why scores here look low — a leading AUPRC of
 
 ---
 
+## The 60-second version
+
+Four commands, nothing to install beyond Python, no genome download:
+
+```bash
+git clone https://github.com/jeonglab-bcm/lncFit.git && cd lncFit
+git lfs pull
+
+# build a complete, valid submission
+python3 scripts/make_barebones_submission.py \
+    --submitter YOUR-GITHUB-HANDLE \
+    --out results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+
+# score it locally -- the same numbers CI will publish
+python3 scripts/score_submission.py \
+    results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+```
+
+The last command prints **AUROC 0.7085 / AUPRC 0.2000 (5.4x base rate)**. Push it on
+a `submission/` branch ([§4](#4-open-the-pr)) and that is what appears on the board.
+
+[`scripts/make_barebones_submission.py`](../scripts/make_barebones_submission.py) is
+one line of arithmetic — for each lncRNA, the negated mean knockout fold-change across
+the three training cell lines, a pan-essentiality prior with no learned parameters, no
+sequence features and no cell-line features. It's 60 lines of standard library; read it.
+
+**That score currently beats four of the five real submissions on the board**,
+including every entry built on DNABERT-2 embeddings and tuned XGBoost — because
+essentiality is partly shared across cell lines, and the sequence-only models were
+never given that signal. So treat 0.2000 AUPRC as the bar, not the floor. The rest of
+this document is about clearing it.
+
+---
+
 ## 1. Set up
+
+For anything beyond the barebones baseline:
 
 ```bash
 git clone https://github.com/jeonglab-bcm/lncFit.git
@@ -39,8 +78,8 @@ Two files are the challenge:
 
 | File | What it is |
 |---|---|
-| `data/holdout_thp1/train_thp1_holdout.jsonl.gz` | your training data, labels included |
-| `data/holdout_thp1/holdout_thp1_features.jsonl.gz` | the rows to predict — `label`, `rra_pvalue` and `fold_change` are all absent |
+| [`data/holdout_thp1/train_thp1_holdout.jsonl.gz`](../data/holdout_thp1/train_thp1_holdout.jsonl.gz) | your training data, labels included |
+| [`data/holdout_thp1/holdout_thp1_features.jsonl.gz`](../data/holdout_thp1/holdout_thp1_features.jsonl.gz) | the rows to predict — `label`, `rra_pvalue` and `fold_change` are all absent |
 
 ### Sequence features need one download
 
@@ -58,13 +97,17 @@ curl -o data/raw/genome/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz \
 uv run python -m lncfit.sequence --sequence-type transcript
 ```
 
-You can skip this entirely if you only use the non-sequence columns (cell line,
-`distance_to_closest_pc_gene`, Celligner coordinates) or bring your own embeddings.
+You can skip this entirely if you bring your own embeddings, or if you work from the
+training-outcome columns the way the barebones baseline does.
 
 ## 2. Make a prediction
 
-A starter config is committed. It trains XGBoost on 5-mer frequencies and writes a
-submittable `predictions.csv`:
+[`configs/pipeline/thp1_holdout_starter.yaml`](../configs/pipeline/thp1_holdout_starter.yaml)
+is committed and wired up for this challenge. It trains XGBoost on 5-mer frequencies
+via [`scripts/run_pipeline.py`](../scripts/run_pipeline.py) and writes a submittable
+`predictions.csv` — a real model rather than a one-liner, though note it scores *below*
+the barebones baseline (AUPRC 0.1456 vs 0.2000), which tells you something about how
+much of this task sequence features actually explain:
 
 ```bash
 uv run python scripts/run_pipeline.py --config configs/pipeline/thp1_holdout_starter.yaml
@@ -81,10 +124,10 @@ Predictions for submission -> .../predictions.csv
 **Reporting no test metrics is correct, not a failure.** You don't have THP1's
 labels, so there is nothing to score against locally; the board scores you.
 
-Now change something — `configs/README.md` documents every knob (model, feature
-type, embeddings, PCA, resampling, tuning, CV). Any model at all is fair game; the
-pipeline is a convenience, not a requirement. If you write your own, just emit a
-CSV with the three required columns.
+Now change something — [`configs/README.md`](../configs/README.md) documents every knob
+(model, feature type, embeddings, PCA, resampling, tuning, CV). Any model at all is fair
+game; the pipeline is a convenience, not a requirement. If you write your own, just emit
+a CSV with the three required columns.
 
 ### The CV number is optimistic — don't select on it
 
@@ -96,7 +139,8 @@ what this task punishes. For an honest estimate, hold out a training cell line:
 uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/xgboost_kmer_celligner2.yaml
 ```
 
-That rotates each cell line into the validation slot, which mirrors the real task.
+[`scripts/run_cellline_loco.py`](../scripts/run_cellline_loco.py) rotates each cell line
+into the validation slot, which mirrors the real task.
 
 ## 3. Package the submission
 
@@ -133,6 +177,23 @@ description: >
   whether you used the training file unmodified, how you picked hyperparameters.
 ```
 
+### Check it before you push
+
+```bash
+python3 scripts/score_submission.py \
+    results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/<your-handle>-<slug>
+```
+
+[`scripts/score_submission.py`](../scripts/score_submission.py) runs the same two
+functions CI runs, against the same [`challenge.yaml`](../results/lncrna_rra_day14_thp1_holdout/leaderboard/challenge.yaml),
+so a green run here is a green run there and the numbers match exactly. It catches
+every format error in the [table below](#if-ci-fails) without costing you a PR round
+trip, and exits non-zero if the submission is invalid.
+
+It does have to read the held-out labels to compute a score. That's a sanity check, not
+a licence to iterate against it — see [don't tune against the leaderboard](#the-rules)
+and [how to read the scores](#how-to-read-the-scores).
+
 ## 4. Open the PR
 
 ```bash
@@ -155,6 +216,9 @@ fails red if the submission is malformed, and on success commits the updated
 `LEADERBOARD.md` and live page onto your PR branch. Merge when it's green.
 
 ### If CI fails
+
+`python3 scripts/score_submission.py <your-submission-dir>` reproduces every one of
+these locally, with the same message.
 
 | Message | Fix |
 |---|---|
@@ -218,7 +282,8 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 
 | Tried | Outcome |
 |---|---|
-| Celligner cell-line embeddings (UMAP-2, PCA-10/70) | The only way to say anything cell-line-specific about an unseen line. Mixed on AUPRC. |
+| **`-mean(training fold_change)`, no learning at all** | **AUROC 0.7085 / AUPRC 0.2000 — beats 4 of 5 real submissions.** Start here. |
+| Celligner cell-line embeddings (UMAP-2, PCA-10/70) | Cannot help *on this challenge*: see below. Mixed on AUPRC when it was scored across cell lines. |
 | DNABERT-2 embeddings (768-dim, mean-pooled) | Beat k-mers modestly. |
 | PCA on embeddings | Looked like a win at one seed; vanished under 4-seed testing. |
 | Optuna tuning | Converged to `max_depth=4`, which *underperformed* a fixed `max_depth=9`. |
@@ -229,15 +294,28 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 The strongest entry so far treats it as a guide-level transfer problem rather than a
 gene-level one.
 
+### Cell-line features cannot move this metric
+
+Worth internalizing before you spend time on cell embeddings: **the test set is a
+single cell line.** Every cell-line-level feature — the one-hot, all 70 Celligner
+dimensions — takes the same value on all 5,496 scored rows, so it cannot change their
+relative order, and AUROC and AUPRC read nothing but the order. Such features can
+still help *indirectly*, by shaping what the model learns from the three training
+cell lines, but they carry zero direct signal at scoring time.
+
+Only gene-level signal moves the needle here. That's also why the barebones
+pan-essentiality prior does as well as it does.
+
 ## Checklist
 
 - [ ] `git lfs pull` done
 - [ ] Trained on `train_thp1_holdout.jsonl.gz` only
-- [ ] `predictions.csv` has `target`, `cell_line`, `y_pred_proba` for all 5,496 THP1 rows
-- [ ] `submission.yaml` has a real GitHub handle in `submitter`, plus `model`
+- [ ] `scripts/score_submission.py <dir>` prints "Valid" — this covers the format
+      checks (columns, all 5,496 rows, no duplicates, real GitHub handle)
 - [ ] `config.yaml` included so someone else can reproduce it
 - [ ] Branch is `submission/<handle>-<slug>` on this repo, not a fork
-- [ ] You didn't look at THP1's labels
+- [ ] You didn't look at THP1's labels while building the model
 - [ ] Your improvement is bigger than ±0.02, or you validated it across seeds
+- [ ] You beat the barebones baseline (AUPRC 0.2000) — or you know why you didn't
 
 Questions, or something in here wrong or unclear? Open an issue.

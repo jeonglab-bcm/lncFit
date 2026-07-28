@@ -5,8 +5,10 @@
 # sheets S2F-S2J), so anyone can derive THP1's answers from public data regardless
 # of what this repo ships. The board therefore runs on trust. What the repo does
 # do is make the honest path the easy one -- data/holdout_thp1/ contains a
-# training file without THP1 and a THP1 features file with `label` blanked to -1,
-# so following the instructions never puts the answers in front of you.
+# training file without THP1 and a THP1 features file with `label`, `rra_pvalue`
+# and `fold_change` all omitted (all three, because `label` is *defined* as
+# rra_pvalue < 0.05 and fold_change < 0), so following the instructions never puts
+# the answers in front of you. See docs/PARTICIPATE.md.
 test_path: data/processed/lncrna_rra_day14.jsonl.gz
 only_cell_lines: [THP1]
 title: >

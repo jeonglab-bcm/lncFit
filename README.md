@@ -15,69 +15,38 @@ schema and ready-to-run examples.
 
 Live site: **https://jeonglab-bcm.github.io/lncFit/**
 
-Anyone can train a model with the pipeline above and submit its predictions to be
-scored. CI validates and scores every submission independently -- it never trusts a
-submitted metrics file.
-
-**New here? Start with [`docs/PARTICIPATE.md`](docs/PARTICIPATE.md)** -- setup,
-a runnable starter config, the submission format, CI troubleshooting, and what has
-already been tried.
-
-> **This is an honour-system board, not a blind benchmark.** The `label` being
-> predicted is computed from the *published* supplementary tables of the source
-> screen paper (`data/raw/mmc3.xlsx`, sheets S2F-S2J), so THP1's answers are
-> derivable from public data no matter what this repo ships -- we tried
-> encrypting them and it was security theatre. What the repo does do is make the
-> honest path the easy one: `data/holdout_thp1/` gives you a training file with
-> THP1 removed, and a THP1 features file with `label`, `rra_pvalue` and
-> `fold_change` all omitted -- all three, because `label` is *defined* as
-> `rra_pvalue < 0.05 and fold_change < 0`, so shipping those two columns would
-> ship the answer key. Follow the instructions and you never hold the answers.
-> Please don't go looking elsewhere. A genuinely blind evaluation would have to
-> hold out data that isn't in the paper.
-
 ### The challenge: THP1 hold-out
+
+Can a model predict lncRNA essentiality in a cell line it has never seen a single
+row of?
 
 | | |
 |---|---|
-| **Train on** | HAP1, K562, MDA-MB-231 (labels included) |
-| **Predict** | THP1 (5,496 rows, labels withheld) |
+| **Train on** | [HAP1, K562, MDA-MB-231](data/holdout_thp1/train_thp1_holdout.jsonl.gz) -- 16,488 rows, labels included |
+| **Predict** | [THP1](data/holdout_thp1/holdout_thp1_features.jsonl.gz) -- 5,496 rows, 202 positives (3.7%), labels withheld |
 | **Excluded** | HEK293FT -- not a real cancer line, no Celligner data |
 | **Ranked by** | AUPRC, with AUROC shown alongside |
+| **Scored by** | [`scripts/build_leaderboard.py`](scripts/build_leaderboard.py) in CI, per [`challenge.yaml`](results/lncrna_rra_day14_thp1_holdout/leaderboard/challenge.yaml) -- never from a submitted metrics file |
 
-It asks whether a model generalizes to a cell line it has never seen a single row
-of. Data files:
+### Enter in three commands
 
-| File | Contents |
-|---|---|
-| `data/holdout_thp1/train_thp1_holdout.jsonl.gz` | training rows, labels included |
-| `data/holdout_thp1/holdout_thp1_features.jsonl.gz` | THP1 rows to predict, `label` blanked to `-1` |
+```bash
+git clone https://github.com/jeonglab-bcm/lncFit.git && cd lncFit && git lfs pull
+python3 scripts/make_barebones_submission.py --submitter YOUR-HANDLE \
+    --out results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+python3 scripts/score_submission.py results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/YOUR-HANDLE-barebones
+```
 
-Scoring reads THP1's rows straight from `data/processed/lncrna_rra_day14.jsonl.gz`
-(see the challenge's `challenge.yaml`) -- no separate answers file, since hiding
-one would not have hidden anything.
+That builds a valid submission with no dependencies and no genome download, then
+prints the exact AUROC/AUPRC CI will publish.
 
-### How to submit
+**Full walkthrough: [`docs/PARTICIPATE.md`](docs/PARTICIPATE.md)** -- setup, a
+starter config, the submission format, CI troubleshooting, the rules, and what has
+already been tried. It is the one place any of that is documented; everything else
+links to it.
 
-1. Train on `train_thp1_holdout.jsonl.gz` and predict every row of
-   `holdout_thp1_features.jsonl.gz`. Any model is fair game;
-   `scripts/run_pipeline.py` is the supported path (see
-   [`configs/README.md`](configs/README.md)).
-2. On a branch named `submission/<your-github-handle>-<short-slug>` (the prefix is
-   required -- CI only runs for those), add
-   `results/lncrna_rra_day14_thp1_holdout/leaderboard/submissions/<same-name>/`
-   with your `predictions.csv` (`target`, `cell_line`, `y_pred_proba`),
-   `submission.yaml`, and (encouraged) `config.yaml`. See the
-   [challenge README](results/lncrna_rra_day14_thp1_holdout/leaderboard/README.md)
-   for the exact format -- `submitter` must be a real GitHub handle.
-3. Open a PR **from a branch on this repo, not a fork** (fork PRs can't get write
-   access to push the regenerated board). CI recomputes AUROC/AUPRC from your
-   `predictions.csv`, fails the check if anything's missing or malformed, and on
-   success commits the updated leaderboard and live page onto your PR branch.
-4. Get it reviewed and merged.
-
-> **A caution on reading the scores.** THP1 has 202 positives, so a single-run
-> AUPRC has a 95% bootstrap CI roughly ±0.02 wide. Differences smaller than that
-> are noise. `configs/README.md` documents a case where CV ranking and test AUPRC
-> were perfectly *anti*-correlated (Spearman -1.0) on the older chromosome-held-out
-> split -- don't tune against the leaderboard.
+> **This is an honour-system board, not a blind benchmark.** `label` comes from the
+> *published* supplementary tables of the source paper, so THP1's answers are a
+> journal download away no matter what this repo ships. `data/holdout_thp1/` exists
+> to make the honest path the easy one. See
+> [the rules](docs/PARTICIPATE.md#the-rules).
