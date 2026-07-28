@@ -55,7 +55,8 @@ dropped in substance.
 > **This table covers the round-5 core only.** The suite is now **95 tests**: the
 > consolidation above was a one-off exercise, and everything added since has been
 > written to a normal bar rather than the ~20-test target. Not in the table below:
-> `test_pipeline.py`, `test_build_leaderboard.py`, `test_split_holdout_cellline.py`,
+> `test_pipeline.py`, `test_build_leaderboard.py`, `test_score_submission.py`,
+> `test_make_barebones_submission.py`, `test_split_holdout_cellline.py`,
 > `test_resample.py`, `test_embeddings_pca.py`, `test_ensemble_predictions.py`,
 > `test_build_day14_loco_ensemble.py`, `test_day14_cellline_loco_guide.py`,
 > `test_day14_compliant_multimodal.py`. Each of those files documents its own
