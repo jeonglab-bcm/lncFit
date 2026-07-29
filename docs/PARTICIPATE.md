@@ -20,8 +20,87 @@ depleted that cell line by day 14 (`rra_pvalue < 0.05 and fold_change < 0`).
 
 The task is *cross-cell-line generalization*: nothing about THP1's own response is
 in your training data. This is harder than predicting an unseen lncRNA in a cell
-line you've trained on, and it's why scores here look low — a leading AUPRC of
-~0.24 against a 0.037 base rate is a ~6× enrichment, not a weak result.
+line you've trained on, and it's why scores here look low — a leading eligible AUPRC
+of ~0.17 against a 0.037 base rate is a ~4.6× enrichment, not a weak result.
+
+---
+
+## What you are actually predicting
+
+### The biology, briefly
+
+**Long non-coding RNAs** are transcripts over ~200 nt that are not translated into
+protein. Humans have tens of thousands of them, and for the large majority nobody
+knows what — if anything — they do. Unlike protein-coding genes, they have no reading
+frame, no codon structure, and no conserved domains to recognise, so the usual tricks
+for inferring function from sequence mostly do not apply. Sequence conservation across
+species is also weak, which removes the other standard signal.
+
+The 5,496 lncRNAs here were knocked down with **CRISPR-Cas13** (RNA-targeting, so it
+degrades the transcript rather than cutting DNA) in a pooled screen. Cells were
+sequenced at day 0, day 7, and **day 14**; a lncRNA whose guides *dropped out* of the
+population by day 14 was needed for those cells to grow. That dropout is
+`fold_change`; `rra_pvalue` is the robust-rank-aggregation statistic over that
+lncRNA's guides. Hence `label = (rra_pvalue < 0.05 and fold_change < 0)`.
+
+**Why only ~3.7% are hits.** Most lncRNA knockdowns do nothing measurable to
+proliferation. That is the genuine biological finding of screens like this, not a
+defect in the data — and it is why AUPRC, not accuracy, is the metric.
+
+**Why this is hard from sequence alone.** You are being asked whether degrading a
+particular transcript kills a particular cell line, given only that transcript's
+sequence. There is no reading frame to score, little conservation to exploit, and the
+relevant mechanism (what the lncRNA regulates, and whether that pathway matters in
+*this* lineage) is not visibly encoded in its nucleotides. The measured ceiling on
+this board — ~0.17 AUPRC, ~4.6× enrichment — is best read as a real limit, not a
+modelling failure.
+
+### The cell lines
+
+| Line | Lineage | Origin | Hits / 5,496 | Rate | In this challenge |
+|---|---|---|---|---|---|
+| **THP1** | Myeloid | Acute monocytic leukemia (AML) | 202 | 3.7% | **the test set** |
+| **HAP1** | Myeloid | Near-haploid, derived from CML (KBM-7) | 235 | 4.3% | training |
+| **K562** | Myeloid | Chronic myelogenous leukemia, BCR-ABL⁺ | 401 | 7.3% | training |
+| **MDA-MB-231** | Breast | Triple-negative breast adenocarcinoma | 157 | 2.9% | training |
+| HEK293FT | Embryonic kidney | Adenovirus-transformed, **not a cancer line** | 254 | 4.6% | **excluded** |
+
+Lineage assignments come from this repo's own Celligner analysis — see
+[`data/external/README.md`](../data/external/README.md), which also documents that
+K562 and THP1 land in their lineage cluster cleanly (15/15) while HAP1 is a genuine
+unexplained outlier within Myeloid, and MDA-MB-231 sits in a noisier Breast cluster.
+
+**Why HEK293FT is excluded:** it is not a cancer line (embryonic kidney, transformed
+with adenoviral DNA), it has no Celligner coordinates, and "what does this cell need
+to proliferate" means something different in an immortalised non-tumour line. Its rows
+are dropped from scoring entirely.
+
+**Three of the four scored lines are myeloid, including the test line.** You might
+expect that to make the two myeloid training lines the most useful. It does not:
+
+| Predicting THP1 from one line's measured depletion | AUPRC | Same lineage? |
+|---|---|---|
+| MDA-MB-231 | **0.2133** | no (Breast) |
+| HAP1 | 0.1581 | yes (Myeloid) |
+| K562 | 0.1019 | yes (Myeloid) |
+
+The one breast line is the *best* single predictor of THP1, and this holds for every
+target line — MDA-MB-231 is the strongest source everywhere, K562 the weakest.
+Transferability here tracks **screen quality, not lineage**: K562 has by far the most
+hits (401, 7.3%) and the lowest depletion correlation with every other line (Spearman
+0.16–0.24), while MDA-MB-231 has the fewest hits (157, 2.9%) and the highest (up to
+0.29 with THP1). Pairwise hit-set overlap says the same thing — THP1∩MDA-MB-231
+Jaccard 0.125 versus THP1∩K562 0.060.
+
+Read that as a caution about *weighting your training lines equally*, not as licence
+to use depletion as a feature — which
+[the rules forbid](#no-measured-depletion-as-a-feature--any-cell-line-any-day). The
+numbers above are descriptive analysis of the training data, produced to explain the
+task; reproduce them with `scipy` and `sklearn` on the training lines if you want.
+
+Cross-line depletion correlations are low in absolute terms (Spearman **0.16–0.29**
+for every pair). That is the hard ceiling on transfer, and it is why no model on this
+board clears ~0.24 even when allowed to use depletion directly.
 
 ---
 
@@ -343,7 +422,7 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 
 | Tried | Outcome |
 |---|---|
-| **`-mean(training fold_change)`, no learning at all** | **AUROC 0.7085 / AUPRC 0.2000 — beats 4 of 5 real submissions.** Start here. |
+| ~~`-mean(training fold_change)`~~ | AUPRC 0.2000 with no learning — **now ineligible**, and the reason the feature ban exists. |
 | Celligner cell-line embeddings (UMAP-2, PCA-10/70) | Cannot help *on this challenge*: see below. Mixed on AUPRC when it was scored across cell lines. |
 | DNABERT-2 embeddings (768-dim, mean-pooled) | Beat k-mers modestly. |
 | PCA on embeddings | Looked like a win at one seed; vanished under 4-seed testing. |
@@ -352,8 +431,35 @@ Worth knowing before you spend a weekend re-deriving it. From this repo's histor
 | Exact RBF SVM vs Nystroem approximation | Nystroem(1000) was 52× faster *and* scored better — it regularizes 844 correlated dims. |
 | Rank-averaged ensembling, seed averaging, nested tuning | All improved AUROC and *degraded* AUPRC. AUPRC is dominated by the very top of the ranking. |
 
-The strongest entry so far treats it as a guide-level transfer problem rather than a
-gene-level one.
+### Eligible sequence-only search, 2026-07-28 (~300 configs)
+
+A systematic sweep under the feature ban, everything fold-safe and selected on
+training-line LOCO with THP1 scored once. Reproduce the descriptive numbers with
+[`scripts/describe_challenge_data.py`](../scripts/describe_challenge_data.py).
+
+| Tried | Result |
+|---|---|
+| DNABERT-2 **PCA-32** + static/guide features, depth 5 | **Best eligible model found: trainLOCO 0.1417, THP1 0.1599** |
+| DNABERT-2 full 768-d vs PCA-32/64/128 | PCA-**32** won. More representation was consistently *worse*. |
+| k-mers at k=4, 5, 6 + reverse-complement-collapsed variants | All below DNABERT-2. k=6 (4,096-d) worst — dimensionality without signal. |
+| Static/guide-design features alone (16 dims) | 0.0987 trainLOCO. Length, GC, homopolymers and guide composition carry almost nothing. |
+| One row per (target, cell line) vs one row per target | **Row-level won by a wide margin** (0.1417 vs 0.1297). Collapsing to a soft per-gene label loses real information, even though the features are identical across a gene's rows. |
+| Soft-label regression vs binary classification | Classification won at row level; regression won at target level. |
+| `scale_pos_weight` 1 vs 5 | No consistent benefit. |
+| Logistic regression (C = 0.01–1) for model diversity | Below XGBoost everywhere. |
+| **Top-k ensembling (k = 2, 3, 5, 8, 12)** | **Every ensemble scored *below* the single best model.** Consistent with the seed/rank-averaging result above: AUPRC is set by the very top of the ranking, and averaging blurs it. |
+
+**Nothing eligible has yet beaten 0.1696** — and 0.1599 vs 0.1696 is well inside the
+±0.06 CI, so treat them as tied rather than ranked. The honest read is that eligible
+performance saturates near **0.15–0.17 AUPRC (~4–4.6× enrichment)**, and that this
+reflects how little transcript sequence says about cell-line-specific essentiality
+rather than a shortage of tuning. If you clear it convincingly, that is a real result.
+
+Two dead ends worth not repeating: adding guide-level depletion and replicate
+consistency to a cross-cell model made it *worse* (0.2010 vs 0.2061 trainLOCO), and
+selecting a config by its THP1 score is actively misleading — across 12 configs, THP1
+AUPRC was **uncorrelated** with the training-line LOCO signal, and the config that
+scored best on THP1 was not the one honest selection picked.
 
 ### Cell-line features cannot move this metric
 
