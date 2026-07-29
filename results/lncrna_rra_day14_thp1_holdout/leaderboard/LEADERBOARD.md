@@ -15,13 +15,3 @@ AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` aga
 | 2 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5), no cell embedding | 0.1636 | [0.1174, 0.2187] | 0.6220 | [baseline-xgboost-kmer](submissions/baseline-xgboost-kmer/) |
 | 3 | [@jeonglab-bcm](https://github.com/jeonglab-bcm) | xgboost + kmer (k=5) + Celligner UMAP (dim=2) | 0.1423 | [0.1020, 0.1976] | 0.6315 | [xgboost-kmer-celligner2](submissions/xgboost-kmer-celligner2/) |
 | 4 | [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | xgboost + DNABERT-2 + Celligner UMAP (dim=2), Optuna-tuned (50 trials) | 0.1268 | [0.0880, 0.1757] | 0.6289 | [hyunhwan-bcm-dnabert2-celligner2-optuna](submissions/hyunhwan-bcm-dnabert2-celligner2-optuna/) |
-
-## Ineligible -- used measured depletion as a feature
-
-These declared `uses_measured_depletion: true`, so they are scored but not ranked: they use measured `fold_change` / `rra_pvalue` / guide depletion from the training cell lines as *input features*, which [the rules](../../../docs/PARTICIPATE.md#no-measured-depletion-as-a-feature--any-cell-line-any-day) no longer permit. That shortcut predicts pan-essentiality without needing to understand sequence at all, so it does not answer the question this challenge asks.
-
-Kept visible, with scores, because each declared its features openly and complied with the rules as written when it was submitted. This is a rule change, not a finding of misconduct.
-
-| Submitter | Model | AUPRC | 95% CI | AUROC | Submission |
-|---|---|---|---|---|---|
-| [@hyunhwan-bcm](https://github.com/hyunhwan-bcm) | Fold-safe Day-14 cross-cell guide-transfer XGBoost ensemble | 0.2364 | [0.1819, 0.3030] | 0.7599 | [hyunhwan-bcm-crosscell-depletion-guide](submissions/hyunhwan-bcm-crosscell-depletion-guide/) |

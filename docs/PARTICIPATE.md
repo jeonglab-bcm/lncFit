@@ -381,8 +381,10 @@ such as Celligner. Note that cell-line features cannot change your THP1 ranking 
 all — every scored row is THP1, so they are constant across the whole test set.
 
 This rule was added **2026-07-28** and is not retroactive blame: entries submitted
-before it declared their features openly and complied with the rules as written.
-Affected entries are marked ineligible on the board, with their scores kept visible.
+before it declared their features openly and complied with the rules as written. The
+one affected entry was withdrawn by its submitter when the rule landed; anything
+declaring `uses_measured_depletion: true` in future is scored but listed separately,
+under "Ineligible", rather than ranked.
 
 The other rule, less about honesty than about not fooling yourself: **don't tune
 against the leaderboard.** Pick your model with CV on the training cell lines.
@@ -398,13 +400,15 @@ Measured, not estimated — 2000 row-bootstrap resamples of the submitted
 
 | Entry | AUPRC | 95% CI | width |
 |---|---|---|---|
-| crosscell-depletion-guide | 0.2364 | [0.1819, 0.3030] | 0.121 |
-| dnabert2-dist | 0.1696 | [0.1212, 0.2234] | 0.102 |
+| dnabert2-dist | 0.1696 | [0.1219, 0.2246] | 0.103 |
+| expression-xgb | 0.1678 | [0.1225, 0.2232] | 0.101 |
+| baseline-xgboost-kmer | 0.1636 | [0.1174, 0.2187] | 0.101 |
 
 So **any gap under ~0.06 AUPRC is not measurable on this board.** Chasing a
-"marginal" improvement over the leader is chasing noise. (The 0.067 gap between
-those two *is* real — paired bootstrap p≈0.001 — so the top slot itself is not an
-artefact. It is small gaps that mean nothing.)
+"marginal" improvement over the leader is chasing noise. The top three above differ
+by 0.006 in total — against intervals 0.10 wide, they are one number, and the ranking
+between them carries no information. Every entry's interval is printed on the board
+for exactly this reason.
 
 This is not a hypothetical caution. On an earlier chromosome-held-out version of
 this task, CV ranking and test AUPRC came out perfectly *anti*-correlated (Spearman
