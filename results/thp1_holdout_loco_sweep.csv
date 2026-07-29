@@ -1,0 +1,9 @@
+run,feature_type,k,cell_embedding_dim,auroc,auprc
+run_xgboost_20260729_093640,kmer,4,0,0.5723,0.0985
+run_xgboost_20260729_094718,kmer,4,70,0.592,0.0971
+run_xgboost_20260729_093245,kmer,5,0,0.5768,0.0961
+run_xgboost_20260729_093859,kmer,5,0,0.5768,0.0961
+run_xgboost_20260729_094554,kmer,4,10,0.5722,0.0959
+run_xgboost_20260729_094313,kmer,6,0,0.5698,0.0957
+run_xgboost_20260729_094433,kmer,4,2,0.5813,0.0954
+run_xgboost_20260729_093521,kmer,3,0,0.5651,0.0943
