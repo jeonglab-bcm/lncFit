@@ -1,0 +1,28 @@
+# Kelly's honest model-selection bake-off: Nystroem RBF SVM, k-mer features.
+# LOCO over ONLY the three training cell lines (HAP1/K562/MDA-MB-231) -- points at
+# the holdout train file, never the THP1-containing lncrna_rra_day14.jsonl.gz, so
+# THP1's labels are never read. This mirrors the real "predict an unseen cell line"
+# task using data we're allowed to see, per docs/PARTICIPATE.md's rules.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/kelly_svm_kmer_holdout.yaml
+
+data:
+  path: data/holdout_thp1/train_thp1_holdout.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  cell_embedding_dim: 0
+
+model:
+  name: svm
+  params:
+    kernel: rbf
+    kernel_approx: 2000   # Nystroem components -- 52x faster than exact RBF and scored better
+    C: 0.1                # low C won with tighter variance in the repo's own sweep
+    class_weight: balanced
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/kelly_runs

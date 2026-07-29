@@ -1,0 +1,13 @@
+submitter: kelly-kyuwon-lee
+model: xgboost + k-mer (k=5), one-hot cell line, fixed params (max_depth=9)
+description: >
+  XGBoost on 5-mer transcript frequencies (configs/pipeline/thp1_holdout_starter.yaml,
+  unmodified), trained on train_thp1_holdout.jsonl.gz only. Model chosen by an honest
+  leave-one-cell-line-out bake-off over just the three training cell lines
+  (HAP1/K562/MDA-MB-231), never touching THP1's labels: XGBoost k-mer scored LOCO
+  AUPRC 0.0943 vs a Nystroem-RBF SVM's 0.0768 on the same protocol. The SVM had the
+  better AUPRC on the repo's chr1 (unseen-gene) task but does not transfer to the
+  cross-cell-line setting -- consistent with the caveat in configs/README.md -- so
+  XGBoost was selected on the metric the board ranks by. No leaderboard tuning; no
+  cell-line embeddings (they are constant across a single held-out cell line and
+  cannot move a rank metric). y_pred_proba is XGBoost's raw positive-class score.

@@ -1,0 +1,27 @@
+# Kelly's honest model-selection bake-off: XGBoost, k-mer features -- the
+# incumbent to compare the SVM against, same protocol and same input file.
+# LOCO over ONLY the three training cell lines; never reads THP1's labels.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/kelly_xgboost_kmer_holdout.yaml
+
+data:
+  path: data/holdout_thp1/train_thp1_holdout.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  cell_embedding_dim: 0
+
+model:
+  name: xgboost
+  params:
+    max_depth: 9
+    n_estimators: 400
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+
+seed: 42
+output_dir: results/lncrna_rra_day14_cellline_loco/kelly_runs
