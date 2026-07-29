@@ -439,7 +439,8 @@ training-line LOCO with THP1 scored once. Reproduce the descriptive numbers with
 
 | Tried | Result |
 |---|---|
-| DNABERT-2 **PCA-32** + static/guide features, depth 5 | **Best eligible model found: trainLOCO 0.1417, THP1 0.1599** |
+| **lncRNA expression (TPM) from `mmc2.xlsx` S1C/S1E** | **Biggest eligible gain found. trainLOCO 0.1417 → 0.1623, THP1 0.1668.** See below. |
+| DNABERT-2 **PCA-32** + static/guide features, depth 5 | Best *sequence-only* model: trainLOCO 0.1417, THP1 0.1599 |
 | DNABERT-2 full 768-d vs PCA-32/64/128 | PCA-**32** won. More representation was consistently *worse*. |
 | k-mers at k=4, 5, 6 + reverse-complement-collapsed variants | All below DNABERT-2. k=6 (4,096-d) worst — dimensionality without signal. |
 | Static/guide-design features alone (16 dims) | 0.0987 trainLOCO. Length, GC, homopolymers and guide composition carry almost nothing. |
@@ -449,7 +450,50 @@ training-line LOCO with THP1 scored once. Reproduce the descriptive numbers with
 | Logistic regression (C = 0.01–1) for model diversity | Below XGBoost everywhere. |
 | **Top-k ensembling (k = 2, 3, 5, 8, 12)** | **Every ensemble scored *below* the single best model.** Consistent with the seed/rank-averaging result above: AUPRC is set by the very top of the ranking, and averaging blurs it. |
 
-**Nothing eligible has yet beaten 0.1696** — and 0.1599 vs 0.1696 is well inside the
+### Expression is the most useful eligible feature — use it
+
+`mmc2.xlsx` sheets **S1C** (total RNA-seq TPM) and **S1E** (mRNA-seq TPM) give per-lncRNA
+TPM in all five screen lines, covering **5,496/5,496** targets. This is eligible — TPM is
+baseline abundance, not a knockdown outcome — and `mmc2.xlsx` is not on the do-not-read
+list. Almost nothing on the board uses it, and it is the strongest legal signal found.
+
+Why it works, and it's not subtle: **hits are far more highly expressed in the line they
+are a hit in.** Mean `log1p(TPM)`, hits vs non-hits, in the same line:
+
+| Line | hits | non-hits |
+|---|---|---|
+| THP1 | **3.037** | 1.151 |
+| MDA-MB-231 | 3.026 | 1.456 |
+| HAP1 | 1.920 | 1.231 |
+| K562 | 1.276 | 1.109 |
+
+You cannot kill a cell by degrading a transcript it barely expresses. Note K562 shows the
+weakest separation — the same line that transfers worst and has the most hits.
+
+Unlike Celligner coordinates, this **does** move the THP1 ranking, because TPM is
+specific to (gene, line) rather than constant per line.
+
+| Tried on top of expression | trainLOCO | THP1 |
+|---|---|---|
+| static only, no expression | 0.0978 | 0.0827 |
+| + TPM of the predicted line | 0.1569 | 0.1505 |
+| + TPM in all 5 lines + breadth | 0.1570 | 0.1658 |
+| + DNABERT-2 PCA-32, top-5 ensemble | **0.1623** | **0.1668** |
+| + tau / Gini / expression-rank specificity metrics | 0.1593 | 0.1575 (no help) |
+| PCA-4 on the TPM matrix instead of raw | 0.1554 | 0.1563 (raw was better) |
+| **SVM** (Nystroem+LinearSVC, gamma 0.001–0.05, C 0.1–1) | 0.084–0.120 | 0.066–0.103 |
+
+**SVM lost decisively to XGBoost on every configuration tried** — worth knowing before
+you spend time on it, and contrary to the earlier Nystroem result which came from a
+different feature space.
+
+**Caveat on "multi-tissue":** these are five *cell lines*, not tissues. True multi-tissue
+TPM (e.g. GTEx across ~54 tissues) would need a coordinate join, because these targets
+are `Hum_XLOC_*` IDs from the source paper's own transcriptome assembly rather than
+GENCODE genes — most are novel and have no GTEx entry. `data/raw/human.lncRNA.hg19.gtf`
+has the coordinates to attempt it, but the join would be lossy and is unattempted.
+
+**Nothing eligible has yet beaten 0.1696** — and 0.1668 vs 0.1696 is well inside the
 ±0.06 CI, so treat them as tied rather than ranked. The honest read is that eligible
 performance saturates near **0.15–0.17 AUPRC (~4–4.6× enrichment)**, and that this
 reflects how little transcript sequence says about cell-line-specific essentiality
