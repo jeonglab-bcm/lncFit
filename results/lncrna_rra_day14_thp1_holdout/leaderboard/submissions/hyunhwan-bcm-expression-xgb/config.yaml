@@ -1,0 +1,23 @@
+script: scripts/run_expression_xgb.py
+train_path: data/holdout_thp1/train_thp1_holdout.jsonl.gz
+test_path: data/holdout_thp1/holdout_thp1_features.jsonl.gz
+features:
+  - log1p TPM per screen cell line (mmc2.xlsx S1C total RNA-seq, S1E mRNA-seq)
+  - TPM profile summary: mean, max, min, sd, breadth (lines with TPM > 1)
+  - predicted-line TPM and its deviation from the gene's mean
+  - DNABERT-2 transcript embedding, 32 principal components
+  - transcript length, GC, longest homopolymer, distance to nearest coding gene, strand
+excluded_features:
+  - fold_change (any cell line, any day)
+  - rra_pvalue (any cell line)
+  - guide-level depletion
+model:
+  estimator: XGBoost binary:logistic, aucpr
+  ensemble_members: 5
+  max_depths: [3, 5, 5, 5, 3]
+  n_estimators: 600
+  learning_rate: 0.03
+  seed: 42
+selection:
+  method: leave-one-cell-line-out over HAP1/K562/MDA-MB-231
+  heldout_cell_outcomes_used: false
