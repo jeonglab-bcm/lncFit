@@ -117,6 +117,10 @@ def main() -> None:
     parser.add_argument("--stage2", action="store_true",
                         help="After the spw x depth grid, sweep lr / n_estimators / "
                              "min_child_weight around the stage-1 winner.")
+    parser.add_argument("--confirm", action="store_true",
+                        help="Skip the grid; re-run only the shortlist of contenders at "
+                             "high seed count, to separate a real effect from the "
+                             "selection luck of having searched 15 configs on 3 folds.")
     parser.add_argument("--out", default="results/thp1_holdout_tuning.csv")
     args = parser.parse_args()
 
@@ -136,6 +140,55 @@ def main() -> None:
     base_params = dict(n_estimators=400, learning_rate=0.05, max_depth=9,
                        subsample=0.8, colsample_bytree=0.8)
     baseline_name = "spw=balanced depth=9"
+
+    if args.confirm:
+        # The grid searched 15 configs over 3 folds, so its winner's margin is partly
+        # selection luck. Re-run only the contenders, many seeds, and report the paired
+        # per-seed delta against the pre-tuning default -- which is the comparison that
+        # decides whether the tuning gain is real.
+        shortlist = [
+            (baseline_name, "balanced", dict(max_depth=9)),
+            ("spw=one depth=3", "one", dict(max_depth=3)),
+            ("spw=one depth=3 colsample=0.3", "one",
+             dict(max_depth=3, colsample_bytree=0.3)),
+            ("spw=one depth=3 lr=0.02 n=1000", "one",
+             dict(max_depth=3, learning_rate=0.02, n_estimators=1000)),
+        ]
+        confirmed: dict[str, dict[str, float]] = {}
+        by_seed: dict[str, dict[tuple[str, int], float]] = defaultdict(dict)
+        for name, spw_mode, override in shortlist:
+            params = {**base_params, **override}
+            per_fold, rows = evaluate(params, spw_mode, genes, train_cells, labels,
+                                      kmer_X, total, mrna, g9, args.seeds)
+            confirmed[name] = per_fold
+            all_rows.extend(rows)
+            for r in rows:
+                by_seed[name][(r["holdout"], r["seed"])] = r["auprc"]
+            print(f"  {name:<34} AUPRC {np.mean(list(per_fold.values())):.4f}", flush=True)
+
+        report(confirmed, train_cells, f"confirmation, {args.seeds} seeds",
+               baseline=baseline_name)
+
+        print(f"\npaired per-seed deltas vs {baseline_name} "
+              f"({len(train_cells) * args.seeds} pairs each):")
+        ref = by_seed[baseline_name]
+        for name in confirmed:
+            if name == baseline_name:
+                continue
+            keys = sorted(set(ref) & set(by_seed[name]))
+            d = np.array([by_seed[name][k] - ref[k] for k in keys])
+            print(f"  {name:<34} mean {d.mean():+.4f}  helped {int((d > 0).sum())}/{len(d)}"
+                  f"  worst {d.min():+.4f}")
+
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        keys = sorted({k for r in all_rows for k in r})
+        with open(out, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=keys)
+            w.writeheader()
+            w.writerows(all_rows)
+        print(f"\nPer-fold/per-seed -> {out}")
+        return
 
     # Stage 1: scale_pos_weight x max_depth.
     stage1: dict[str, dict[str, float]] = {}
