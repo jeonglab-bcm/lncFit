@@ -212,6 +212,17 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=4, choices=[3, 4, 5, 6])
     parser.add_argument("--seeds", type=int, default=3)
     parser.add_argument("--out", default="results/prescreen_feature_sweep.csv")
+    # Model params default to the setting every feature sweep in this branch used, so
+    # earlier results reproduce unchanged. scripts/tune_thp1_holdout.py later found
+    # max_depth=3 with scale_pos_weight=1.0 worth +0.023 over these defaults, which is
+    # more than any feature added -- so the feature rankings need re-checking there.
+    parser.add_argument("--max-depth", type=int, default=9)
+    parser.add_argument("--colsample", type=float, default=0.8)
+    parser.add_argument("--n-estimators", type=int, default=400)
+    parser.add_argument("--learning-rate", type=float, default=0.05)
+    parser.add_argument("--spw", choices=["one", "sqrt", "balanced"], default="balanced",
+                        help="scale_pos_weight: 1.0, sqrt(balanced), or the "
+                             "negative/positive ratio.")
     args = parser.parse_args()
 
     table = load_gene_table(_TRAIN)
@@ -241,13 +252,16 @@ def main() -> None:
                                        s1a, s1a_ext, guide)
                                  for c in train_cells if c != holdout])
             y_train = np.concatenate([labels[c] for c in train_cells if c != holdout])
-            spw = (len(y_train) - y_train.sum()) / max(y_train.sum(), 1)
+            balanced = (len(y_train) - y_train.sum()) / max(y_train.sum(), 1)
+            spw = {"one": 1.0, "sqrt": float(np.sqrt(balanced)),
+                   "balanced": float(balanced)}[args.spw]
 
             aurocs, auprcs = [], []
             for seed in range(args.seeds):
                 m = xgb.XGBClassifier(
-                    n_estimators=400, learning_rate=0.05, max_depth=9,
-                    subsample=0.8, colsample_bytree=0.8, tree_method="hist",
+                    n_estimators=args.n_estimators, learning_rate=args.learning_rate,
+                    max_depth=args.max_depth,
+                    subsample=0.8, colsample_bytree=args.colsample, tree_method="hist",
                     objective="binary:logistic", eval_metric="aucpr",
                     scale_pos_weight=spw, random_state=seed, n_jobs=8)
                 m.fit(X_train, y_train)
