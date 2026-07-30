@@ -1,0 +1,11 @@
+submitter: hyunhwan-bcm
+model: "XGBoost ensemble on per-cell-line lncRNA TPM + DNABERT-2 PCA-32"
+uses_measured_depletion: false
+description: >
+  Five-member XGBoost ensemble over baseline lncRNA abundance (log1p TPM in each
+  of the 5 screen lines from mmc2.xlsx S1C/S1E, plus the predicted line's own TPM
+  and its deviation from the gene's mean), a 32-PC DNABERT-2 transcript embedding,
+  and static annotation. No fold_change, rra_pvalue or guide-level depletion from
+  any cell line or day. Members selected by leave-one-cell-line-out AUPRC over the
+  training lines only; reproduce with scripts/run_expression_xgb.py --validate.
+  y_pred_proba is an uncalibrated ranking score.

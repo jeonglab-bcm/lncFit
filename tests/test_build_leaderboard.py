@@ -7,7 +7,9 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from build_leaderboard import SubmissionError, _load_truth, _score_submission
+from build_leaderboard import (
+    SubmissionError, _load_truth, _render_leaderboard, _score_submission,
+)
 from lncfit.screen_data import LncRnaRecord, save_jsonl
 
 _CELL_LINES = ["HAP1", "HEK293FT", "K562", "MDA-MB-231", "THP1"]
@@ -27,11 +29,14 @@ def _synthetic_test_records(n_targets=4):
 
 
 def _write_submission(tmp_path, name, preds_df, submission_meta):
+    """uses_measured_depletion defaults to False so tests about *other* validation
+    don't all have to restate it; pass it explicitly to exercise the rule itself."""
     sub_dir = tmp_path / name
     sub_dir.mkdir()
     preds_df.to_csv(sub_dir / "predictions.csv", index=False)
+    meta = {"uses_measured_depletion": False, **submission_meta}
     with open(sub_dir / "submission.yaml", "w") as fh:
-        yaml.safe_dump(submission_meta, fh)
+        yaml.safe_dump(meta, fh)
     return sub_dir
 
 
@@ -218,3 +223,84 @@ def test_only_and_exclude_combined_leaving_nothing_raises():
         save_jsonl(_synthetic_test_records(), p)
         with pytest.raises(ValueError, match="no rows left to score"):
             _load_truth(p, exclude_cell_lines={"THP1"}, only_cell_lines={"THP1"})
+
+
+def test_uses_measured_depletion_is_required_and_must_be_boolean(tmp_path):
+    """The no-measured-depletion rule is unenforceable by inspection -- we can't see a
+    submitter's feature matrix. The one thing the board *can* enforce is that everyone
+    answers the question, on the record. A missing or fuzzy value must fail, not
+    default to eligible, or the rule quietly becomes opt-in.
+    """
+    records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(records, test_path)
+    records, truth, excluded = _load_truth(str(test_path))
+    preds = _all_keys_df(records, lambda r: 0.9 if r.label == 1 else 0.1)
+
+    # Missing entirely.
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    preds.to_csv(bare / "predictions.csv", index=False)
+    with open(bare / "submission.yaml", "w") as fh:
+        yaml.safe_dump({"submitter": "alice", "model": "m"}, fh)
+    with pytest.raises(SubmissionError, match="uses_measured_depletion"):
+        _score_submission(bare, records, truth, excluded)
+
+    # Present but not a bool -- "no"/"false"/"" are the plausible mistakes, and a
+    # truthy string would silently mark an honest entry ineligible (or vice versa).
+    for bad in ["false", "no", "", 0]:
+        sub = _write_submission(
+            tmp_path, f"str-{bad!r}", preds,
+            {"submitter": "alice", "model": "m", "uses_measured_depletion": bad},
+        )
+        with pytest.raises(SubmissionError, match="must be true or false"):
+            _score_submission(sub, records, truth, excluded)
+
+
+def test_declaring_measured_depletion_marks_ineligible_but_still_scores(tmp_path):
+    """An ineligible entry keeps its real score -- it's moved out of the ranking, not
+    deleted or zeroed. Erasing the number would destroy the comparison that motivates
+    the rule in the first place (the shortcut scores *higher*, which is the point)."""
+    records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(records, test_path)
+    records, truth, excluded = _load_truth(str(test_path))
+    preds = _all_keys_df(records, lambda r: 0.9 if r.label == 1 else 0.1)
+
+    clean = _write_submission(tmp_path, "clean", preds,
+                              {"submitter": "alice", "model": "seq-only"})
+    dirty = _write_submission(tmp_path, "dirty", preds,
+                              {"submitter": "bob", "model": "depletion-transfer",
+                               "uses_measured_depletion": True})
+
+    r_clean = _score_submission(clean, records, truth, excluded)
+    r_dirty = _score_submission(dirty, records, truth, excluded)
+    assert r_clean["ineligible"] is False
+    assert r_dirty["ineligible"] is True
+    # Same predictions -> same score. Ineligibility changes placement, not scoring.
+    assert r_dirty["auprc"] == pytest.approx(r_clean["auprc"])
+
+    md = _render_leaderboard("ch", "", [r_dirty, r_clean], 0)
+    assert "Ineligible" in md
+    # The eligible one is ranked 1 even though the ineligible one was passed first.
+    assert "| 1 | [@alice]" in md
+    assert "| 2 |" not in md, "ineligible entries must not receive a rank"
+
+
+def test_auprc_ci_brackets_the_point_estimate_and_is_deterministic(tmp_path):
+    """The CI is published next to the score, so it has to be reproducible: CI
+    regenerates this file on every submission PR and a wandering interval would read
+    as a scoring change."""
+    records = _synthetic_test_records()
+    test_path = tmp_path / "test.jsonl.gz"
+    save_jsonl(records, test_path)
+    records, truth, excluded = _load_truth(str(test_path))
+    # Imperfect predictions -- a perfect ranking gives a degenerate interval at 1.0.
+    preds = _all_keys_df(records, lambda r: 0.6 if r.label == 1 else 0.4)
+    sub = _write_submission(tmp_path, "sub", preds, {"submitter": "alice", "model": "m"})
+
+    first = _score_submission(sub, records, truth, excluded)
+    second = _score_submission(sub, records, truth, excluded)
+    lo, hi = first["auprc_ci"]
+    assert lo <= first["auprc"] <= hi
+    assert first["auprc_ci"] == second["auprc_ci"], "same predictions must give same CI"

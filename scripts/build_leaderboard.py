@@ -39,8 +39,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import yaml
+from sklearn.metrics import average_precision_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -48,7 +50,12 @@ from lncfit.screen_data import LncRnaRecord, load_jsonl
 from lncfit.xgboost_model import evaluate_lncrna_by_group
 
 _REQUIRED_PRED_COLS = {"target", "cell_line", "y_pred_proba"}
-_REQUIRED_SUBMISSION_FIELDS = {"submitter", "model"}
+# uses_measured_depletion is required so compliance with the no-measured-depletion
+# rule is an explicit assertion by the submitter rather than an unstated assumption.
+# We cannot inspect someone's feature matrix, so the board asks them to declare it;
+# that is the same honour system the rest of the scoring rests on, but at least it
+# is on the record and forces the question to be answered.
+_REQUIRED_SUBMISSION_FIELDS = {"submitter", "model", "uses_measured_depletion"}
 # GitHub username rules: alphanumeric or single hyphens, no leading/trailing/
 # double hyphens, max 39 chars.
 _GITHUB_HANDLE_RE = re.compile(r"^[A-Za-z\d](?:[A-Za-z\d]|-(?=[A-Za-z\d])){0,38}$")
@@ -73,6 +80,37 @@ def _repo_slug() -> str:
 
 class SubmissionError(Exception):
     pass
+
+
+# 2000 resamples puts the interval endpoints within ~0.001, far finer than the
+# interval's own width (~0.12 here). Fixed seed because CI regenerates this file on
+# every submission and an interval that jittered run-to-run would read as a scoring
+# change: same predictions must always give the same published interval.
+_BOOTSTRAP_N = 2000
+_BOOTSTRAP_SEED = 0
+
+
+def _bootstrap_auprc_ci(y_true, y_pred_proba, n: int = _BOOTSTRAP_N) -> tuple[float, float]:
+    """95% percentile bootstrap interval for AUPRC, resampling rows.
+
+    Published next to the point estimate because with 202 positives the point
+    estimate alone implies a precision the data does not support -- the interval is
+    ~0.12 wide, so four-decimal ranks invite people to chase differences that are
+    pure sampling noise. Resamples that happen to contain no positives are skipped
+    (AUPRC is undefined there).
+    """
+    y = np.asarray(y_true)
+    p = np.asarray(y_pred_proba, dtype=float)
+    rng = np.random.default_rng(_BOOTSTRAP_SEED)
+    scores = []
+    for _ in range(n):
+        idx = rng.integers(0, len(y), len(y))
+        if y[idx].sum() == 0:
+            continue
+        scores.append(average_precision_score(y[idx], p[idx]))
+    if not scores:
+        return (float("nan"), float("nan"))
+    return (float(np.percentile(scores, 2.5)), float(np.percentile(scores, 97.5)))
 
 
 def _load_truth(test_path: str, exclude_cell_lines: set[str] | None = None,
@@ -120,6 +158,15 @@ def _score_submission(sub_dir: Path, records: list, truth: dict, excluded_keys: 
     if missing_fields:
         raise SubmissionError(
             f"{sub_dir.name}: submission.yaml missing field(s): {sorted(missing_fields)}"
+        )
+
+    uses_depletion = meta["uses_measured_depletion"]
+    if not isinstance(uses_depletion, bool):
+        raise SubmissionError(
+            f"{sub_dir.name}: uses_measured_depletion must be true or false, got "
+            f"{uses_depletion!r} -- declare whether any measured fold_change / "
+            "rra_pvalue / guide depletion (from ANY cell line) fed your features. "
+            "See docs/PARTICIPATE.md."
         )
 
     submitter = str(meta["submitter"]).strip()
@@ -172,8 +219,11 @@ def _score_submission(sub_dir: Path, records: list, truth: dict, excluded_keys: 
         "description": str(meta.get("description", "")).strip(),
         "auroc": overall["auroc"],
         "auprc": overall["auprc"],
+        "auprc_ci": _bootstrap_auprc_ci(y_true, y_pred_proba),
         "metrics_rows": metrics_rows,
         "has_config": (sub_dir / "config.yaml").exists(),
+        # Scored either way, but ranked separately -- see _render_leaderboard.
+        "ineligible": bool(uses_depletion),
     }
 
 
@@ -189,16 +239,50 @@ def _render_leaderboard(challenge: str, title: str, rows: list[dict], n_errors: 
         "AUROC/AUPRC are recomputed directly from each submission's `predictions.csv` "
         "against the real held-out test labels, not read from any submitted metrics file.",
         "",
+        "**AUPRC carries a 95% bootstrap CI about 0.12 wide here (202 positives). "
+        "Gaps smaller than the intervals' overlap are noise, not progress.**",
+        "",
         "**[How to enter](../../../docs/PARTICIPATE.md)**",
         "",
-        "| Rank | Submitter | Model | AUPRC | AUROC | Submission |",
-        "|---|---|---|---|---|---|",
+        "| Rank | Submitter | Model | AUPRC | 95% CI | AUROC | Submission |",
+        "|---|---|---|---|---|---|---|",
     ]
-    for i, r in enumerate(rows, 1):
+    eligible = [r for r in rows if not r["ineligible"]]
+    ineligible = [r for r in rows if r["ineligible"]]
+    for i, r in enumerate(eligible, 1):
+        lo, hi = r["auprc_ci"]
         lines.append(
             f"| {i} | [@{r['submitter']}](https://github.com/{r['submitter']}) | {r['model']} | "
-            f"{r['auprc']:.4f} | {r['auroc']:.4f} | [{r['name']}](submissions/{r['name']}/) |"
+            f"{r['auprc']:.4f} | [{lo:.4f}, {hi:.4f}] | {r['auroc']:.4f} | "
+            f"[{r['name']}](submissions/{r['name']}/) |"
         )
+    if ineligible:
+        lines += [
+            "",
+            "## Ineligible -- used measured depletion as a feature",
+            "",
+            "These declared `uses_measured_depletion: true`, so they are scored but not "
+            "ranked: they use measured `fold_change` / `rra_pvalue` / guide depletion from "
+            "the training cell lines as *input features*, which "
+            "[the rules](../../../docs/PARTICIPATE.md#no-measured-depletion-as-a-feature--any-cell-line-any-day) "
+            "no longer permit. That shortcut predicts pan-essentiality without needing to "
+            "understand sequence at all, so it does not answer the question this challenge "
+            "asks.",
+            "",
+            "Kept visible, with scores, because each declared its features openly and "
+            "complied with the rules as written when it was submitted. This is a rule "
+            "change, not a finding of misconduct.",
+            "",
+            "| Submitter | Model | AUPRC | 95% CI | AUROC | Submission |",
+            "|---|---|---|---|---|---|",
+        ]
+        for r in ineligible:
+            lo, hi = r["auprc_ci"]
+            lines.append(
+                f"| [@{r['submitter']}](https://github.com/{r['submitter']}) | {r['model']} | "
+                f"{r['auprc']:.4f} | [{lo:.4f}, {hi:.4f}] | {r['auroc']:.4f} | "
+                f"[{r['name']}](submissions/{r['name']}/) |"
+            )
     if n_errors:
         lines += ["", f"{n_errors} submission(s) failed validation and are not scored above -- see CI log."]
     return "\n".join(lines) + "\n"
@@ -250,8 +334,7 @@ def _render_leaderboard_html(challenge: str, title: str, rows: list[dict], n_err
     tree_base = f"https://github.com/{repo}/tree/main/results/{challenge}/leaderboard/submissions" if repo else None
     blob_base = f"https://github.com/{repo}/blob/main/results/{challenge}/leaderboard/submissions" if repo else None
 
-    body_rows = []
-    for i, r in enumerate(rows, 1):
+    def _row(r: dict, rank) -> str:
         sub_link = f"{tree_base}/{esc(r['name'])}/" if tree_base else f"submissions/{esc(r['name'])}/"
         config_url = f"{blob_base}/{esc(r['name'])}/config.yaml" if blob_base else f"submissions/{esc(r['name'])}/config.yaml"
         detail_rows = "".join(
@@ -263,12 +346,14 @@ def _render_leaderboard_html(challenge: str, title: str, rows: list[dict], n_err
         config_link = (
             f" &middot; <a href='{config_url}'>config.yaml</a>" if r.get("has_config") else ""
         )
-        body_rows.append(f"""
-<tr class="rank-{i}">
-  <td>{i}</td>
+        lo, hi = r["auprc_ci"]
+        return f"""
+<tr class="rank-{rank if rank else 'x'}">
+  <td>{rank if rank else '&mdash;'}</td>
   <td><a href="https://github.com/{esc(r['submitter'])}">@{esc(r['submitter'])}</a></td>
   <td>{esc(r['model'])}</td>
   <td class="num">{r['auprc']:.4f}</td>
+  <td class="num">[{lo:.4f}, {hi:.4f}]</td>
   <td class="num">{r['auroc']:.4f}</td>
   <td><details><summary>details</summary>
     {f"<p>{esc(r['description'])}</p>" if r['description'] else ""}
@@ -278,7 +363,23 @@ def _render_leaderboard_html(challenge: str, title: str, rows: list[dict], n_err
     </table>
     <p><a href="{sub_link}">submission folder</a>{config_link}</p>
   </details></td>
-</tr>""")
+</tr>"""
+
+    body_rows = [_row(r, i) for i, r in enumerate(
+        (r for r in rows if not r["ineligible"]), 1)]
+    ineligible_rows = [_row(r, None) for r in rows if r["ineligible"]]
+    ineligible_html = f"""
+<h2>Ineligible &mdash; used measured depletion as a feature</h2>
+<p>Scored but not ranked: these declared <code>uses_measured_depletion: true</code>,
+using measured fold-change / p-value / guide depletion from the training cell lines as
+input features. That predicts pan-essentiality without needing to understand sequence,
+so it does not answer this challenge's question. Kept visible, with scores, because each
+declared its features openly and complied with the rules as written at submission time
+&mdash; this is a rule change, not a finding of misconduct.</p>
+<table>
+<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">95% CI</th><th class="num">AUROC</th><th></th></tr>
+{"".join(ineligible_rows)}
+</table>""" if ineligible_rows else ""
 
     errors_html = (
         f'<p class="errors">{n_errors} submission(s) failed validation and are not shown above -- see CI logs.</p>'
@@ -298,10 +399,13 @@ def _render_leaderboard_html(challenge: str, title: str, rows: list[dict], n_err
 <h1>{esc(challenge)}</h1>
 {f'<p class="subtitle">{esc(title)}</p>' if title else ""}
 {_participate_link(repo)}
+<p><strong>AUPRC carries a 95% bootstrap CI about 0.12 wide here (202 positives).
+Gaps smaller than the intervals' overlap are noise, not progress.</strong></p>
 <table>
-<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">AUROC</th><th></th></tr>
-{"".join(body_rows) if body_rows else '<tr><td colspan="6">No valid submissions yet.</td></tr>'}
+<tr><th>Rank</th><th>Submitter</th><th>Model</th><th class="num">AUPRC</th><th class="num">95% CI</th><th class="num">AUROC</th><th></th></tr>
+{"".join(body_rows) if body_rows else '<tr><td colspan="7">No eligible submissions yet.</td></tr>'}
 </table>
+{ineligible_html}
 {errors_html}
 <footer>Auto-generated by <code>scripts/build_leaderboard.py</code> via CI on every submission PR. AUROC/AUPRC are recomputed independently from each submission's predictions.csv against the real held-out labels.</footer>
 </body>

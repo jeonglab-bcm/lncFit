@@ -9,6 +9,14 @@
 # and `fold_change` all omitted (all three, because `label` is *defined* as
 # rra_pvalue < 0.05 and fold_change < 0), so following the instructions never puts
 # the answers in front of you. See docs/PARTICIPATE.md.
+#
+# Since 2026-07-28 there is a second, stricter rule: measured depletion may not be an
+# input FEATURE -- not THP1's, and not the training lines' either. `-mean(training
+# fold_change)` scores 0.2000 AUPRC with zero parameters while the best sequence-only
+# entry manages 0.1696, so the shortcut was outscoring every attempt to learn from
+# sequence. Training-line `label` remains the supervision target; the rule is about X,
+# not y. Submissions declare compliance via `uses_measured_depletion` in
+# submission.yaml and are filed under "Ineligible" if true.
 test_path: data/processed/lncrna_rra_day14.jsonl.gz
 only_cell_lines: [THP1]
 title: >

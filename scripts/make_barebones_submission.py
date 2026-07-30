@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Write a complete, valid leaderboard submission. Standard library only.
+"""The banned shortcut, kept as a demonstration. INELIGIBLE for ranking.
 
-The smallest thing that is a real entry: no genome download, no sequences, no
-embeddings, no scikit-learn, no XGBoost, nothing to install. Reads the two
-committed challenge files and writes the two files a submission needs.
+**This does not produce a rankable entry any more, and it is not a template.**
+As of 2026-07-28 the rules forbid measured knockdown depletion as an input
+feature, from any cell line (see docs/PARTICIPATE.md). Measured depletion is
+this script's *only* feature, so what it writes is filed under "Ineligible" on
+the board. It is retained because it is the clearest possible evidence for why
+that rule was needed.
 
 The model is one line of arithmetic. For each lncRNA, average its knockout
 fold-change across the three TRAINING cell lines and negate it, so genes whose
@@ -12,13 +15,18 @@ knockout depleted other cell lines rank highest:
     score(gene) = -mean(fold_change of that gene in HAP1, K562, MDA-MB-231)
 
 That is a pan-essentiality prior: a gene that matters everywhere else probably
-matters in THP1 too. It uses only training-cell-line columns, never THP1's.
+matters in THP1 too. It never touches THP1's columns -- the objection to it is
+not leakage, it is that the question becomes trivial and sequence-blind.
 
-Do not mistake it for a weak baseline. It scores AUROC 0.7085 / AUPRC 0.2000,
-which at the time of writing beats four of the five real submissions on the
-board -- including every model built on DNABERT-2 embeddings and tuned XGBoost.
-If your model can't clear this, it hasn't learned anything a one-liner doesn't
-already know. That is the point of shipping it.
+Here is the problem it exposes. It scores AUROC 0.7085 / AUPRC 0.2000 with no
+learned parameters, while the best *sequence-only* entry on the board manages
+0.1696 and a tuned DNABERT-2 + Optuna model manages 0.1268. A one-liner that
+reads three columns beat every model that tried to learn biology from sequence.
+That gap measures a shortcut in the task design, not progress on the science --
+which is exactly what the feature ban removes.
+
+For a compliant starting point, build from transcript sequence, guide design and
+static annotation instead; see the quickstart in docs/PARTICIPATE.md.
 
 Note that the test set is a single cell line, so any cell-line-level feature
 (one-hot, Celligner coordinates) is constant across every row being scored and
@@ -91,20 +99,26 @@ def main() -> None:
         fh.write(
             f"submitter: {args.submitter}\n"
             'model: "barebones: -mean(training fold_change) per gene"\n'
+            # This IS measured depletion as a feature -- it is the entire model. Declared
+            # true so the board files it under Ineligible, which is where it belongs.
+            "uses_measured_depletion: true\n"
             "description: >\n"
-            "  Zero-setup baseline from scripts/make_barebones_submission.py. For each\n"
+            "  Zero-setup reference from scripts/make_barebones_submission.py. For each\n"
             "  lncRNA, the negated mean knockout fold-change across the three training\n"
             "  cell lines -- a pan-essentiality prior with no learned parameters, no\n"
-            "  sequence features and no cell-line features. Uses only columns from the\n"
-            "  training file. y_pred_proba is an uncalibrated ranking score.\n"
+            "  sequence features and no cell-line features. INELIGIBLE by design: it uses\n"
+            "  measured depletion as its only feature, which the rules no longer permit.\n"
+            "  Kept as the demonstration of why that rule exists.\n"
         )
 
     print(f"Wrote {out_dir}/predictions.csv  ({len(out_rows):,} rows)")
     print(f"Wrote {out_dir}/submission.yaml")
     if missing:
         print(f"  note: {missing:,} test gene(s) absent from training, scored 0.0")
-    print("\nThis is a valid submission as-is. It is also the bar to beat -- see "
-          "docs/PARTICIPATE.md.")
+    print("\nNOTE: this submission is INELIGIBLE for ranking -- measured depletion is its\n"
+          "only feature, which docs/PARTICIPATE.md now bans. It is a demonstration, not a\n"
+          "template: it scores 0.2000 AUPRC while the best sequence-only entry manages\n"
+          "0.1696, and that gap is the whole reason the rule exists. Build from sequence.")
 
 
 if __name__ == "__main__":

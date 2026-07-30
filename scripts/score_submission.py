@@ -89,9 +89,22 @@ def main() -> None:
     print(f"  model:  {result['model']}")
     print(f"  scored: {len(records):,} rows, {n_pos} positives ({base_rate:.4f} base rate)")
     print()
+    lo, hi = result["auprc_ci"]
     print(f"  AUROC   {result['auroc']:.4f}")
     print(f"  AUPRC   {result['auprc']:.4f}   ({result['auprc'] / base_rate:.1f}x base rate)")
+    print(f"          95% CI [{lo:.4f}, {hi:.4f}]  -- width {hi - lo:.4f}")
     print()
+    # Printed unmissably, because the CI is wide enough that a "win" of 0.01 over the
+    # leader is indistinguishable from noise, and that is the most common way to fool
+    # yourself on a board with 202 positives.
+    print(f"  Any gap under ~{(hi - lo) / 2:.2f} AUPRC is not measurable on this test set.")
+    print()
+    if result["ineligible"]:
+        print("  INELIGIBLE FOR RANKING -- you declared uses_measured_depletion: true.")
+        print("  Measured fold_change / rra_pvalue / guide depletion may not be input")
+        print("  features, from any cell line. This scores but is not ranked.")
+        print("  See docs/PARTICIPATE.md#no-measured-depletion-as-a-feature--any-cell-line-any-day")
+        print()
     if not result["has_config"]:
         print("  note: no config.yaml -- optional, but it's how someone reproduces you.")
     print("Valid. These are the numbers CI will publish.")

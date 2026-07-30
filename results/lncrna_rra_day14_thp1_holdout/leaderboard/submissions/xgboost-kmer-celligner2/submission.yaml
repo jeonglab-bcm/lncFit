@@ -1,5 +1,7 @@
 submitter: jeonglab-bcm
 model: xgboost + kmer (k=5) + Celligner UMAP (dim=2)
+# k-mer + Celligner embedding
+uses_measured_depletion: false
 description: 'Leave-one-cell-line-out via scripts/run_cellline_loco.py, unmodified -- same
   fixed hyperparameters as the no-cell-embedding LOCO baseline, plus the 2-D Celligner UMAP
   cell-line embedding. Celligner coordinates come from independent baseline transcriptomic

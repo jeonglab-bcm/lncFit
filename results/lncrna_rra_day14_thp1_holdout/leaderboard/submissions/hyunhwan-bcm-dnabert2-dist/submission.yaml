@@ -1,5 +1,7 @@
 submitter: hyunhwan-bcm
 model: xgboost + DNABERT-2 + distance-to-gene, fixed params (max_depth=9)
+# DNABERT-2 + distance-to-PC-gene
+uses_measured_depletion: false
 description: 'No hyperparameter search -- fixed params matching the project''s established
   best-known xgboost config (max_depth=9 etc). Via scripts/run_cellline_loco.py, unmodified.
   Manually tried Celligner at dim 0/2/70 with/without distance-to-nearest-protein-coding-gene;
