@@ -58,12 +58,20 @@ _KMER, _ONEHOT, _TPM, _S1A, _S1A_EXT, _GUIDE = (
 # answer. Named here so the exclusion is explicit and greppable.
 _LEAK_COLUMN = "Number of cell lines showing essentiality"
 
+# The k-mer block is 256 of ~298 columns. kmer_only scored 0.1036 against a ~0.048 base
+# rate, and s1a+guide only (31 columns, no sequence) scored 0.1271 -- beating the
+# 267-column kmer+onehot+tpm at 0.1215. So the sequence block may be noise the model has to
+# work around: with colsample_bytree=0.8, roughly eight of every nine candidate splits it
+# examines are k-mer columns. These configs pair each with-k-mer setting against its
+# without-k-mer twin on identical folds to settle it.
+_BASELINE = "+s1a+guide"
+
 CONFIGS: list[tuple[str, list[str]]] = [
-    ("kmer+onehot+tpm", [_KMER, _ONEHOT, _TPM]),                     # best so far
-    ("+s1a", [_KMER, _ONEHOT, _TPM, _S1A]),
-    ("+guide", [_KMER, _ONEHOT, _TPM, _GUIDE]),
-    ("+s1a+guide", [_KMER, _ONEHOT, _TPM, _S1A, _GUIDE]),
-    ("+s1a+guide+ext", [_KMER, _ONEHOT, _TPM, _S1A, _GUIDE, _S1A_EXT]),
+    ("kmer+onehot+tpm", [_KMER, _ONEHOT, _TPM]),
+    ("+s1a+guide", [_KMER, _ONEHOT, _TPM, _S1A, _GUIDE]),            # best with k-mers
+    ("nokmer onehot+tpm+guide", [_ONEHOT, _TPM, _GUIDE]),
+    ("nokmer +s1a", [_ONEHOT, _TPM, _S1A, _GUIDE]),                  # twin of +s1a+guide
+    ("nokmer tpm+guide", [_TPM, _GUIDE]),
     ("s1a+guide only", [_S1A, _GUIDE]),
 ]
 
@@ -254,15 +262,15 @@ def main() -> None:
             print(f"  {name:<18} ({X_eval.shape[1]:>4} cols)  AUROC {np.mean(aurocs):.4f}  "
                   f"AUPRC {np.mean(auprcs):.4f} +/- {np.std(auprcs):.4f}", flush=True)
 
-    base = float(np.mean(results["kmer+onehot+tpm"]))
+    base = float(np.mean(results[_BASELINE]))
     print(f"\n=== mean across {len(train_cells)} folds x {args.seeds} seeds ===")
-    print(f"{'config':<18} {'AUPRC':>7} {'sd':>7} {'vs kmer+onehot+tpm':>20}")
+    print(f"{'config':<26} {'AUPRC':>7} {'sd':>7} {'vs ' + _BASELINE:>20}")
     for name, vals in sorted(results.items(), key=lambda kv: -np.mean(kv[1])):
         mean = float(np.mean(vals))
         d = mean - base
-        note = "" if name == "kmer+onehot+tpm" else (
+        note = "" if name == _BASELINE else (
             f"{d:+.4f}" + (" (noise)" if abs(d) < 0.02 else ""))
-        print(f"{name:<18} {mean:>7.4f} {float(np.std(vals)):>7.4f} {note:>20}")
+        print(f"{name:<26} {mean:>7.4f} {float(np.std(vals)):>7.4f} {note:>20}")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
