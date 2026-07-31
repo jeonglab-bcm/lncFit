@@ -165,6 +165,12 @@ def main() -> None:
     )
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument(
+        "--no-flash-attn", action="store_true",
+        help="Route DNABERT-2 around its Triton flash-attention kernel to the equivalent "
+             "PyTorch attention path. Needed where the kernel cannot build (aarch64) or "
+             "where the model is run on CPU, since the kernel asserts q.is_cuda.",
+    )
+    parser.add_argument(
         "--masked-lm",
         action="store_true",
         help="Load AutoModelForMaskedLM and pool its final hidden state. Required "
@@ -211,6 +217,22 @@ def main() -> None:
     model = model_class.from_pretrained(
         model_source, trust_remote_code=True, **revision_kwargs
     )
+
+    if args.no_flash_attn:
+        # DNABERT-2's attention takes a Triton flash-attention path whenever dropout is 0
+        # and the kernel imported, and that path is unusable on some machines: it fails to
+        # JIT-compile on aarch64 (the Triton cuda_utils.c build errors out), while on CPU it
+        # asserts q.is_cuda outright. Setting the module global to None routes every layer
+        # to the PyTorch branch a few lines below it -- the same scaled-dot-product maths,
+        # with self.dropout inactive under eval(), so outputs are unchanged.
+        import sys as _sys
+        layers_module = _sys.modules.get(type(model).__module__)
+        if layers_module is None or not hasattr(layers_module, "flash_attn_qkvpacked_func"):
+            sys.exit(f"--no-flash-attn: no flash_attn_qkvpacked_func in "
+                     f"{type(model).__module__} -- does this model use it?")
+        layers_module.flash_attn_qkvpacked_func = None
+        print("  flash attention disabled; using the PyTorch attention path")
+
     model.eval().to(device)
 
     if args.source == "body":
