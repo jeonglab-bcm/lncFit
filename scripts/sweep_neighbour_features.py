@@ -58,8 +58,18 @@ _GENE_MAP = "data/external/gencode_v36_gene_map.csv"
 
 _ONEHOT, _TPM, _GUIDE, _S1A_GENE = "onehot", "tpm", "guide", "s1a_gene"
 _NB_DIST, _NB_CLASS, _NB_DEPMAP, _NB_EXPR = "nb_dist", "nb_class", "nb_depmap", "nb_expr"
+_TISSUE = "tissue"
 
 _BASE = [_ONEHOT, _TPM, _GUIDE, _S1A_GENE]
+_ALL_NB = [_NB_DIST, _NB_CLASS, _NB_DEPMAP, _NB_EXPR]
+
+# The seven developmental tissues named in S1A's "Dynamic tissues" list. The model already
+# gets "Count dynamic tissues" (how many) inside s1a_gene; this asks whether WHICH tissues
+# matters. Motivated by the paper's own abstract, which reports that essential lncRNAs
+# "displayed dynamic expression patterns across tissues during development" -- so the
+# identity of the tissue, not just the count, is the version the biology points at.
+_TISSUE_NAMES = ["Brain", "Cerebellum", "Heart", "Kidney", "Liver", "Ovary",
+                 "Testis_NoAdults"]
 
 CONFIGS: list[tuple[str, list[str]]] = [
     ("base (no neighbour)", _BASE),
@@ -67,8 +77,10 @@ CONFIGS: list[tuple[str, list[str]]] = [
     ("+ nb_class", _BASE + [_NB_CLASS]),
     ("+ nb_depmap", _BASE + [_NB_DEPMAP]),
     ("+ nb_expr", _BASE + [_NB_EXPR]),
-    ("+ all neighbour", _BASE + [_NB_DIST, _NB_CLASS, _NB_DEPMAP, _NB_EXPR]),
-    ("neighbour only", [_ONEHOT, _NB_DIST, _NB_CLASS, _NB_DEPMAP, _NB_EXPR]),
+    ("+ all neighbour", _BASE + _ALL_NB),
+    ("neighbour only", [_ONEHOT] + _ALL_NB),
+    ("base + tissues", _BASE + [_TISSUE]),
+    ("+ all neighbour + tissues", _BASE + _ALL_NB + [_TISSUE]),
 ]
 
 _S1A_GENE_NUMERIC = ["Transcript length", "Exons", "Tissue tau", "Time tau",
@@ -109,6 +121,21 @@ def load_blocks(genes: list[str]):
 
     nb_class = pd.get_dummies(s1a["Genomic class"].astype(str),
                               prefix="gclass").to_numpy(dtype=np.float32)
+
+    # "Dynamic tissues" is a comma-separated list; expand to one indicator per tissue.
+    # 2,482/5,496 genes name at least one; the rest are all-zero, which is the same
+    # thing "Count dynamic tissues" already encodes as 0, so no missing flag is needed.
+    dyn = s1a["Dynamic tissues"].fillna("").astype(str)
+    tissue = np.zeros((len(genes), len(_TISSUE_NAMES)), dtype=np.float32)
+    for i, val in enumerate(dyn):
+        named = {t.strip() for t in val.split(",") if t.strip()}
+        for j, t in enumerate(_TISSUE_NAMES):
+            if t in named:
+                tissue[i, j] = 1.0
+        unknown = named - set(_TISSUE_NAMES)
+        if unknown:
+            raise SystemExit(f"unexpected tissue name(s) {sorted(unknown)} -- "
+                             "_TISSUE_NAMES is out of date")
 
     dep_col = "Closest protein-coding gene Cas9 - DepMap score (23Q2, median)"
     dep = pd.to_numeric(s1a[dep_col], errors="coerce")
@@ -161,11 +188,11 @@ def load_blocks(genes: list[str]):
             ])
         nb_expr[cell] = np.asarray(rows, dtype=np.float32)
 
-    return s1a_gene, nb_dist, nb_class, nb_depmap, nb_expr
+    return s1a_gene, nb_dist, nb_class, nb_depmap, nb_expr, tissue
 
 
 def build(genes, cell_line, blocks, total, mrna, guide, s1a_gene, nb_dist, nb_class,
-          nb_depmap, nb_expr) -> np.ndarray:
+          nb_depmap, nb_expr, tissue) -> np.ndarray:
     cols = []
     if _ONEHOT in blocks:
         oh = np.zeros((len(genes), len(_ALL_CELLS)), dtype=np.float32)
@@ -185,6 +212,8 @@ def build(genes, cell_line, blocks, total, mrna, guide, s1a_gene, nb_dist, nb_cl
         cols.append(nb_depmap)
     if _NB_EXPR in blocks:
         cols.append(nb_expr[cell_line])
+    if _TISSUE in blocks:
+        cols.append(tissue)
     return np.hstack(cols).astype(np.float32)
 
 
@@ -207,17 +236,19 @@ def main() -> None:
 
     total, mrna = load_tpm()
     guide, _ = load_guides(genes)
-    s1a_gene, nb_dist, nb_class, nb_depmap, nb_expr = load_blocks(genes)
+    s1a_gene, nb_dist, nb_class, nb_depmap, nb_expr, tissue = load_blocks(genes)
     print(f"  block sizes: s1a_gene={s1a_gene.shape[1]} nb_dist={nb_dist.shape[1]} "
           f"nb_class={nb_class.shape[1]} nb_depmap={nb_depmap.shape[1]} "
-          f"nb_expr={next(iter(nb_expr.values())).shape[1]}")
+          f"nb_expr={next(iter(nb_expr.values())).shape[1]} "
+          f"tissue={tissue.shape[1]}")
 
     rows, results = [], defaultdict(list)
     for holdout in train_cells:
         y_eval = labels[holdout]
         print(f"\n--- hold out {holdout} ({y_eval.sum()} pos / {len(y_eval)}) ---")
         for name, blocks in CONFIGS:
-            args_ = (total, mrna, guide, s1a_gene, nb_dist, nb_class, nb_depmap, nb_expr)
+            args_ = (total, mrna, guide, s1a_gene, nb_dist, nb_class, nb_depmap,
+                     nb_expr, tissue)
             X_eval = build(genes, holdout, blocks, *args_)
             X_train = np.vstack([build(genes, c, blocks, *args_)
                                  for c in train_cells if c != holdout])

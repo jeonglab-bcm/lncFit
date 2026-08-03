@@ -1,0 +1,541 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,base (no neighbour),0,34,0.7265,0.1695
+HAP1,base (no neighbour),1,34,0.7236,0.159
+HAP1,base (no neighbour),2,34,0.7228,0.1565
+HAP1,base (no neighbour),3,34,0.7299,0.1688
+HAP1,base (no neighbour),4,34,0.722,0.1629
+HAP1,base (no neighbour),5,34,0.7239,0.163
+HAP1,base (no neighbour),6,34,0.7129,0.1411
+HAP1,base (no neighbour),7,34,0.7312,0.1693
+HAP1,base (no neighbour),8,34,0.7165,0.1456
+HAP1,base (no neighbour),9,34,0.7188,0.1504
+HAP1,base (no neighbour),10,34,0.7132,0.1595
+HAP1,base (no neighbour),11,34,0.7252,0.1636
+HAP1,base (no neighbour),12,34,0.7266,0.1678
+HAP1,base (no neighbour),13,34,0.7201,0.1615
+HAP1,base (no neighbour),14,34,0.7258,0.1637
+HAP1,base (no neighbour),15,34,0.7179,0.1559
+HAP1,base (no neighbour),16,34,0.7231,0.1627
+HAP1,base (no neighbour),17,34,0.7276,0.164
+HAP1,base (no neighbour),18,34,0.7165,0.1545
+HAP1,base (no neighbour),19,34,0.7192,0.161
+HAP1,+ nb_dist,0,36,0.7254,0.1718
+HAP1,+ nb_dist,1,36,0.7194,0.1556
+HAP1,+ nb_dist,2,36,0.7169,0.1551
+HAP1,+ nb_dist,3,36,0.7299,0.1707
+HAP1,+ nb_dist,4,36,0.7256,0.1702
+HAP1,+ nb_dist,5,36,0.7189,0.1595
+HAP1,+ nb_dist,6,36,0.7103,0.1469
+HAP1,+ nb_dist,7,36,0.7265,0.1671
+HAP1,+ nb_dist,8,36,0.717,0.154
+HAP1,+ nb_dist,9,36,0.7125,0.1521
+HAP1,+ nb_dist,10,36,0.7144,0.1652
+HAP1,+ nb_dist,11,36,0.7174,0.1653
+HAP1,+ nb_dist,12,36,0.7284,0.1701
+HAP1,+ nb_dist,13,36,0.7211,0.1651
+HAP1,+ nb_dist,14,36,0.7208,0.1636
+HAP1,+ nb_dist,15,36,0.7148,0.1608
+HAP1,+ nb_dist,16,36,0.7193,0.161
+HAP1,+ nb_dist,17,36,0.7263,0.1657
+HAP1,+ nb_dist,18,36,0.715,0.1556
+HAP1,+ nb_dist,19,36,0.7133,0.1589
+HAP1,+ nb_class,0,41,0.7149,0.1682
+HAP1,+ nb_class,1,41,0.7228,0.1608
+HAP1,+ nb_class,2,41,0.7178,0.1552
+HAP1,+ nb_class,3,41,0.7097,0.1466
+HAP1,+ nb_class,4,41,0.7205,0.155
+HAP1,+ nb_class,5,41,0.7261,0.1649
+HAP1,+ nb_class,6,41,0.7231,0.1674
+HAP1,+ nb_class,7,41,0.7169,0.1594
+HAP1,+ nb_class,8,41,0.7167,0.1611
+HAP1,+ nb_class,9,41,0.7157,0.1531
+HAP1,+ nb_class,10,41,0.7251,0.1619
+HAP1,+ nb_class,11,41,0.7111,0.1497
+HAP1,+ nb_class,12,41,0.7228,0.1607
+HAP1,+ nb_class,13,41,0.7222,0.1603
+HAP1,+ nb_class,14,41,0.7161,0.161
+HAP1,+ nb_class,15,41,0.7153,0.1554
+HAP1,+ nb_class,16,41,0.7176,0.1582
+HAP1,+ nb_class,17,41,0.7227,0.167
+HAP1,+ nb_class,18,41,0.7136,0.1601
+HAP1,+ nb_class,19,41,0.718,0.1625
+HAP1,+ nb_depmap,0,36,0.7255,0.1716
+HAP1,+ nb_depmap,1,36,0.7175,0.1574
+HAP1,+ nb_depmap,2,36,0.7138,0.1556
+HAP1,+ nb_depmap,3,36,0.7257,0.1722
+HAP1,+ nb_depmap,4,36,0.7243,0.1688
+HAP1,+ nb_depmap,5,36,0.7158,0.1597
+HAP1,+ nb_depmap,6,36,0.71,0.147
+HAP1,+ nb_depmap,7,36,0.726,0.1682
+HAP1,+ nb_depmap,8,36,0.7172,0.1526
+HAP1,+ nb_depmap,9,36,0.7123,0.1524
+HAP1,+ nb_depmap,10,36,0.7118,0.1643
+HAP1,+ nb_depmap,11,36,0.7159,0.1613
+HAP1,+ nb_depmap,12,36,0.7265,0.1714
+HAP1,+ nb_depmap,13,36,0.7214,0.1622
+HAP1,+ nb_depmap,14,36,0.7205,0.1631
+HAP1,+ nb_depmap,15,36,0.7126,0.1588
+HAP1,+ nb_depmap,16,36,0.7197,0.1615
+HAP1,+ nb_depmap,17,36,0.7225,0.1651
+HAP1,+ nb_depmap,18,36,0.7105,0.1545
+HAP1,+ nb_depmap,19,36,0.713,0.1603
+HAP1,+ nb_expr,0,39,0.7167,0.1578
+HAP1,+ nb_expr,1,39,0.7264,0.1619
+HAP1,+ nb_expr,2,39,0.7229,0.1538
+HAP1,+ nb_expr,3,39,0.7103,0.1483
+HAP1,+ nb_expr,4,39,0.7238,0.1571
+HAP1,+ nb_expr,5,39,0.7239,0.1565
+HAP1,+ nb_expr,6,39,0.7281,0.167
+HAP1,+ nb_expr,7,39,0.7212,0.1557
+HAP1,+ nb_expr,8,39,0.7207,0.1594
+HAP1,+ nb_expr,9,39,0.7171,0.149
+HAP1,+ nb_expr,10,39,0.7322,0.1658
+HAP1,+ nb_expr,11,39,0.7204,0.158
+HAP1,+ nb_expr,12,39,0.7227,0.1597
+HAP1,+ nb_expr,13,39,0.7259,0.1596
+HAP1,+ nb_expr,14,39,0.7211,0.1599
+HAP1,+ nb_expr,15,39,0.7127,0.1472
+HAP1,+ nb_expr,16,39,0.7199,0.1668
+HAP1,+ nb_expr,17,39,0.7239,0.1654
+HAP1,+ nb_expr,18,39,0.7157,0.1555
+HAP1,+ nb_expr,19,39,0.7221,0.1631
+HAP1,+ all neighbour,0,50,0.7175,0.1643
+HAP1,+ all neighbour,1,50,0.7228,0.167
+HAP1,+ all neighbour,2,50,0.7156,0.1624
+HAP1,+ all neighbour,3,50,0.7136,0.1655
+HAP1,+ all neighbour,4,50,0.7197,0.168
+HAP1,+ all neighbour,5,50,0.7138,0.1556
+HAP1,+ all neighbour,6,50,0.7146,0.1575
+HAP1,+ all neighbour,7,50,0.7201,0.1655
+HAP1,+ all neighbour,8,50,0.7207,0.1656
+HAP1,+ all neighbour,9,50,0.7145,0.1581
+HAP1,+ all neighbour,10,50,0.721,0.1661
+HAP1,+ all neighbour,11,50,0.7163,0.1607
+HAP1,+ all neighbour,12,50,0.7156,0.164
+HAP1,+ all neighbour,13,50,0.7183,0.169
+HAP1,+ all neighbour,14,50,0.7258,0.1723
+HAP1,+ all neighbour,15,50,0.714,0.1579
+HAP1,+ all neighbour,16,50,0.7205,0.1621
+HAP1,+ all neighbour,17,50,0.7191,0.1665
+HAP1,+ all neighbour,18,50,0.7159,0.1624
+HAP1,+ all neighbour,19,50,0.7108,0.1605
+HAP1,neighbour only,0,21,0.5589,0.0761
+HAP1,neighbour only,1,21,0.5648,0.0746
+HAP1,neighbour only,2,21,0.5675,0.0753
+HAP1,neighbour only,3,21,0.559,0.0727
+HAP1,neighbour only,4,21,0.5582,0.0809
+HAP1,neighbour only,5,21,0.56,0.0718
+HAP1,neighbour only,6,21,0.5665,0.077
+HAP1,neighbour only,7,21,0.5623,0.0721
+HAP1,neighbour only,8,21,0.5633,0.0724
+HAP1,neighbour only,9,21,0.5511,0.0748
+HAP1,neighbour only,10,21,0.5589,0.0752
+HAP1,neighbour only,11,21,0.56,0.0707
+HAP1,neighbour only,12,21,0.5606,0.0809
+HAP1,neighbour only,13,21,0.5565,0.076
+HAP1,neighbour only,14,21,0.5519,0.0736
+HAP1,neighbour only,15,21,0.5583,0.071
+HAP1,neighbour only,16,21,0.5585,0.0734
+HAP1,neighbour only,17,21,0.5536,0.0679
+HAP1,neighbour only,18,21,0.5607,0.0785
+HAP1,neighbour only,19,21,0.565,0.0768
+HAP1,base + tissues,0,41,0.7126,0.1637
+HAP1,base + tissues,1,41,0.7219,0.1579
+HAP1,base + tissues,2,41,0.7205,0.1558
+HAP1,base + tissues,3,41,0.7098,0.1447
+HAP1,base + tissues,4,41,0.7199,0.1615
+HAP1,base + tissues,5,41,0.7235,0.1615
+HAP1,base + tissues,6,41,0.7226,0.1623
+HAP1,base + tissues,7,41,0.7182,0.1586
+HAP1,base + tissues,8,41,0.7145,0.1616
+HAP1,base + tissues,9,41,0.7176,0.1546
+HAP1,base + tissues,10,41,0.7248,0.1618
+HAP1,base + tissues,11,41,0.7135,0.1514
+HAP1,base + tissues,12,41,0.7209,0.1566
+HAP1,base + tissues,13,41,0.7216,0.1593
+HAP1,base + tissues,14,41,0.7189,0.163
+HAP1,base + tissues,15,41,0.7147,0.1525
+HAP1,base + tissues,16,41,0.7151,0.1564
+HAP1,base + tissues,17,41,0.7253,0.1657
+HAP1,base + tissues,18,41,0.7135,0.1552
+HAP1,base + tissues,19,41,0.7192,0.1643
+HAP1,+ all neighbour + tissues,0,57,0.7118,0.1548
+HAP1,+ all neighbour + tissues,1,57,0.7132,0.1593
+HAP1,+ all neighbour + tissues,2,57,0.7145,0.1616
+HAP1,+ all neighbour + tissues,3,57,0.7123,0.1576
+HAP1,+ all neighbour + tissues,4,57,0.7136,0.1641
+HAP1,+ all neighbour + tissues,5,57,0.7217,0.1652
+HAP1,+ all neighbour + tissues,6,57,0.7205,0.1669
+HAP1,+ all neighbour + tissues,7,57,0.7208,0.1748
+HAP1,+ all neighbour + tissues,8,57,0.7167,0.1638
+HAP1,+ all neighbour + tissues,9,57,0.7122,0.1574
+HAP1,+ all neighbour + tissues,10,57,0.7218,0.1658
+HAP1,+ all neighbour + tissues,11,57,0.712,0.1508
+HAP1,+ all neighbour + tissues,12,57,0.7185,0.1622
+HAP1,+ all neighbour + tissues,13,57,0.7134,0.1621
+HAP1,+ all neighbour + tissues,14,57,0.7096,0.1548
+HAP1,+ all neighbour + tissues,15,57,0.7206,0.1634
+HAP1,+ all neighbour + tissues,16,57,0.7142,0.1552
+HAP1,+ all neighbour + tissues,17,57,0.7179,0.1642
+HAP1,+ all neighbour + tissues,18,57,0.7134,0.1646
+HAP1,+ all neighbour + tissues,19,57,0.7165,0.1621
+K562,base (no neighbour),0,34,0.7157,0.1753
+K562,base (no neighbour),1,34,0.7149,0.1713
+K562,base (no neighbour),2,34,0.7213,0.1826
+K562,base (no neighbour),3,34,0.7233,0.1784
+K562,base (no neighbour),4,34,0.7215,0.1797
+K562,base (no neighbour),5,34,0.7204,0.1809
+K562,base (no neighbour),6,34,0.7166,0.1752
+K562,base (no neighbour),7,34,0.7202,0.1769
+K562,base (no neighbour),8,34,0.7169,0.1748
+K562,base (no neighbour),9,34,0.7249,0.1777
+K562,base (no neighbour),10,34,0.7129,0.174
+K562,base (no neighbour),11,34,0.717,0.1747
+K562,base (no neighbour),12,34,0.7186,0.1746
+K562,base (no neighbour),13,34,0.7129,0.172
+K562,base (no neighbour),14,34,0.7186,0.1793
+K562,base (no neighbour),15,34,0.717,0.1759
+K562,base (no neighbour),16,34,0.7199,0.1749
+K562,base (no neighbour),17,34,0.7123,0.1748
+K562,base (no neighbour),18,34,0.7179,0.174
+K562,base (no neighbour),19,34,0.7183,0.1748
+K562,+ nb_dist,0,36,0.7137,0.1766
+K562,+ nb_dist,1,36,0.7126,0.1771
+K562,+ nb_dist,2,36,0.7197,0.1805
+K562,+ nb_dist,3,36,0.7203,0.1773
+K562,+ nb_dist,4,36,0.7204,0.1776
+K562,+ nb_dist,5,36,0.7163,0.1783
+K562,+ nb_dist,6,36,0.7125,0.1751
+K562,+ nb_dist,7,36,0.7166,0.1761
+K562,+ nb_dist,8,36,0.7155,0.1741
+K562,+ nb_dist,9,36,0.7204,0.1825
+K562,+ nb_dist,10,36,0.7124,0.1732
+K562,+ nb_dist,11,36,0.7198,0.1787
+K562,+ nb_dist,12,36,0.7158,0.1771
+K562,+ nb_dist,13,36,0.718,0.1757
+K562,+ nb_dist,14,36,0.714,0.1759
+K562,+ nb_dist,15,36,0.7158,0.1781
+K562,+ nb_dist,16,36,0.7173,0.1767
+K562,+ nb_dist,17,36,0.7135,0.1741
+K562,+ nb_dist,18,36,0.7155,0.1738
+K562,+ nb_dist,19,36,0.7127,0.1737
+K562,+ nb_class,0,41,0.7056,0.1737
+K562,+ nb_class,1,41,0.7131,0.176
+K562,+ nb_class,2,41,0.7118,0.1726
+K562,+ nb_class,3,41,0.7176,0.1752
+K562,+ nb_class,4,41,0.712,0.1752
+K562,+ nb_class,5,41,0.7142,0.1749
+K562,+ nb_class,6,41,0.7085,0.1707
+K562,+ nb_class,7,41,0.719,0.1772
+K562,+ nb_class,8,41,0.7167,0.1777
+K562,+ nb_class,9,41,0.7163,0.175
+K562,+ nb_class,10,41,0.7184,0.1758
+K562,+ nb_class,11,41,0.714,0.1759
+K562,+ nb_class,12,41,0.7068,0.1659
+K562,+ nb_class,13,41,0.7031,0.1671
+K562,+ nb_class,14,41,0.713,0.1729
+K562,+ nb_class,15,41,0.7229,0.1793
+K562,+ nb_class,16,41,0.7174,0.1741
+K562,+ nb_class,17,41,0.7153,0.175
+K562,+ nb_class,18,41,0.7178,0.1739
+K562,+ nb_class,19,41,0.7226,0.1757
+K562,+ nb_depmap,0,36,0.7132,0.1762
+K562,+ nb_depmap,1,36,0.7129,0.1731
+K562,+ nb_depmap,2,36,0.7157,0.1778
+K562,+ nb_depmap,3,36,0.7177,0.1783
+K562,+ nb_depmap,4,36,0.7117,0.1754
+K562,+ nb_depmap,5,36,0.7124,0.1773
+K562,+ nb_depmap,6,36,0.714,0.175
+K562,+ nb_depmap,7,36,0.7154,0.1748
+K562,+ nb_depmap,8,36,0.7161,0.1727
+K562,+ nb_depmap,9,36,0.7155,0.1726
+K562,+ nb_depmap,10,36,0.709,0.1713
+K562,+ nb_depmap,11,36,0.7123,0.1734
+K562,+ nb_depmap,12,36,0.7173,0.1778
+K562,+ nb_depmap,13,36,0.7123,0.1729
+K562,+ nb_depmap,14,36,0.7139,0.1788
+K562,+ nb_depmap,15,36,0.7145,0.177
+K562,+ nb_depmap,16,36,0.7209,0.1777
+K562,+ nb_depmap,17,36,0.7147,0.1784
+K562,+ nb_depmap,18,36,0.712,0.1747
+K562,+ nb_depmap,19,36,0.7158,0.175
+K562,+ nb_expr,0,39,0.7082,0.1722
+K562,+ nb_expr,1,39,0.7117,0.1711
+K562,+ nb_expr,2,39,0.7167,0.177
+K562,+ nb_expr,3,39,0.7171,0.1744
+K562,+ nb_expr,4,39,0.7124,0.1758
+K562,+ nb_expr,5,39,0.7178,0.1761
+K562,+ nb_expr,6,39,0.71,0.1726
+K562,+ nb_expr,7,39,0.7126,0.1742
+K562,+ nb_expr,8,39,0.7165,0.1726
+K562,+ nb_expr,9,39,0.7132,0.1747
+K562,+ nb_expr,10,39,0.7077,0.1737
+K562,+ nb_expr,11,39,0.7166,0.1742
+K562,+ nb_expr,12,39,0.7115,0.171
+K562,+ nb_expr,13,39,0.7118,0.1726
+K562,+ nb_expr,14,39,0.7145,0.1736
+K562,+ nb_expr,15,39,0.7165,0.1715
+K562,+ nb_expr,16,39,0.7143,0.1732
+K562,+ nb_expr,17,39,0.7153,0.1747
+K562,+ nb_expr,18,39,0.7134,0.1737
+K562,+ nb_expr,19,39,0.7121,0.1715
+K562,+ all neighbour,0,50,0.7095,0.1733
+K562,+ all neighbour,1,50,0.708,0.1715
+K562,+ all neighbour,2,50,0.7114,0.1715
+K562,+ all neighbour,3,50,0.7113,0.171
+K562,+ all neighbour,4,50,0.7146,0.1748
+K562,+ all neighbour,5,50,0.7129,0.1749
+K562,+ all neighbour,6,50,0.7084,0.1714
+K562,+ all neighbour,7,50,0.7025,0.1647
+K562,+ all neighbour,8,50,0.7118,0.1672
+K562,+ all neighbour,9,50,0.7139,0.1717
+K562,+ all neighbour,10,50,0.7091,0.1715
+K562,+ all neighbour,11,50,0.7105,0.1677
+K562,+ all neighbour,12,50,0.7195,0.1755
+K562,+ all neighbour,13,50,0.7094,0.1748
+K562,+ all neighbour,14,50,0.7076,0.1711
+K562,+ all neighbour,15,50,0.7085,0.1727
+K562,+ all neighbour,16,50,0.7086,0.1721
+K562,+ all neighbour,17,50,0.704,0.1677
+K562,+ all neighbour,18,50,0.71,0.1711
+K562,+ all neighbour,19,50,0.7117,0.1728
+K562,neighbour only,0,21,0.5554,0.0943
+K562,neighbour only,1,21,0.5537,0.0928
+K562,neighbour only,2,21,0.5573,0.0971
+K562,neighbour only,3,21,0.5431,0.0915
+K562,neighbour only,4,21,0.5579,0.0939
+K562,neighbour only,5,21,0.5504,0.093
+K562,neighbour only,6,21,0.5574,0.0938
+K562,neighbour only,7,21,0.5563,0.0925
+K562,neighbour only,8,21,0.5522,0.0952
+K562,neighbour only,9,21,0.5596,0.0944
+K562,neighbour only,10,21,0.5456,0.093
+K562,neighbour only,11,21,0.5491,0.0947
+K562,neighbour only,12,21,0.5571,0.0938
+K562,neighbour only,13,21,0.5591,0.0996
+K562,neighbour only,14,21,0.5549,0.0942
+K562,neighbour only,15,21,0.5469,0.0944
+K562,neighbour only,16,21,0.549,0.0924
+K562,neighbour only,17,21,0.5517,0.091
+K562,neighbour only,18,21,0.5501,0.0947
+K562,neighbour only,19,21,0.5472,0.0927
+K562,base + tissues,0,41,0.7107,0.1751
+K562,base + tissues,1,41,0.7183,0.1767
+K562,base + tissues,2,41,0.7142,0.1732
+K562,base + tissues,3,41,0.717,0.1737
+K562,base + tissues,4,41,0.7149,0.1736
+K562,base + tissues,5,41,0.7163,0.1759
+K562,base + tissues,6,41,0.7135,0.1712
+K562,base + tissues,7,41,0.7238,0.1807
+K562,base + tissues,8,41,0.7218,0.1771
+K562,base + tissues,9,41,0.7185,0.1759
+K562,base + tissues,10,41,0.7176,0.1763
+K562,base + tissues,11,41,0.7164,0.177
+K562,base + tissues,12,41,0.7107,0.1696
+K562,base + tissues,13,41,0.7123,0.1737
+K562,base + tissues,14,41,0.717,0.1751
+K562,base + tissues,15,41,0.7181,0.1763
+K562,base + tissues,16,41,0.7169,0.1767
+K562,base + tissues,17,41,0.7162,0.1771
+K562,base + tissues,18,41,0.7181,0.174
+K562,base + tissues,19,41,0.7204,0.1764
+K562,+ all neighbour + tissues,0,57,0.7008,0.1641
+K562,+ all neighbour + tissues,1,57,0.7126,0.1724
+K562,+ all neighbour + tissues,2,57,0.7124,0.1749
+K562,+ all neighbour + tissues,3,57,0.7155,0.1732
+K562,+ all neighbour + tissues,4,57,0.7067,0.1712
+K562,+ all neighbour + tissues,5,57,0.709,0.171
+K562,+ all neighbour + tissues,6,57,0.7061,0.1688
+K562,+ all neighbour + tissues,7,57,0.7124,0.172
+K562,+ all neighbour + tissues,8,57,0.7065,0.1694
+K562,+ all neighbour + tissues,9,57,0.7124,0.1758
+K562,+ all neighbour + tissues,10,57,0.7107,0.1697
+K562,+ all neighbour + tissues,11,57,0.7136,0.174
+K562,+ all neighbour + tissues,12,57,0.7155,0.1738
+K562,+ all neighbour + tissues,13,57,0.7179,0.177
+K562,+ all neighbour + tissues,14,57,0.7049,0.1687
+K562,+ all neighbour + tissues,15,57,0.7063,0.1727
+K562,+ all neighbour + tissues,16,57,0.7109,0.17
+K562,+ all neighbour + tissues,17,57,0.7086,0.1681
+K562,+ all neighbour + tissues,18,57,0.7141,0.173
+K562,+ all neighbour + tissues,19,57,0.7123,0.1738
+MDA-MB-231,base (no neighbour),0,34,0.7276,0.1524
+MDA-MB-231,base (no neighbour),1,34,0.726,0.1507
+MDA-MB-231,base (no neighbour),2,34,0.7167,0.1486
+MDA-MB-231,base (no neighbour),3,34,0.7297,0.1502
+MDA-MB-231,base (no neighbour),4,34,0.723,0.1466
+MDA-MB-231,base (no neighbour),5,34,0.727,0.1495
+MDA-MB-231,base (no neighbour),6,34,0.7226,0.1403
+MDA-MB-231,base (no neighbour),7,34,0.727,0.1512
+MDA-MB-231,base (no neighbour),8,34,0.7196,0.1411
+MDA-MB-231,base (no neighbour),9,34,0.726,0.1516
+MDA-MB-231,base (no neighbour),10,34,0.7154,0.1457
+MDA-MB-231,base (no neighbour),11,34,0.7302,0.1533
+MDA-MB-231,base (no neighbour),12,34,0.7216,0.1451
+MDA-MB-231,base (no neighbour),13,34,0.7283,0.1457
+MDA-MB-231,base (no neighbour),14,34,0.7251,0.1513
+MDA-MB-231,base (no neighbour),15,34,0.7199,0.1469
+MDA-MB-231,base (no neighbour),16,34,0.7293,0.1503
+MDA-MB-231,base (no neighbour),17,34,0.7284,0.1495
+MDA-MB-231,base (no neighbour),18,34,0.7239,0.1442
+MDA-MB-231,base (no neighbour),19,34,0.7166,0.1503
+MDA-MB-231,+ nb_dist,0,36,0.7275,0.1601
+MDA-MB-231,+ nb_dist,1,36,0.7273,0.1543
+MDA-MB-231,+ nb_dist,2,36,0.7163,0.1566
+MDA-MB-231,+ nb_dist,3,36,0.7242,0.1513
+MDA-MB-231,+ nb_dist,4,36,0.7155,0.1514
+MDA-MB-231,+ nb_dist,5,36,0.7292,0.1541
+MDA-MB-231,+ nb_dist,6,36,0.7227,0.145
+MDA-MB-231,+ nb_dist,7,36,0.7285,0.1596
+MDA-MB-231,+ nb_dist,8,36,0.7137,0.1472
+MDA-MB-231,+ nb_dist,9,36,0.719,0.1513
+MDA-MB-231,+ nb_dist,10,36,0.7219,0.1509
+MDA-MB-231,+ nb_dist,11,36,0.7246,0.1517
+MDA-MB-231,+ nb_dist,12,36,0.7186,0.1506
+MDA-MB-231,+ nb_dist,13,36,0.7274,0.153
+MDA-MB-231,+ nb_dist,14,36,0.7212,0.1584
+MDA-MB-231,+ nb_dist,15,36,0.7237,0.1547
+MDA-MB-231,+ nb_dist,16,36,0.73,0.1525
+MDA-MB-231,+ nb_dist,17,36,0.7262,0.149
+MDA-MB-231,+ nb_dist,18,36,0.7223,0.1456
+MDA-MB-231,+ nb_dist,19,36,0.7183,0.1579
+MDA-MB-231,+ nb_class,0,41,0.7268,0.1542
+MDA-MB-231,+ nb_class,1,41,0.7217,0.1448
+MDA-MB-231,+ nb_class,2,41,0.7254,0.1476
+MDA-MB-231,+ nb_class,3,41,0.7236,0.1481
+MDA-MB-231,+ nb_class,4,41,0.7152,0.1394
+MDA-MB-231,+ nb_class,5,41,0.7242,0.1519
+MDA-MB-231,+ nb_class,6,41,0.7288,0.1598
+MDA-MB-231,+ nb_class,7,41,0.7318,0.1579
+MDA-MB-231,+ nb_class,8,41,0.7235,0.1439
+MDA-MB-231,+ nb_class,9,41,0.7169,0.1427
+MDA-MB-231,+ nb_class,10,41,0.7303,0.1522
+MDA-MB-231,+ nb_class,11,41,0.7192,0.149
+MDA-MB-231,+ nb_class,12,41,0.7261,0.1531
+MDA-MB-231,+ nb_class,13,41,0.7269,0.1547
+MDA-MB-231,+ nb_class,14,41,0.7298,0.1491
+MDA-MB-231,+ nb_class,15,41,0.7232,0.1472
+MDA-MB-231,+ nb_class,16,41,0.7253,0.1561
+MDA-MB-231,+ nb_class,17,41,0.728,0.1445
+MDA-MB-231,+ nb_class,18,41,0.7175,0.1423
+MDA-MB-231,+ nb_class,19,41,0.7274,0.1466
+MDA-MB-231,+ nb_depmap,0,36,0.7281,0.1574
+MDA-MB-231,+ nb_depmap,1,36,0.7252,0.1512
+MDA-MB-231,+ nb_depmap,2,36,0.719,0.1469
+MDA-MB-231,+ nb_depmap,3,36,0.7309,0.1483
+MDA-MB-231,+ nb_depmap,4,36,0.7232,0.1476
+MDA-MB-231,+ nb_depmap,5,36,0.7293,0.1546
+MDA-MB-231,+ nb_depmap,6,36,0.7271,0.1401
+MDA-MB-231,+ nb_depmap,7,36,0.7303,0.1499
+MDA-MB-231,+ nb_depmap,8,36,0.719,0.145
+MDA-MB-231,+ nb_depmap,9,36,0.7227,0.1482
+MDA-MB-231,+ nb_depmap,10,36,0.7193,0.1489
+MDA-MB-231,+ nb_depmap,11,36,0.7263,0.1474
+MDA-MB-231,+ nb_depmap,12,36,0.7232,0.1461
+MDA-MB-231,+ nb_depmap,13,36,0.7279,0.1477
+MDA-MB-231,+ nb_depmap,14,36,0.7246,0.1573
+MDA-MB-231,+ nb_depmap,15,36,0.7251,0.1515
+MDA-MB-231,+ nb_depmap,16,36,0.7291,0.146
+MDA-MB-231,+ nb_depmap,17,36,0.7252,0.145
+MDA-MB-231,+ nb_depmap,18,36,0.7282,0.1437
+MDA-MB-231,+ nb_depmap,19,36,0.7178,0.1546
+MDA-MB-231,+ nb_expr,0,39,0.7256,0.1441
+MDA-MB-231,+ nb_expr,1,39,0.727,0.1489
+MDA-MB-231,+ nb_expr,2,39,0.7253,0.144
+MDA-MB-231,+ nb_expr,3,39,0.7243,0.1483
+MDA-MB-231,+ nb_expr,4,39,0.7262,0.1514
+MDA-MB-231,+ nb_expr,5,39,0.729,0.1545
+MDA-MB-231,+ nb_expr,6,39,0.7286,0.1544
+MDA-MB-231,+ nb_expr,7,39,0.7268,0.1583
+MDA-MB-231,+ nb_expr,8,39,0.7271,0.1499
+MDA-MB-231,+ nb_expr,9,39,0.7155,0.1385
+MDA-MB-231,+ nb_expr,10,39,0.7365,0.1641
+MDA-MB-231,+ nb_expr,11,39,0.7198,0.1519
+MDA-MB-231,+ nb_expr,12,39,0.7331,0.1593
+MDA-MB-231,+ nb_expr,13,39,0.7286,0.1586
+MDA-MB-231,+ nb_expr,14,39,0.7269,0.1525
+MDA-MB-231,+ nb_expr,15,39,0.7288,0.1492
+MDA-MB-231,+ nb_expr,16,39,0.7272,0.161
+MDA-MB-231,+ nb_expr,17,39,0.7234,0.1474
+MDA-MB-231,+ nb_expr,18,39,0.7149,0.141
+MDA-MB-231,+ nb_expr,19,39,0.7229,0.1495
+MDA-MB-231,+ all neighbour,0,50,0.7356,0.1598
+MDA-MB-231,+ all neighbour,1,50,0.7339,0.161
+MDA-MB-231,+ all neighbour,2,50,0.727,0.1497
+MDA-MB-231,+ all neighbour,3,50,0.7327,0.1584
+MDA-MB-231,+ all neighbour,4,50,0.7238,0.1563
+MDA-MB-231,+ all neighbour,5,50,0.7246,0.1477
+MDA-MB-231,+ all neighbour,6,50,0.7229,0.1537
+MDA-MB-231,+ all neighbour,7,50,0.7254,0.152
+MDA-MB-231,+ all neighbour,8,50,0.7243,0.1559
+MDA-MB-231,+ all neighbour,9,50,0.7275,0.1614
+MDA-MB-231,+ all neighbour,10,50,0.7235,0.1585
+MDA-MB-231,+ all neighbour,11,50,0.7311,0.1646
+MDA-MB-231,+ all neighbour,12,50,0.7285,0.1593
+MDA-MB-231,+ all neighbour,13,50,0.7357,0.1655
+MDA-MB-231,+ all neighbour,14,50,0.7278,0.1606
+MDA-MB-231,+ all neighbour,15,50,0.7246,0.1616
+MDA-MB-231,+ all neighbour,16,50,0.7317,0.1576
+MDA-MB-231,+ all neighbour,17,50,0.7292,0.1604
+MDA-MB-231,+ all neighbour,18,50,0.7197,0.1534
+MDA-MB-231,+ all neighbour,19,50,0.7305,0.1565
+MDA-MB-231,neighbour only,0,21,0.5699,0.0453
+MDA-MB-231,neighbour only,1,21,0.5646,0.0447
+MDA-MB-231,neighbour only,2,21,0.5645,0.0426
+MDA-MB-231,neighbour only,3,21,0.5694,0.0391
+MDA-MB-231,neighbour only,4,21,0.5573,0.0394
+MDA-MB-231,neighbour only,5,21,0.5702,0.0423
+MDA-MB-231,neighbour only,6,21,0.555,0.0437
+MDA-MB-231,neighbour only,7,21,0.5666,0.0438
+MDA-MB-231,neighbour only,8,21,0.5587,0.0417
+MDA-MB-231,neighbour only,9,21,0.5603,0.045
+MDA-MB-231,neighbour only,10,21,0.5685,0.0501
+MDA-MB-231,neighbour only,11,21,0.5584,0.043
+MDA-MB-231,neighbour only,12,21,0.5613,0.046
+MDA-MB-231,neighbour only,13,21,0.5582,0.0413
+MDA-MB-231,neighbour only,14,21,0.5561,0.0411
+MDA-MB-231,neighbour only,15,21,0.5689,0.0431
+MDA-MB-231,neighbour only,16,21,0.557,0.0392
+MDA-MB-231,neighbour only,17,21,0.5535,0.0448
+MDA-MB-231,neighbour only,18,21,0.5571,0.0426
+MDA-MB-231,neighbour only,19,21,0.5694,0.0498
+MDA-MB-231,base + tissues,0,41,0.7283,0.154
+MDA-MB-231,base + tissues,1,41,0.724,0.1458
+MDA-MB-231,base + tissues,2,41,0.7226,0.1444
+MDA-MB-231,base + tissues,3,41,0.7192,0.1481
+MDA-MB-231,base + tissues,4,41,0.7173,0.1414
+MDA-MB-231,base + tissues,5,41,0.722,0.154
+MDA-MB-231,base + tissues,6,41,0.7255,0.1582
+MDA-MB-231,base + tissues,7,41,0.7295,0.1581
+MDA-MB-231,base + tissues,8,41,0.7246,0.144
+MDA-MB-231,base + tissues,9,41,0.7147,0.1411
+MDA-MB-231,base + tissues,10,41,0.7309,0.1566
+MDA-MB-231,base + tissues,11,41,0.7197,0.1483
+MDA-MB-231,base + tissues,12,41,0.7282,0.1549
+MDA-MB-231,base + tissues,13,41,0.7286,0.1555
+MDA-MB-231,base + tissues,14,41,0.7301,0.1527
+MDA-MB-231,base + tissues,15,41,0.7216,0.1485
+MDA-MB-231,base + tissues,16,41,0.7233,0.1526
+MDA-MB-231,base + tissues,17,41,0.7267,0.1482
+MDA-MB-231,base + tissues,18,41,0.7174,0.1448
+MDA-MB-231,base + tissues,19,41,0.7244,0.1497
+MDA-MB-231,+ all neighbour + tissues,0,57,0.7229,0.1593
+MDA-MB-231,+ all neighbour + tissues,1,57,0.7237,0.1582
+MDA-MB-231,+ all neighbour + tissues,2,57,0.7226,0.1466
+MDA-MB-231,+ all neighbour + tissues,3,57,0.7252,0.154
+MDA-MB-231,+ all neighbour + tissues,4,57,0.7259,0.1569
+MDA-MB-231,+ all neighbour + tissues,5,57,0.7288,0.1566
+MDA-MB-231,+ all neighbour + tissues,6,57,0.7272,0.1554
+MDA-MB-231,+ all neighbour + tissues,7,57,0.7312,0.1675
+MDA-MB-231,+ all neighbour + tissues,8,57,0.7282,0.1623
+MDA-MB-231,+ all neighbour + tissues,9,57,0.7194,0.1486
+MDA-MB-231,+ all neighbour + tissues,10,57,0.7258,0.1587
+MDA-MB-231,+ all neighbour + tissues,11,57,0.7272,0.1588
+MDA-MB-231,+ all neighbour + tissues,12,57,0.7338,0.1626
+MDA-MB-231,+ all neighbour + tissues,13,57,0.7236,0.1615
+MDA-MB-231,+ all neighbour + tissues,14,57,0.7193,0.1501
+MDA-MB-231,+ all neighbour + tissues,15,57,0.7215,0.1458
+MDA-MB-231,+ all neighbour + tissues,16,57,0.7305,0.1604
+MDA-MB-231,+ all neighbour + tissues,17,57,0.7233,0.1533
+MDA-MB-231,+ all neighbour + tissues,18,57,0.7251,0.1537
+MDA-MB-231,+ all neighbour + tissues,19,57,0.7223,0.1545
