@@ -1,0 +1,169 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,base (no neighbour),0,34,0.7265,0.1695
+HAP1,base (no neighbour),1,34,0.7236,0.159
+HAP1,base (no neighbour),2,34,0.7228,0.1565
+HAP1,base (no neighbour),3,34,0.7299,0.1688
+HAP1,base (no neighbour),4,34,0.722,0.1629
+HAP1,base (no neighbour),5,34,0.7239,0.163
+HAP1,base (no neighbour),6,34,0.7129,0.1411
+HAP1,base (no neighbour),7,34,0.7312,0.1693
+HAP1,+ nb_dist,0,36,0.7254,0.1718
+HAP1,+ nb_dist,1,36,0.7194,0.1556
+HAP1,+ nb_dist,2,36,0.7169,0.1551
+HAP1,+ nb_dist,3,36,0.7299,0.1707
+HAP1,+ nb_dist,4,36,0.7256,0.1702
+HAP1,+ nb_dist,5,36,0.7189,0.1595
+HAP1,+ nb_dist,6,36,0.7103,0.1469
+HAP1,+ nb_dist,7,36,0.7265,0.1671
+HAP1,+ nb_class,0,41,0.7149,0.1682
+HAP1,+ nb_class,1,41,0.7228,0.1608
+HAP1,+ nb_class,2,41,0.7178,0.1552
+HAP1,+ nb_class,3,41,0.7097,0.1466
+HAP1,+ nb_class,4,41,0.7205,0.155
+HAP1,+ nb_class,5,41,0.7261,0.1649
+HAP1,+ nb_class,6,41,0.7231,0.1674
+HAP1,+ nb_class,7,41,0.7169,0.1594
+HAP1,+ nb_depmap,0,36,0.7255,0.1716
+HAP1,+ nb_depmap,1,36,0.7175,0.1574
+HAP1,+ nb_depmap,2,36,0.7138,0.1556
+HAP1,+ nb_depmap,3,36,0.7257,0.1722
+HAP1,+ nb_depmap,4,36,0.7243,0.1688
+HAP1,+ nb_depmap,5,36,0.7158,0.1597
+HAP1,+ nb_depmap,6,36,0.71,0.147
+HAP1,+ nb_depmap,7,36,0.726,0.1682
+HAP1,+ nb_expr,0,39,0.7167,0.1578
+HAP1,+ nb_expr,1,39,0.7264,0.1619
+HAP1,+ nb_expr,2,39,0.7229,0.1538
+HAP1,+ nb_expr,3,39,0.7103,0.1483
+HAP1,+ nb_expr,4,39,0.7238,0.1571
+HAP1,+ nb_expr,5,39,0.7239,0.1565
+HAP1,+ nb_expr,6,39,0.7281,0.167
+HAP1,+ nb_expr,7,39,0.7212,0.1557
+HAP1,+ all neighbour,0,50,0.7175,0.1643
+HAP1,+ all neighbour,1,50,0.7228,0.167
+HAP1,+ all neighbour,2,50,0.7156,0.1624
+HAP1,+ all neighbour,3,50,0.7136,0.1655
+HAP1,+ all neighbour,4,50,0.7197,0.168
+HAP1,+ all neighbour,5,50,0.7138,0.1556
+HAP1,+ all neighbour,6,50,0.7146,0.1575
+HAP1,+ all neighbour,7,50,0.7201,0.1655
+HAP1,neighbour only,0,21,0.5589,0.0761
+HAP1,neighbour only,1,21,0.5648,0.0746
+HAP1,neighbour only,2,21,0.5675,0.0753
+HAP1,neighbour only,3,21,0.559,0.0727
+HAP1,neighbour only,4,21,0.5582,0.0809
+HAP1,neighbour only,5,21,0.56,0.0718
+HAP1,neighbour only,6,21,0.5665,0.077
+HAP1,neighbour only,7,21,0.5623,0.0721
+K562,base (no neighbour),0,34,0.7157,0.1753
+K562,base (no neighbour),1,34,0.7149,0.1713
+K562,base (no neighbour),2,34,0.7213,0.1826
+K562,base (no neighbour),3,34,0.7233,0.1784
+K562,base (no neighbour),4,34,0.7215,0.1797
+K562,base (no neighbour),5,34,0.7204,0.1809
+K562,base (no neighbour),6,34,0.7166,0.1752
+K562,base (no neighbour),7,34,0.7202,0.1769
+K562,+ nb_dist,0,36,0.7137,0.1766
+K562,+ nb_dist,1,36,0.7126,0.1771
+K562,+ nb_dist,2,36,0.7197,0.1805
+K562,+ nb_dist,3,36,0.7203,0.1773
+K562,+ nb_dist,4,36,0.7204,0.1776
+K562,+ nb_dist,5,36,0.7163,0.1783
+K562,+ nb_dist,6,36,0.7125,0.1751
+K562,+ nb_dist,7,36,0.7166,0.1761
+K562,+ nb_class,0,41,0.7056,0.1737
+K562,+ nb_class,1,41,0.7131,0.176
+K562,+ nb_class,2,41,0.7118,0.1726
+K562,+ nb_class,3,41,0.7176,0.1752
+K562,+ nb_class,4,41,0.712,0.1752
+K562,+ nb_class,5,41,0.7142,0.1749
+K562,+ nb_class,6,41,0.7085,0.1707
+K562,+ nb_class,7,41,0.719,0.1772
+K562,+ nb_depmap,0,36,0.7132,0.1762
+K562,+ nb_depmap,1,36,0.7129,0.1731
+K562,+ nb_depmap,2,36,0.7157,0.1778
+K562,+ nb_depmap,3,36,0.7177,0.1783
+K562,+ nb_depmap,4,36,0.7117,0.1754
+K562,+ nb_depmap,5,36,0.7124,0.1773
+K562,+ nb_depmap,6,36,0.714,0.175
+K562,+ nb_depmap,7,36,0.7154,0.1748
+K562,+ nb_expr,0,39,0.7082,0.1722
+K562,+ nb_expr,1,39,0.7117,0.1711
+K562,+ nb_expr,2,39,0.7167,0.177
+K562,+ nb_expr,3,39,0.7171,0.1744
+K562,+ nb_expr,4,39,0.7124,0.1758
+K562,+ nb_expr,5,39,0.7178,0.1761
+K562,+ nb_expr,6,39,0.71,0.1726
+K562,+ nb_expr,7,39,0.7126,0.1742
+K562,+ all neighbour,0,50,0.7095,0.1733
+K562,+ all neighbour,1,50,0.708,0.1715
+K562,+ all neighbour,2,50,0.7114,0.1715
+K562,+ all neighbour,3,50,0.7113,0.171
+K562,+ all neighbour,4,50,0.7146,0.1748
+K562,+ all neighbour,5,50,0.7129,0.1749
+K562,+ all neighbour,6,50,0.7084,0.1714
+K562,+ all neighbour,7,50,0.7025,0.1647
+K562,neighbour only,0,21,0.5554,0.0943
+K562,neighbour only,1,21,0.5537,0.0928
+K562,neighbour only,2,21,0.5573,0.0971
+K562,neighbour only,3,21,0.5431,0.0915
+K562,neighbour only,4,21,0.5579,0.0939
+K562,neighbour only,5,21,0.5504,0.093
+K562,neighbour only,6,21,0.5574,0.0938
+K562,neighbour only,7,21,0.5563,0.0925
+MDA-MB-231,base (no neighbour),0,34,0.7276,0.1524
+MDA-MB-231,base (no neighbour),1,34,0.726,0.1507
+MDA-MB-231,base (no neighbour),2,34,0.7167,0.1486
+MDA-MB-231,base (no neighbour),3,34,0.7297,0.1502
+MDA-MB-231,base (no neighbour),4,34,0.723,0.1466
+MDA-MB-231,base (no neighbour),5,34,0.727,0.1495
+MDA-MB-231,base (no neighbour),6,34,0.7226,0.1403
+MDA-MB-231,base (no neighbour),7,34,0.727,0.1512
+MDA-MB-231,+ nb_dist,0,36,0.7275,0.1601
+MDA-MB-231,+ nb_dist,1,36,0.7273,0.1543
+MDA-MB-231,+ nb_dist,2,36,0.7163,0.1566
+MDA-MB-231,+ nb_dist,3,36,0.7242,0.1513
+MDA-MB-231,+ nb_dist,4,36,0.7155,0.1514
+MDA-MB-231,+ nb_dist,5,36,0.7292,0.1541
+MDA-MB-231,+ nb_dist,6,36,0.7227,0.145
+MDA-MB-231,+ nb_dist,7,36,0.7285,0.1596
+MDA-MB-231,+ nb_class,0,41,0.7268,0.1542
+MDA-MB-231,+ nb_class,1,41,0.7217,0.1448
+MDA-MB-231,+ nb_class,2,41,0.7254,0.1476
+MDA-MB-231,+ nb_class,3,41,0.7236,0.1481
+MDA-MB-231,+ nb_class,4,41,0.7152,0.1394
+MDA-MB-231,+ nb_class,5,41,0.7242,0.1519
+MDA-MB-231,+ nb_class,6,41,0.7288,0.1598
+MDA-MB-231,+ nb_class,7,41,0.7318,0.1579
+MDA-MB-231,+ nb_depmap,0,36,0.7281,0.1574
+MDA-MB-231,+ nb_depmap,1,36,0.7252,0.1512
+MDA-MB-231,+ nb_depmap,2,36,0.719,0.1469
+MDA-MB-231,+ nb_depmap,3,36,0.7309,0.1483
+MDA-MB-231,+ nb_depmap,4,36,0.7232,0.1476
+MDA-MB-231,+ nb_depmap,5,36,0.7293,0.1546
+MDA-MB-231,+ nb_depmap,6,36,0.7271,0.1401
+MDA-MB-231,+ nb_depmap,7,36,0.7303,0.1499
+MDA-MB-231,+ nb_expr,0,39,0.7256,0.1441
+MDA-MB-231,+ nb_expr,1,39,0.727,0.1489
+MDA-MB-231,+ nb_expr,2,39,0.7253,0.144
+MDA-MB-231,+ nb_expr,3,39,0.7243,0.1483
+MDA-MB-231,+ nb_expr,4,39,0.7262,0.1514
+MDA-MB-231,+ nb_expr,5,39,0.729,0.1545
+MDA-MB-231,+ nb_expr,6,39,0.7286,0.1544
+MDA-MB-231,+ nb_expr,7,39,0.7268,0.1583
+MDA-MB-231,+ all neighbour,0,50,0.7356,0.1598
+MDA-MB-231,+ all neighbour,1,50,0.7339,0.161
+MDA-MB-231,+ all neighbour,2,50,0.727,0.1497
+MDA-MB-231,+ all neighbour,3,50,0.7327,0.1584
+MDA-MB-231,+ all neighbour,4,50,0.7238,0.1563
+MDA-MB-231,+ all neighbour,5,50,0.7246,0.1477
+MDA-MB-231,+ all neighbour,6,50,0.7229,0.1537
+MDA-MB-231,+ all neighbour,7,50,0.7254,0.152
+MDA-MB-231,neighbour only,0,21,0.5699,0.0453
+MDA-MB-231,neighbour only,1,21,0.5646,0.0447
+MDA-MB-231,neighbour only,2,21,0.5645,0.0426
+MDA-MB-231,neighbour only,3,21,0.5694,0.0391
+MDA-MB-231,neighbour only,4,21,0.5573,0.0394
+MDA-MB-231,neighbour only,5,21,0.5702,0.0423
+MDA-MB-231,neighbour only,6,21,0.555,0.0437
+MDA-MB-231,neighbour only,7,21,0.5666,0.0438
