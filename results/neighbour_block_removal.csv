@@ -1,0 +1,121 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,count only (current best),0,42,0.7253,0.1786
+HAP1,count only (current best),1,42,0.7286,0.1792
+HAP1,count only (current best),2,42,0.7182,0.1814
+HAP1,count only (current best),3,42,0.7248,0.1813
+HAP1,count only (current best),4,42,0.7191,0.1711
+HAP1,count only (current best),5,42,0.7234,0.1785
+HAP1,count only (current best),6,42,0.7175,0.1791
+HAP1,count only (current best),7,42,0.7211,0.1731
+HAP1,count only (current best),8,42,0.7255,0.1707
+HAP1,count only (current best),9,42,0.7183,0.1782
+HAP1,count only (current best),10,42,0.7199,0.1789
+HAP1,count only (current best),11,42,0.7227,0.1769
+HAP1,count only (current best),12,42,0.7285,0.1818
+HAP1,count only (current best),13,42,0.7202,0.1781
+HAP1,count only (current best),14,42,0.7334,0.1821
+HAP1,count only (current best),15,42,0.7156,0.1813
+HAP1,count only (current best),16,42,0.7261,0.1816
+HAP1,count only (current best),17,42,0.7239,0.1807
+HAP1,count only (current best),18,42,0.7219,0.1794
+HAP1,count only (current best),19,42,0.7262,0.18
+HAP1,minus nb_depmap,0,40,0.7303,0.1792
+HAP1,minus nb_depmap,1,40,0.7305,0.181
+HAP1,minus nb_depmap,2,40,0.7222,0.1813
+HAP1,minus nb_depmap,3,40,0.7285,0.187
+HAP1,minus nb_depmap,4,40,0.7303,0.1776
+HAP1,minus nb_depmap,5,40,0.7239,0.1738
+HAP1,minus nb_depmap,6,40,0.7251,0.1817
+HAP1,minus nb_depmap,7,40,0.7277,0.1783
+HAP1,minus nb_depmap,8,40,0.7257,0.1747
+HAP1,minus nb_depmap,9,40,0.7229,0.1817
+HAP1,minus nb_depmap,10,40,0.7254,0.1754
+HAP1,minus nb_depmap,11,40,0.7256,0.1794
+HAP1,minus nb_depmap,12,40,0.7294,0.1783
+HAP1,minus nb_depmap,13,40,0.7262,0.1782
+HAP1,minus nb_depmap,14,40,0.734,0.1842
+HAP1,minus nb_depmap,15,40,0.7308,0.1786
+HAP1,minus nb_depmap,16,40,0.7258,0.1829
+HAP1,minus nb_depmap,17,40,0.7254,0.1812
+HAP1,minus nb_depmap,18,40,0.7299,0.1798
+HAP1,minus nb_depmap,19,40,0.7247,0.1755
+K562,count only (current best),0,42,0.6894,0.1607
+K562,count only (current best),1,42,0.6889,0.1614
+K562,count only (current best),2,42,0.6957,0.1644
+K562,count only (current best),3,42,0.6913,0.1625
+K562,count only (current best),4,42,0.6961,0.1672
+K562,count only (current best),5,42,0.6954,0.1678
+K562,count only (current best),6,42,0.6967,0.164
+K562,count only (current best),7,42,0.69,0.1648
+K562,count only (current best),8,42,0.6898,0.1599
+K562,count only (current best),9,42,0.6933,0.1629
+K562,count only (current best),10,42,0.692,0.1609
+K562,count only (current best),11,42,0.6925,0.1635
+K562,count only (current best),12,42,0.6943,0.1647
+K562,count only (current best),13,42,0.6951,0.1663
+K562,count only (current best),14,42,0.688,0.1605
+K562,count only (current best),15,42,0.6903,0.1593
+K562,count only (current best),16,42,0.6902,0.1586
+K562,count only (current best),17,42,0.6896,0.1625
+K562,count only (current best),18,42,0.6893,0.1597
+K562,count only (current best),19,42,0.6917,0.1663
+K562,minus nb_depmap,0,40,0.6931,0.1601
+K562,minus nb_depmap,1,40,0.6919,0.1627
+K562,minus nb_depmap,2,40,0.6945,0.1611
+K562,minus nb_depmap,3,40,0.6931,0.1626
+K562,minus nb_depmap,4,40,0.6973,0.1642
+K562,minus nb_depmap,5,40,0.6959,0.1666
+K562,minus nb_depmap,6,40,0.6962,0.1634
+K562,minus nb_depmap,7,40,0.6924,0.1657
+K562,minus nb_depmap,8,40,0.6917,0.1622
+K562,minus nb_depmap,9,40,0.6961,0.1649
+K562,minus nb_depmap,10,40,0.694,0.1598
+K562,minus nb_depmap,11,40,0.6969,0.1657
+K562,minus nb_depmap,12,40,0.6971,0.1625
+K562,minus nb_depmap,13,40,0.6938,0.1635
+K562,minus nb_depmap,14,40,0.6954,0.1614
+K562,minus nb_depmap,15,40,0.6963,0.1641
+K562,minus nb_depmap,16,40,0.6929,0.1621
+K562,minus nb_depmap,17,40,0.6938,0.1603
+K562,minus nb_depmap,18,40,0.6907,0.1591
+K562,minus nb_depmap,19,40,0.6911,0.158
+MDA-MB-231,count only (current best),0,42,0.7443,0.1786
+MDA-MB-231,count only (current best),1,42,0.7415,0.1741
+MDA-MB-231,count only (current best),2,42,0.7393,0.1691
+MDA-MB-231,count only (current best),3,42,0.7355,0.1733
+MDA-MB-231,count only (current best),4,42,0.7461,0.1817
+MDA-MB-231,count only (current best),5,42,0.7344,0.171
+MDA-MB-231,count only (current best),6,42,0.7313,0.1776
+MDA-MB-231,count only (current best),7,42,0.7418,0.1785
+MDA-MB-231,count only (current best),8,42,0.7386,0.1812
+MDA-MB-231,count only (current best),9,42,0.7443,0.177
+MDA-MB-231,count only (current best),10,42,0.7384,0.1868
+MDA-MB-231,count only (current best),11,42,0.7432,0.1783
+MDA-MB-231,count only (current best),12,42,0.734,0.1766
+MDA-MB-231,count only (current best),13,42,0.7389,0.1811
+MDA-MB-231,count only (current best),14,42,0.7382,0.1781
+MDA-MB-231,count only (current best),15,42,0.7357,0.1729
+MDA-MB-231,count only (current best),16,42,0.7357,0.176
+MDA-MB-231,count only (current best),17,42,0.742,0.182
+MDA-MB-231,count only (current best),18,42,0.7406,0.1792
+MDA-MB-231,count only (current best),19,42,0.7324,0.1763
+MDA-MB-231,minus nb_depmap,0,40,0.7424,0.1776
+MDA-MB-231,minus nb_depmap,1,40,0.7366,0.1717
+MDA-MB-231,minus nb_depmap,2,40,0.7392,0.172
+MDA-MB-231,minus nb_depmap,3,40,0.7335,0.1715
+MDA-MB-231,minus nb_depmap,4,40,0.7442,0.1826
+MDA-MB-231,minus nb_depmap,5,40,0.7312,0.1706
+MDA-MB-231,minus nb_depmap,6,40,0.7344,0.177
+MDA-MB-231,minus nb_depmap,7,40,0.74,0.1794
+MDA-MB-231,minus nb_depmap,8,40,0.7391,0.173
+MDA-MB-231,minus nb_depmap,9,40,0.7378,0.1778
+MDA-MB-231,minus nb_depmap,10,40,0.7355,0.1725
+MDA-MB-231,minus nb_depmap,11,40,0.74,0.1778
+MDA-MB-231,minus nb_depmap,12,40,0.7359,0.1769
+MDA-MB-231,minus nb_depmap,13,40,0.739,0.1782
+MDA-MB-231,minus nb_depmap,14,40,0.7391,0.1781
+MDA-MB-231,minus nb_depmap,15,40,0.7386,0.1733
+MDA-MB-231,minus nb_depmap,16,40,0.7357,0.1738
+MDA-MB-231,minus nb_depmap,17,40,0.7376,0.1792
+MDA-MB-231,minus nb_depmap,18,40,0.7371,0.178
+MDA-MB-231,minus nb_depmap,19,40,0.7391,0.1726

@@ -63,6 +63,16 @@ _TISSUE = "tissue"
 _BASE = [_ONEHOT, _TPM, _GUIDE, _S1A_GENE]
 _ALL_NB = [_NB_DIST, _NB_CLASS, _NB_DEPMAP, _NB_EXPR]
 
+# The neighbour blocks the MODEL adopts, as opposed to _ALL_NB, which is the full set the
+# configs below exist to measure. nb_depmap is excluded: it is the neighbouring gene's Cas9
+# essentiality from DepMap, i.e. a measured knockdown outcome, and docs/PARTICIPATE.md now
+# bans measured depletion as an input feature. DepMap is a different assay on a different
+# gene in cell lines outside this screen, so it is arguably outside the letter of that rule
+# -- but it is not worth the argument, because it costs nothing to remove. Dropping it moves
+# training-line LOCO 0.1730 -> 0.1726 and wins 29/60 paired fold x seed runs, a coin flip
+# against a noise floor where one gene is worth ~0.005 (scripts/sweep_neighbour_block_removal.py).
+_MODEL_NB = [_NB_DIST, _NB_CLASS, _NB_EXPR]
+
 # The seven developmental tissues named in S1A's "Dynamic tissues" list. The model already
 # gets "Count dynamic tissues" (how many) inside s1a_gene; this asks whether WHICH tissues
 # matters. Motivated by the paper's own abstract, which reports that essential lncRNAs
