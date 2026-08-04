@@ -45,6 +45,12 @@ _INNER = "HumanRPKMs.txt"
 _MMC2 = REPO / "data/raw/mmc2.xlsx"
 _OUT = REPO / "data/external/sarropoulos_human_lncrna_rpkm.tsv.gz"
 
+# The proliferation markers Figure S11A correlates essential lncRNAs against. Kept in a
+# separate small file because they are protein-coding genes, not targets, and the main matrix
+# is keyed by lncRNA. Same 297 sample columns, so the two files align positionally.
+_MARKERS = {"ENSG00000132646": "PCNA", "ENSG00000148773": "MKI67"}
+_OUT_MARKERS = REPO / "data/external/sarropoulos_proliferation_markers.tsv.gz"
+
 
 def _targets() -> list[str]:
     s1a = pd.read_excel(_MMC2, sheet_name="S1A", header=2)
@@ -80,11 +86,13 @@ def main() -> None:
 
     with open(rpkm) as fh:
         header = fh.readline().rstrip("\n")
-        kept = {}
+        kept, markers = {}, {}
         for line in fh:
             gid, _, rest = line.partition("\t")
             if gid in want:
                 kept[gid] = rest.rstrip("\n")
+            elif gid in _MARKERS:
+                markers[gid] = rest.rstrip("\n")
 
     missing = [t for t in targets if t not in kept]
     print(f"matched {len(kept):,}/{len(targets):,} "
@@ -100,6 +108,18 @@ def main() -> None:
                 out.write(f"{t}\t{kept[t]}\n")
     print(f"-> {_OUT} ({_OUT.stat().st_size / 1e6:.1f} MB, "
           f"{len(header.split(chr(9)))} sample columns)")
+
+    missing_markers = [g for g in _MARKERS if g not in markers]
+    if missing_markers:
+        print(f"  WARNING markers not found: "
+              f"{[_MARKERS[g] for g in missing_markers]}", file=sys.stderr)
+    with gzip.open(_OUT_MARKERS, "wt") as out:
+        out.write("gene\tsymbol\t" + header + "\n")
+        for gid, sym in _MARKERS.items():
+            if gid in markers:
+                out.write(f"{gid}\t{sym}\t{markers[gid]}\n")
+    print(f"-> {_OUT_MARKERS} ({len(markers)}/{len(_MARKERS)} markers: "
+          f"{', '.join(_MARKERS[g] for g in markers)})")
 
     if not args.keep_download:
         shutil.rmtree(work, ignore_errors=True)
