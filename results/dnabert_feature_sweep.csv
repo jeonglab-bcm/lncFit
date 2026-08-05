@@ -1,0 +1,121 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,base (kmer),0,298,0.7248,0.1702
+HAP1,base (kmer),1,298,0.7217,0.163
+HAP1,base (kmer),2,298,0.7117,0.1577
+HAP1,base (kmer),3,298,0.7191,0.1578
+HAP1,base (kmer),4,298,0.7113,0.1552
+HAP1,base (kmer),5,298,0.7143,0.1605
+HAP1,base (kmer),6,298,0.7204,0.1656
+HAP1,base (kmer),7,298,0.7217,0.1682
+HAP1,base + dnabert,0,1066,0.7134,0.1563
+HAP1,base + dnabert,1,1066,0.7048,0.1615
+HAP1,base + dnabert,2,1066,0.7103,0.1701
+HAP1,base + dnabert,3,1066,0.7162,0.1679
+HAP1,base + dnabert,4,1066,0.7164,0.1703
+HAP1,base + dnabert,5,1066,0.7076,0.1623
+HAP1,base + dnabert,6,1066,0.7072,0.159
+HAP1,base + dnabert,7,1066,0.7083,0.1526
+HAP1,dnabert replaces kmer,0,810,0.7112,0.1605
+HAP1,dnabert replaces kmer,1,810,0.7003,0.1501
+HAP1,dnabert replaces kmer,2,810,0.7028,0.151
+HAP1,dnabert replaces kmer,3,810,0.7076,0.1597
+HAP1,dnabert replaces kmer,4,810,0.7016,0.1548
+HAP1,dnabert replaces kmer,5,810,0.7057,0.1555
+HAP1,dnabert replaces kmer,6,810,0.7068,0.1564
+HAP1,dnabert replaces kmer,7,810,0.701,0.1477
+HAP1,no sequence at all,0,42,0.7269,0.1628
+HAP1,no sequence at all,1,42,0.7204,0.1629
+HAP1,no sequence at all,2,42,0.7165,0.158
+HAP1,no sequence at all,3,42,0.7241,0.1651
+HAP1,no sequence at all,4,42,0.7178,0.1596
+HAP1,no sequence at all,5,42,0.7117,0.1528
+HAP1,no sequence at all,6,42,0.7125,0.1453
+HAP1,no sequence at all,7,42,0.7143,0.1552
+HAP1,dnabert + onehot only,0,773,0.6188,0.1206
+HAP1,dnabert + onehot only,1,773,0.6352,0.1309
+HAP1,dnabert + onehot only,2,773,0.6284,0.1214
+HAP1,dnabert + onehot only,3,773,0.6184,0.1302
+HAP1,dnabert + onehot only,4,773,0.627,0.1174
+HAP1,dnabert + onehot only,5,773,0.6273,0.1241
+HAP1,dnabert + onehot only,6,773,0.6324,0.1199
+HAP1,dnabert + onehot only,7,773,0.6246,0.1264
+K562,base (kmer),0,298,0.6709,0.16
+K562,base (kmer),1,298,0.6625,0.1537
+K562,base (kmer),2,298,0.6586,0.1534
+K562,base (kmer),3,298,0.6772,0.1596
+K562,base (kmer),4,298,0.6775,0.1591
+K562,base (kmer),5,298,0.6561,0.1551
+K562,base (kmer),6,298,0.6701,0.1574
+K562,base (kmer),7,298,0.6677,0.1557
+K562,base + dnabert,0,1066,0.6693,0.1575
+K562,base + dnabert,1,1066,0.659,0.1544
+K562,base + dnabert,2,1066,0.6669,0.1528
+K562,base + dnabert,3,1066,0.6612,0.1505
+K562,base + dnabert,4,1066,0.6679,0.1543
+K562,base + dnabert,5,1066,0.6746,0.1594
+K562,base + dnabert,6,1066,0.6679,0.1571
+K562,base + dnabert,7,1066,0.6637,0.156
+K562,dnabert replaces kmer,0,810,0.6671,0.1592
+K562,dnabert replaces kmer,1,810,0.6664,0.1625
+K562,dnabert replaces kmer,2,810,0.6735,0.1568
+K562,dnabert replaces kmer,3,810,0.6674,0.157
+K562,dnabert replaces kmer,4,810,0.68,0.1611
+K562,dnabert replaces kmer,5,810,0.6664,0.1578
+K562,dnabert replaces kmer,6,810,0.6731,0.1582
+K562,dnabert replaces kmer,7,810,0.6653,0.1555
+K562,no sequence at all,0,42,0.7183,0.1725
+K562,no sequence at all,1,42,0.7071,0.1704
+K562,no sequence at all,2,42,0.7174,0.1718
+K562,no sequence at all,3,42,0.7131,0.1756
+K562,no sequence at all,4,42,0.7091,0.1736
+K562,no sequence at all,5,42,0.7162,0.1774
+K562,no sequence at all,6,42,0.7127,0.1759
+K562,no sequence at all,7,42,0.7135,0.1759
+K562,dnabert + onehot only,0,773,0.5906,0.135
+K562,dnabert + onehot only,1,773,0.5726,0.1281
+K562,dnabert + onehot only,2,773,0.575,0.1331
+K562,dnabert + onehot only,3,773,0.565,0.1293
+K562,dnabert + onehot only,4,773,0.5985,0.1364
+K562,dnabert + onehot only,5,773,0.5613,0.1295
+K562,dnabert + onehot only,6,773,0.576,0.1308
+K562,dnabert + onehot only,7,773,0.5813,0.1337
+MDA-MB-231,base (kmer),0,298,0.7435,0.1584
+MDA-MB-231,base (kmer),1,298,0.7497,0.1548
+MDA-MB-231,base (kmer),2,298,0.7487,0.1512
+MDA-MB-231,base (kmer),3,298,0.7487,0.1515
+MDA-MB-231,base (kmer),4,298,0.7496,0.1584
+MDA-MB-231,base (kmer),5,298,0.747,0.1535
+MDA-MB-231,base (kmer),6,298,0.7539,0.1461
+MDA-MB-231,base (kmer),7,298,0.7526,0.1563
+MDA-MB-231,base + dnabert,0,1066,0.7514,0.14
+MDA-MB-231,base + dnabert,1,1066,0.747,0.1516
+MDA-MB-231,base + dnabert,2,1066,0.7444,0.1569
+MDA-MB-231,base + dnabert,3,1066,0.748,0.1482
+MDA-MB-231,base + dnabert,4,1066,0.742,0.1557
+MDA-MB-231,base + dnabert,5,1066,0.7422,0.1429
+MDA-MB-231,base + dnabert,6,1066,0.736,0.1333
+MDA-MB-231,base + dnabert,7,1066,0.7424,0.1358
+MDA-MB-231,dnabert replaces kmer,0,810,0.7442,0.1466
+MDA-MB-231,dnabert replaces kmer,1,810,0.7418,0.159
+MDA-MB-231,dnabert replaces kmer,2,810,0.7309,0.1482
+MDA-MB-231,dnabert replaces kmer,3,810,0.7317,0.1408
+MDA-MB-231,dnabert replaces kmer,4,810,0.7347,0.1546
+MDA-MB-231,dnabert replaces kmer,5,810,0.7421,0.1514
+MDA-MB-231,dnabert replaces kmer,6,810,0.7336,0.1478
+MDA-MB-231,dnabert replaces kmer,7,810,0.7324,0.1386
+MDA-MB-231,no sequence at all,0,42,0.7223,0.1535
+MDA-MB-231,no sequence at all,1,42,0.7241,0.1499
+MDA-MB-231,no sequence at all,2,42,0.7177,0.1505
+MDA-MB-231,no sequence at all,3,42,0.7246,0.1536
+MDA-MB-231,no sequence at all,4,42,0.7195,0.1488
+MDA-MB-231,no sequence at all,5,42,0.7175,0.1473
+MDA-MB-231,no sequence at all,6,42,0.7203,0.1466
+MDA-MB-231,no sequence at all,7,42,0.7153,0.1366
+MDA-MB-231,dnabert + onehot only,0,773,0.6695,0.0941
+MDA-MB-231,dnabert + onehot only,1,773,0.667,0.0969
+MDA-MB-231,dnabert + onehot only,2,773,0.658,0.0903
+MDA-MB-231,dnabert + onehot only,3,773,0.6724,0.1016
+MDA-MB-231,dnabert + onehot only,4,773,0.6683,0.1093
+MDA-MB-231,dnabert + onehot only,5,773,0.6666,0.0974
+MDA-MB-231,dnabert + onehot only,6,773,0.666,0.0899
+MDA-MB-231,dnabert + onehot only,7,773,0.6571,0.0947

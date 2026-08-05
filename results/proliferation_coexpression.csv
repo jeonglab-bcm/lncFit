@@ -1,0 +1,241 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,"base (current best, 40)",0,40,0.7303,0.1792
+HAP1,"base (current best, 40)",1,40,0.7305,0.181
+HAP1,"base (current best, 40)",2,40,0.7222,0.1813
+HAP1,"base (current best, 40)",3,40,0.7285,0.187
+HAP1,"base (current best, 40)",4,40,0.7303,0.1776
+HAP1,"base (current best, 40)",5,40,0.7239,0.1738
+HAP1,"base (current best, 40)",6,40,0.7251,0.1817
+HAP1,"base (current best, 40)",7,40,0.7277,0.1783
+HAP1,"base (current best, 40)",8,40,0.7257,0.1747
+HAP1,"base (current best, 40)",9,40,0.7229,0.1817
+HAP1,"base (current best, 40)",10,40,0.7254,0.1754
+HAP1,"base (current best, 40)",11,40,0.7256,0.1794
+HAP1,"base (current best, 40)",12,40,0.7294,0.1783
+HAP1,"base (current best, 40)",13,40,0.7262,0.1782
+HAP1,"base (current best, 40)",14,40,0.734,0.1842
+HAP1,"base (current best, 40)",15,40,0.7308,0.1786
+HAP1,"base (current best, 40)",16,40,0.7258,0.1829
+HAP1,"base (current best, 40)",17,40,0.7254,0.1812
+HAP1,"base (current best, 40)",18,40,0.7299,0.1798
+HAP1,"base (current best, 40)",19,40,0.7247,0.1755
+HAP1,+ prolif_all,0,43,0.722,0.1695
+HAP1,+ prolif_all,1,43,0.7178,0.1653
+HAP1,+ prolif_all,2,43,0.7244,0.1788
+HAP1,+ prolif_all,3,43,0.7202,0.1688
+HAP1,+ prolif_all,4,43,0.7234,0.1727
+HAP1,+ prolif_all,5,43,0.7218,0.1731
+HAP1,+ prolif_all,6,43,0.7212,0.1727
+HAP1,+ prolif_all,7,43,0.7238,0.1688
+HAP1,+ prolif_all,8,43,0.7212,0.1717
+HAP1,+ prolif_all,9,43,0.7265,0.1756
+HAP1,+ prolif_all,10,43,0.728,0.1775
+HAP1,+ prolif_all,11,43,0.722,0.1775
+HAP1,+ prolif_all,12,43,0.7249,0.1731
+HAP1,+ prolif_all,13,43,0.7274,0.1762
+HAP1,+ prolif_all,14,43,0.7234,0.1752
+HAP1,+ prolif_all,15,43,0.7255,0.174
+HAP1,+ prolif_all,16,43,0.7287,0.1747
+HAP1,+ prolif_all,17,43,0.7266,0.1735
+HAP1,+ prolif_all,18,43,0.7189,0.1702
+HAP1,+ prolif_all,19,43,0.7252,0.1731
+HAP1,+ prolif_organ,0,44,0.7235,0.1706
+HAP1,+ prolif_organ,1,44,0.7282,0.1732
+HAP1,+ prolif_organ,2,44,0.7232,0.175
+HAP1,+ prolif_organ,3,44,0.7277,0.1771
+HAP1,+ prolif_organ,4,44,0.722,0.1721
+HAP1,+ prolif_organ,5,44,0.7195,0.1709
+HAP1,+ prolif_organ,6,44,0.724,0.1687
+HAP1,+ prolif_organ,7,44,0.7283,0.1783
+HAP1,+ prolif_organ,8,44,0.7273,0.1734
+HAP1,+ prolif_organ,9,44,0.7255,0.1684
+HAP1,+ prolif_organ,10,44,0.7273,0.1715
+HAP1,+ prolif_organ,11,44,0.7264,0.1706
+HAP1,+ prolif_organ,12,44,0.7231,0.1798
+HAP1,+ prolif_organ,13,44,0.7201,0.1754
+HAP1,+ prolif_organ,14,44,0.7265,0.1797
+HAP1,+ prolif_organ,15,44,0.7282,0.1746
+HAP1,+ prolif_organ,16,44,0.7261,0.1764
+HAP1,+ prolif_organ,17,44,0.7213,0.1796
+HAP1,+ prolif_organ,18,44,0.7211,0.1725
+HAP1,+ prolif_organ,19,44,0.7238,0.1741
+HAP1,+ all proliferation,0,47,0.7253,0.1713
+HAP1,+ all proliferation,1,47,0.7213,0.1666
+HAP1,+ all proliferation,2,47,0.7159,0.1713
+HAP1,+ all proliferation,3,47,0.7171,0.1662
+HAP1,+ all proliferation,4,47,0.722,0.1665
+HAP1,+ all proliferation,5,47,0.7231,0.1699
+HAP1,+ all proliferation,6,47,0.7169,0.164
+HAP1,+ all proliferation,7,47,0.7214,0.1728
+HAP1,+ all proliferation,8,47,0.7199,0.1678
+HAP1,+ all proliferation,9,47,0.725,0.1692
+HAP1,+ all proliferation,10,47,0.7252,0.1729
+HAP1,+ all proliferation,11,47,0.7235,0.17
+HAP1,+ all proliferation,12,47,0.722,0.1664
+HAP1,+ all proliferation,13,47,0.7224,0.1642
+HAP1,+ all proliferation,14,47,0.7221,0.1709
+HAP1,+ all proliferation,15,47,0.7255,0.1746
+HAP1,+ all proliferation,16,47,0.7238,0.1644
+HAP1,+ all proliferation,17,47,0.724,0.1739
+HAP1,+ all proliferation,18,47,0.7234,0.1712
+HAP1,+ all proliferation,19,47,0.7249,0.169
+K562,"base (current best, 40)",0,40,0.6931,0.1601
+K562,"base (current best, 40)",1,40,0.6919,0.1627
+K562,"base (current best, 40)",2,40,0.6945,0.1611
+K562,"base (current best, 40)",3,40,0.6931,0.1626
+K562,"base (current best, 40)",4,40,0.6973,0.1642
+K562,"base (current best, 40)",5,40,0.6959,0.1666
+K562,"base (current best, 40)",6,40,0.6962,0.1634
+K562,"base (current best, 40)",7,40,0.6924,0.1657
+K562,"base (current best, 40)",8,40,0.6917,0.1622
+K562,"base (current best, 40)",9,40,0.6961,0.1649
+K562,"base (current best, 40)",10,40,0.694,0.1598
+K562,"base (current best, 40)",11,40,0.6969,0.1657
+K562,"base (current best, 40)",12,40,0.6971,0.1625
+K562,"base (current best, 40)",13,40,0.6938,0.1635
+K562,"base (current best, 40)",14,40,0.6954,0.1614
+K562,"base (current best, 40)",15,40,0.6963,0.1641
+K562,"base (current best, 40)",16,40,0.6929,0.1621
+K562,"base (current best, 40)",17,40,0.6938,0.1603
+K562,"base (current best, 40)",18,40,0.6907,0.1591
+K562,"base (current best, 40)",19,40,0.6911,0.158
+K562,+ prolif_all,0,43,0.689,0.1569
+K562,+ prolif_all,1,43,0.6948,0.1647
+K562,+ prolif_all,2,43,0.6947,0.1643
+K562,+ prolif_all,3,43,0.6998,0.1648
+K562,+ prolif_all,4,43,0.6899,0.1587
+K562,+ prolif_all,5,43,0.6986,0.1638
+K562,+ prolif_all,6,43,0.6919,0.1619
+K562,+ prolif_all,7,43,0.6926,0.1617
+K562,+ prolif_all,8,43,0.6957,0.163
+K562,+ prolif_all,9,43,0.6909,0.1585
+K562,+ prolif_all,10,43,0.6945,0.1637
+K562,+ prolif_all,11,43,0.6951,0.1627
+K562,+ prolif_all,12,43,0.6954,0.1648
+K562,+ prolif_all,13,43,0.6951,0.1606
+K562,+ prolif_all,14,43,0.6928,0.1615
+K562,+ prolif_all,15,43,0.6888,0.1576
+K562,+ prolif_all,16,43,0.692,0.1611
+K562,+ prolif_all,17,43,0.6936,0.1593
+K562,+ prolif_all,18,43,0.6939,0.1542
+K562,+ prolif_all,19,43,0.6939,0.1608
+K562,+ prolif_organ,0,44,0.6902,0.1646
+K562,+ prolif_organ,1,44,0.6925,0.163
+K562,+ prolif_organ,2,44,0.6895,0.1649
+K562,+ prolif_organ,3,44,0.6888,0.1612
+K562,+ prolif_organ,4,44,0.6886,0.1631
+K562,+ prolif_organ,5,44,0.6892,0.1616
+K562,+ prolif_organ,6,44,0.6886,0.163
+K562,+ prolif_organ,7,44,0.6908,0.1654
+K562,+ prolif_organ,8,44,0.6897,0.1651
+K562,+ prolif_organ,9,44,0.6959,0.1669
+K562,+ prolif_organ,10,44,0.6907,0.1635
+K562,+ prolif_organ,11,44,0.692,0.1663
+K562,+ prolif_organ,12,44,0.691,0.1658
+K562,+ prolif_organ,13,44,0.6914,0.1663
+K562,+ prolif_organ,14,44,0.6889,0.1611
+K562,+ prolif_organ,15,44,0.6865,0.1627
+K562,+ prolif_organ,16,44,0.6887,0.1638
+K562,+ prolif_organ,17,44,0.6903,0.1621
+K562,+ prolif_organ,18,44,0.6881,0.1607
+K562,+ prolif_organ,19,44,0.6877,0.1627
+K562,+ all proliferation,0,47,0.6871,0.1647
+K562,+ all proliferation,1,47,0.6873,0.1633
+K562,+ all proliferation,2,47,0.6874,0.1585
+K562,+ all proliferation,3,47,0.6919,0.1642
+K562,+ all proliferation,4,47,0.6874,0.1608
+K562,+ all proliferation,5,47,0.6931,0.1647
+K562,+ all proliferation,6,47,0.6925,0.1646
+K562,+ all proliferation,7,47,0.6892,0.1635
+K562,+ all proliferation,8,47,0.688,0.1636
+K562,+ all proliferation,9,47,0.6905,0.163
+K562,+ all proliferation,10,47,0.6893,0.1643
+K562,+ all proliferation,11,47,0.6885,0.163
+K562,+ all proliferation,12,47,0.6926,0.1669
+K562,+ all proliferation,13,47,0.693,0.1647
+K562,+ all proliferation,14,47,0.6893,0.1617
+K562,+ all proliferation,15,47,0.685,0.1551
+K562,+ all proliferation,16,47,0.6864,0.1647
+K562,+ all proliferation,17,47,0.6922,0.1649
+K562,+ all proliferation,18,47,0.6891,0.1553
+K562,+ all proliferation,19,47,0.6875,0.1627
+MDA-MB-231,"base (current best, 40)",0,40,0.7424,0.1776
+MDA-MB-231,"base (current best, 40)",1,40,0.7366,0.1717
+MDA-MB-231,"base (current best, 40)",2,40,0.7392,0.172
+MDA-MB-231,"base (current best, 40)",3,40,0.7335,0.1715
+MDA-MB-231,"base (current best, 40)",4,40,0.7442,0.1826
+MDA-MB-231,"base (current best, 40)",5,40,0.7312,0.1706
+MDA-MB-231,"base (current best, 40)",6,40,0.7344,0.177
+MDA-MB-231,"base (current best, 40)",7,40,0.74,0.1794
+MDA-MB-231,"base (current best, 40)",8,40,0.7391,0.173
+MDA-MB-231,"base (current best, 40)",9,40,0.7378,0.1778
+MDA-MB-231,"base (current best, 40)",10,40,0.7355,0.1725
+MDA-MB-231,"base (current best, 40)",11,40,0.74,0.1778
+MDA-MB-231,"base (current best, 40)",12,40,0.7359,0.1769
+MDA-MB-231,"base (current best, 40)",13,40,0.739,0.1782
+MDA-MB-231,"base (current best, 40)",14,40,0.7391,0.1781
+MDA-MB-231,"base (current best, 40)",15,40,0.7386,0.1733
+MDA-MB-231,"base (current best, 40)",16,40,0.7357,0.1738
+MDA-MB-231,"base (current best, 40)",17,40,0.7376,0.1792
+MDA-MB-231,"base (current best, 40)",18,40,0.7371,0.178
+MDA-MB-231,"base (current best, 40)",19,40,0.7391,0.1726
+MDA-MB-231,+ prolif_all,0,43,0.7404,0.182
+MDA-MB-231,+ prolif_all,1,43,0.7315,0.1835
+MDA-MB-231,+ prolif_all,2,43,0.7404,0.1894
+MDA-MB-231,+ prolif_all,3,43,0.7354,0.1736
+MDA-MB-231,+ prolif_all,4,43,0.7392,0.1836
+MDA-MB-231,+ prolif_all,5,43,0.7381,0.1813
+MDA-MB-231,+ prolif_all,6,43,0.7452,0.195
+MDA-MB-231,+ prolif_all,7,43,0.7372,0.1834
+MDA-MB-231,+ prolif_all,8,43,0.7359,0.1818
+MDA-MB-231,+ prolif_all,9,43,0.7306,0.1718
+MDA-MB-231,+ prolif_all,10,43,0.7379,0.1816
+MDA-MB-231,+ prolif_all,11,43,0.7416,0.185
+MDA-MB-231,+ prolif_all,12,43,0.7428,0.1937
+MDA-MB-231,+ prolif_all,13,43,0.7369,0.1759
+MDA-MB-231,+ prolif_all,14,43,0.7388,0.1812
+MDA-MB-231,+ prolif_all,15,43,0.7405,0.1927
+MDA-MB-231,+ prolif_all,16,43,0.7298,0.1772
+MDA-MB-231,+ prolif_all,17,43,0.734,0.1785
+MDA-MB-231,+ prolif_all,18,43,0.731,0.1705
+MDA-MB-231,+ prolif_all,19,43,0.7401,0.1896
+MDA-MB-231,+ prolif_organ,0,44,0.7445,0.1859
+MDA-MB-231,+ prolif_organ,1,44,0.7367,0.1749
+MDA-MB-231,+ prolif_organ,2,44,0.7413,0.1777
+MDA-MB-231,+ prolif_organ,3,44,0.743,0.1914
+MDA-MB-231,+ prolif_organ,4,44,0.7434,0.1874
+MDA-MB-231,+ prolif_organ,5,44,0.7441,0.1887
+MDA-MB-231,+ prolif_organ,6,44,0.7378,0.1821
+MDA-MB-231,+ prolif_organ,7,44,0.7349,0.1751
+MDA-MB-231,+ prolif_organ,8,44,0.7446,0.1915
+MDA-MB-231,+ prolif_organ,9,44,0.7423,0.1884
+MDA-MB-231,+ prolif_organ,10,44,0.7369,0.1861
+MDA-MB-231,+ prolif_organ,11,44,0.7504,0.194
+MDA-MB-231,+ prolif_organ,12,44,0.7356,0.1853
+MDA-MB-231,+ prolif_organ,13,44,0.7407,0.1834
+MDA-MB-231,+ prolif_organ,14,44,0.7415,0.1896
+MDA-MB-231,+ prolif_organ,15,44,0.7405,0.1773
+MDA-MB-231,+ prolif_organ,16,44,0.7359,0.1798
+MDA-MB-231,+ prolif_organ,17,44,0.7468,0.1903
+MDA-MB-231,+ prolif_organ,18,44,0.7423,0.1836
+MDA-MB-231,+ prolif_organ,19,44,0.7406,0.1876
+MDA-MB-231,+ all proliferation,0,47,0.7423,0.1852
+MDA-MB-231,+ all proliferation,1,47,0.7334,0.1746
+MDA-MB-231,+ all proliferation,2,47,0.7402,0.1979
+MDA-MB-231,+ all proliferation,3,47,0.7381,0.1769
+MDA-MB-231,+ all proliferation,4,47,0.751,0.1988
+MDA-MB-231,+ all proliferation,5,47,0.7356,0.1906
+MDA-MB-231,+ all proliferation,6,47,0.7399,0.1834
+MDA-MB-231,+ all proliferation,7,47,0.7387,0.1862
+MDA-MB-231,+ all proliferation,8,47,0.7358,0.188
+MDA-MB-231,+ all proliferation,9,47,0.7368,0.1827
+MDA-MB-231,+ all proliferation,10,47,0.7436,0.1835
+MDA-MB-231,+ all proliferation,11,47,0.7431,0.1854
+MDA-MB-231,+ all proliferation,12,47,0.7344,0.188
+MDA-MB-231,+ all proliferation,13,47,0.7442,0.1805
+MDA-MB-231,+ all proliferation,14,47,0.7393,0.1891
+MDA-MB-231,+ all proliferation,15,47,0.7368,0.191
+MDA-MB-231,+ all proliferation,16,47,0.7336,0.1812
+MDA-MB-231,+ all proliferation,17,47,0.7412,0.1858
+MDA-MB-231,+ all proliferation,18,47,0.7299,0.1758
+MDA-MB-231,+ all proliferation,19,47,0.7429,0.1885

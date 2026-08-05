@@ -1,0 +1,121 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,base (with Age),0,40,0.7303,0.1792
+HAP1,base (with Age),1,40,0.7305,0.181
+HAP1,base (with Age),2,40,0.7222,0.1813
+HAP1,base (with Age),3,40,0.7285,0.187
+HAP1,base (with Age),4,40,0.7303,0.1776
+HAP1,base (with Age),5,40,0.7239,0.1738
+HAP1,base (with Age),6,40,0.7251,0.1817
+HAP1,base (with Age),7,40,0.7277,0.1783
+HAP1,base (with Age),8,40,0.7257,0.1747
+HAP1,base (with Age),9,40,0.7229,0.1817
+HAP1,base (with Age),10,40,0.7254,0.1754
+HAP1,base (with Age),11,40,0.7256,0.1794
+HAP1,base (with Age),12,40,0.7294,0.1783
+HAP1,base (with Age),13,40,0.7262,0.1782
+HAP1,base (with Age),14,40,0.734,0.1842
+HAP1,base (with Age),15,40,0.7308,0.1786
+HAP1,base (with Age),16,40,0.7258,0.1829
+HAP1,base (with Age),17,40,0.7254,0.1812
+HAP1,base (with Age),18,40,0.7299,0.1798
+HAP1,base (with Age),19,40,0.7247,0.1755
+HAP1,minus Age,0,33,0.7257,0.1706
+HAP1,minus Age,1,33,0.7267,0.1728
+HAP1,minus Age,2,33,0.7274,0.1712
+HAP1,minus Age,3,33,0.7191,0.1697
+HAP1,minus Age,4,33,0.7283,0.1771
+HAP1,minus Age,5,33,0.7239,0.1692
+HAP1,minus Age,6,33,0.7302,0.1801
+HAP1,minus Age,7,33,0.7205,0.1665
+HAP1,minus Age,8,33,0.7269,0.1714
+HAP1,minus Age,9,33,0.7308,0.1712
+HAP1,minus Age,10,33,0.7246,0.1788
+HAP1,minus Age,11,33,0.7278,0.1823
+HAP1,minus Age,12,33,0.7257,0.1748
+HAP1,minus Age,13,33,0.7297,0.1728
+HAP1,minus Age,14,33,0.7275,0.1718
+HAP1,minus Age,15,33,0.7256,0.1741
+HAP1,minus Age,16,33,0.7252,0.1775
+HAP1,minus Age,17,33,0.7293,0.1815
+HAP1,minus Age,18,33,0.7206,0.1735
+HAP1,minus Age,19,33,0.7217,0.1661
+K562,base (with Age),0,40,0.6931,0.1601
+K562,base (with Age),1,40,0.6919,0.1627
+K562,base (with Age),2,40,0.6945,0.1611
+K562,base (with Age),3,40,0.6931,0.1626
+K562,base (with Age),4,40,0.6973,0.1642
+K562,base (with Age),5,40,0.6959,0.1666
+K562,base (with Age),6,40,0.6962,0.1634
+K562,base (with Age),7,40,0.6924,0.1657
+K562,base (with Age),8,40,0.6917,0.1622
+K562,base (with Age),9,40,0.6961,0.1649
+K562,base (with Age),10,40,0.694,0.1598
+K562,base (with Age),11,40,0.6969,0.1657
+K562,base (with Age),12,40,0.6971,0.1625
+K562,base (with Age),13,40,0.6938,0.1635
+K562,base (with Age),14,40,0.6954,0.1614
+K562,base (with Age),15,40,0.6963,0.1641
+K562,base (with Age),16,40,0.6929,0.1621
+K562,base (with Age),17,40,0.6938,0.1603
+K562,base (with Age),18,40,0.6907,0.1591
+K562,base (with Age),19,40,0.6911,0.158
+K562,minus Age,0,33,0.6885,0.154
+K562,minus Age,1,33,0.6941,0.1591
+K562,minus Age,2,33,0.6901,0.1583
+K562,minus Age,3,33,0.6925,0.1628
+K562,minus Age,4,33,0.6893,0.1585
+K562,minus Age,5,33,0.6908,0.1541
+K562,minus Age,6,33,0.693,0.1598
+K562,minus Age,7,33,0.6929,0.1627
+K562,minus Age,8,33,0.6893,0.1561
+K562,minus Age,9,33,0.696,0.1617
+K562,minus Age,10,33,0.6924,0.1598
+K562,minus Age,11,33,0.6911,0.1586
+K562,minus Age,12,33,0.6917,0.1584
+K562,minus Age,13,33,0.6925,0.16
+K562,minus Age,14,33,0.6952,0.1601
+K562,minus Age,15,33,0.6931,0.1604
+K562,minus Age,16,33,0.6867,0.1566
+K562,minus Age,17,33,0.695,0.1621
+K562,minus Age,18,33,0.6936,0.1586
+K562,minus Age,19,33,0.6912,0.16
+MDA-MB-231,base (with Age),0,40,0.7424,0.1776
+MDA-MB-231,base (with Age),1,40,0.7366,0.1717
+MDA-MB-231,base (with Age),2,40,0.7392,0.172
+MDA-MB-231,base (with Age),3,40,0.7335,0.1715
+MDA-MB-231,base (with Age),4,40,0.7442,0.1826
+MDA-MB-231,base (with Age),5,40,0.7312,0.1706
+MDA-MB-231,base (with Age),6,40,0.7344,0.177
+MDA-MB-231,base (with Age),7,40,0.74,0.1794
+MDA-MB-231,base (with Age),8,40,0.7391,0.173
+MDA-MB-231,base (with Age),9,40,0.7378,0.1778
+MDA-MB-231,base (with Age),10,40,0.7355,0.1725
+MDA-MB-231,base (with Age),11,40,0.74,0.1778
+MDA-MB-231,base (with Age),12,40,0.7359,0.1769
+MDA-MB-231,base (with Age),13,40,0.739,0.1782
+MDA-MB-231,base (with Age),14,40,0.7391,0.1781
+MDA-MB-231,base (with Age),15,40,0.7386,0.1733
+MDA-MB-231,base (with Age),16,40,0.7357,0.1738
+MDA-MB-231,base (with Age),17,40,0.7376,0.1792
+MDA-MB-231,base (with Age),18,40,0.7371,0.178
+MDA-MB-231,base (with Age),19,40,0.7391,0.1726
+MDA-MB-231,minus Age,0,33,0.7341,0.1807
+MDA-MB-231,minus Age,1,33,0.7239,0.1665
+MDA-MB-231,minus Age,2,33,0.7323,0.1726
+MDA-MB-231,minus Age,3,33,0.7347,0.1699
+MDA-MB-231,minus Age,4,33,0.7364,0.1753
+MDA-MB-231,minus Age,5,33,0.739,0.1759
+MDA-MB-231,minus Age,6,33,0.7363,0.1797
+MDA-MB-231,minus Age,7,33,0.7318,0.1791
+MDA-MB-231,minus Age,8,33,0.729,0.1734
+MDA-MB-231,minus Age,9,33,0.7288,0.1684
+MDA-MB-231,minus Age,10,33,0.7359,0.1789
+MDA-MB-231,minus Age,11,33,0.7322,0.1745
+MDA-MB-231,minus Age,12,33,0.7354,0.1805
+MDA-MB-231,minus Age,13,33,0.745,0.1781
+MDA-MB-231,minus Age,14,33,0.7353,0.1796
+MDA-MB-231,minus Age,15,33,0.7312,0.1742
+MDA-MB-231,minus Age,16,33,0.7365,0.1773
+MDA-MB-231,minus Age,17,33,0.7355,0.1804
+MDA-MB-231,minus Age,18,33,0.734,0.172
+MDA-MB-231,minus Age,19,33,0.7315,0.1752

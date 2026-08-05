@@ -1,0 +1,50 @@
+# Leave-one-cell-line-out over the THP1 challenge's TRAINING cell lines only.
+#
+# Run: uv run python scripts/run_cellline_loco.py --config configs/cellline_loco/thp1_holdout_kmer.yaml
+#
+# Why this exists rather than reusing configs/cellline_loco/xgboost_kmer.yaml: that
+# config reads data/processed/lncrna_rra_day14.jsonl.gz, which holds all five cell
+# lines WITH labels. docs/PARTICIPATE.md names that file as one you must not read
+# for this challenge -- it contains THP1's answers, and run_cellline_loco.py rotates
+# every cell line into the held-out slot, so it would both train on and score against
+# them. Those configs predate the THP1 hold-out and belong to the older cross-cell
+# challenge.
+#
+# Pointing the same runner at the published training file gives a 3-fold rotation
+# over HAP1 / K562 / MDA-MB-231 that never sees THP1. That is the honest local
+# estimate for this task: each fold predicts a cell line the model saw no rows of,
+# which is exactly what the submission has to do for THP1.
+#
+# Reference points, both measured in this repo:
+#   -mean(fold_change) barebones ... 0.2000 AUPRC on the board, 0.1728 under LOCO
+#   sequence-only k-mer models ..... 0.1036-0.1456
+# Note the barebones prior is NOT available to this config by design: features here
+# are sequence + cell line only, never fold_change or rra_pvalue.
+#
+# HEK293FT needs no exclusion -- the challenge's training file already omits it.
+
+data:
+  path: data/holdout_thp1/train_thp1_holdout.jsonl.gz
+  transcript_sequences: data/processed/body_sequences_transcript.json
+
+features:
+  type: kmer
+  k: 5
+  include_distance: false
+  # 0 = cell-line one-hot only. 2/10/70 append Celligner coordinates.
+  # Neither block can change this challenge's ranking directly -- every scored row
+  # is THP1, so the whole block is constant across them and AUROC/AUPRC read only
+  # the ordering. It can still shape what the model learns from the training lines.
+  cell_embedding_dim: 0
+
+model:
+  name: xgboost
+  params:
+    max_depth: 9
+    n_estimators: 400
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+
+seed: 42
+output_dir: results/lncrna_rra_day14_thp1_holdout/loco_runs

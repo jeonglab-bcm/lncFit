@@ -1,0 +1,361 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,"base (current best, 40)",0,40,0.7303,0.1792
+HAP1,"base (current best, 40)",1,40,0.7305,0.181
+HAP1,"base (current best, 40)",2,40,0.7222,0.1813
+HAP1,"base (current best, 40)",3,40,0.7285,0.187
+HAP1,"base (current best, 40)",4,40,0.7303,0.1776
+HAP1,"base (current best, 40)",5,40,0.7239,0.1738
+HAP1,"base (current best, 40)",6,40,0.7251,0.1817
+HAP1,"base (current best, 40)",7,40,0.7277,0.1783
+HAP1,"base (current best, 40)",8,40,0.7257,0.1747
+HAP1,"base (current best, 40)",9,40,0.7229,0.1817
+HAP1,"base (current best, 40)",10,40,0.7254,0.1754
+HAP1,"base (current best, 40)",11,40,0.7256,0.1794
+HAP1,"base (current best, 40)",12,40,0.7294,0.1783
+HAP1,"base (current best, 40)",13,40,0.7262,0.1782
+HAP1,"base (current best, 40)",14,40,0.734,0.1842
+HAP1,"base (current best, 40)",15,40,0.7308,0.1786
+HAP1,"base (current best, 40)",16,40,0.7258,0.1829
+HAP1,"base (current best, 40)",17,40,0.7254,0.1812
+HAP1,"base (current best, 40)",18,40,0.7299,0.1798
+HAP1,"base (current best, 40)",19,40,0.7247,0.1755
+HAP1,+ dev_level,0,44,0.7283,0.1779
+HAP1,+ dev_level,1,44,0.7233,0.1708
+HAP1,+ dev_level,2,44,0.7228,0.1753
+HAP1,+ dev_level,3,44,0.7326,0.1782
+HAP1,+ dev_level,4,44,0.7278,0.1764
+HAP1,+ dev_level,5,44,0.7262,0.1686
+HAP1,+ dev_level,6,44,0.7272,0.1723
+HAP1,+ dev_level,7,44,0.7286,0.174
+HAP1,+ dev_level,8,44,0.7238,0.1754
+HAP1,+ dev_level,9,44,0.7273,0.1717
+HAP1,+ dev_level,10,44,0.7224,0.1626
+HAP1,+ dev_level,11,44,0.7255,0.1736
+HAP1,+ dev_level,12,44,0.7292,0.1797
+HAP1,+ dev_level,13,44,0.7217,0.1664
+HAP1,+ dev_level,14,44,0.7285,0.1715
+HAP1,+ dev_level,15,44,0.7268,0.1707
+HAP1,+ dev_level,16,44,0.7225,0.171
+HAP1,+ dev_level,17,44,0.7282,0.1768
+HAP1,+ dev_level,18,44,0.7226,0.171
+HAP1,+ dev_level,19,44,0.7267,0.1685
+HAP1,+ dev_breadth,0,42,0.7307,0.1827
+HAP1,+ dev_breadth,1,42,0.7286,0.1829
+HAP1,+ dev_breadth,2,42,0.7217,0.1881
+HAP1,+ dev_breadth,3,42,0.7339,0.1892
+HAP1,+ dev_breadth,4,42,0.7279,0.1767
+HAP1,+ dev_breadth,5,42,0.7286,0.174
+HAP1,+ dev_breadth,6,42,0.7234,0.1754
+HAP1,+ dev_breadth,7,42,0.73,0.1809
+HAP1,+ dev_breadth,8,42,0.7278,0.1794
+HAP1,+ dev_breadth,9,42,0.7231,0.1754
+HAP1,+ dev_breadth,10,42,0.7231,0.1753
+HAP1,+ dev_breadth,11,42,0.7298,0.1786
+HAP1,+ dev_breadth,12,42,0.7313,0.1836
+HAP1,+ dev_breadth,13,42,0.7288,0.1794
+HAP1,+ dev_breadth,14,42,0.7351,0.1798
+HAP1,+ dev_breadth,15,42,0.7357,0.1769
+HAP1,+ dev_breadth,16,42,0.7323,0.1842
+HAP1,+ dev_breadth,17,42,0.7329,0.1857
+HAP1,+ dev_breadth,18,42,0.7301,0.1808
+HAP1,+ dev_breadth,19,42,0.7295,0.1797
+HAP1,+ dev_timing,0,44,0.7196,0.1761
+HAP1,+ dev_timing,1,44,0.7242,0.1754
+HAP1,+ dev_timing,2,44,0.7205,0.1792
+HAP1,+ dev_timing,3,44,0.7202,0.1799
+HAP1,+ dev_timing,4,44,0.7173,0.1711
+HAP1,+ dev_timing,5,44,0.7238,0.1733
+HAP1,+ dev_timing,6,44,0.7204,0.169
+HAP1,+ dev_timing,7,44,0.7223,0.1719
+HAP1,+ dev_timing,8,44,0.7245,0.1758
+HAP1,+ dev_timing,9,44,0.7208,0.1754
+HAP1,+ dev_timing,10,44,0.7215,0.166
+HAP1,+ dev_timing,11,44,0.7249,0.1709
+HAP1,+ dev_timing,12,44,0.7256,0.1831
+HAP1,+ dev_timing,13,44,0.7177,0.1758
+HAP1,+ dev_timing,14,44,0.7281,0.1751
+HAP1,+ dev_timing,15,44,0.7218,0.1758
+HAP1,+ dev_timing,16,44,0.7255,0.1766
+HAP1,+ dev_timing,17,44,0.7251,0.183
+HAP1,+ dev_timing,18,44,0.7288,0.1792
+HAP1,+ dev_timing,19,44,0.7277,0.1752
+HAP1,+ dev_organ,0,47,0.7231,0.175
+HAP1,+ dev_organ,1,47,0.722,0.1775
+HAP1,+ dev_organ,2,47,0.7179,0.1734
+HAP1,+ dev_organ,3,47,0.723,0.174
+HAP1,+ dev_organ,4,47,0.7304,0.1756
+HAP1,+ dev_organ,5,47,0.7159,0.1711
+HAP1,+ dev_organ,6,47,0.7182,0.1793
+HAP1,+ dev_organ,7,47,0.7247,0.1803
+HAP1,+ dev_organ,8,47,0.7181,0.1776
+HAP1,+ dev_organ,9,47,0.7245,0.1696
+HAP1,+ dev_organ,10,47,0.7279,0.1814
+HAP1,+ dev_organ,11,47,0.7241,0.1748
+HAP1,+ dev_organ,12,47,0.7261,0.1757
+HAP1,+ dev_organ,13,47,0.7208,0.176
+HAP1,+ dev_organ,14,47,0.7232,0.1716
+HAP1,+ dev_organ,15,47,0.7271,0.18
+HAP1,+ dev_organ,16,47,0.7268,0.1716
+HAP1,+ dev_organ,17,47,0.7203,0.1742
+HAP1,+ dev_organ,18,47,0.7214,0.1752
+HAP1,+ dev_organ,19,47,0.7244,0.1798
+HAP1,+ all developmental,0,57,0.7191,0.1665
+HAP1,+ all developmental,1,57,0.7234,0.1668
+HAP1,+ all developmental,2,57,0.7188,0.1658
+HAP1,+ all developmental,3,57,0.7221,0.1703
+HAP1,+ all developmental,4,57,0.7175,0.1681
+HAP1,+ all developmental,5,57,0.7181,0.1638
+HAP1,+ all developmental,6,57,0.7197,0.1703
+HAP1,+ all developmental,7,57,0.7248,0.1711
+HAP1,+ all developmental,8,57,0.7202,0.1672
+HAP1,+ all developmental,9,57,0.723,0.1727
+HAP1,+ all developmental,10,57,0.7227,0.176
+HAP1,+ all developmental,11,57,0.7249,0.1704
+HAP1,+ all developmental,12,57,0.7223,0.1709
+HAP1,+ all developmental,13,57,0.7271,0.1664
+HAP1,+ all developmental,14,57,0.7191,0.1665
+HAP1,+ all developmental,15,57,0.7212,0.1653
+HAP1,+ all developmental,16,57,0.7261,0.1704
+HAP1,+ all developmental,17,57,0.7261,0.1728
+HAP1,+ all developmental,18,57,0.7235,0.1707
+HAP1,+ all developmental,19,57,0.7235,0.1721
+K562,"base (current best, 40)",0,40,0.6931,0.1601
+K562,"base (current best, 40)",1,40,0.6919,0.1627
+K562,"base (current best, 40)",2,40,0.6945,0.1611
+K562,"base (current best, 40)",3,40,0.6931,0.1626
+K562,"base (current best, 40)",4,40,0.6973,0.1642
+K562,"base (current best, 40)",5,40,0.6959,0.1666
+K562,"base (current best, 40)",6,40,0.6962,0.1634
+K562,"base (current best, 40)",7,40,0.6924,0.1657
+K562,"base (current best, 40)",8,40,0.6917,0.1622
+K562,"base (current best, 40)",9,40,0.6961,0.1649
+K562,"base (current best, 40)",10,40,0.694,0.1598
+K562,"base (current best, 40)",11,40,0.6969,0.1657
+K562,"base (current best, 40)",12,40,0.6971,0.1625
+K562,"base (current best, 40)",13,40,0.6938,0.1635
+K562,"base (current best, 40)",14,40,0.6954,0.1614
+K562,"base (current best, 40)",15,40,0.6963,0.1641
+K562,"base (current best, 40)",16,40,0.6929,0.1621
+K562,"base (current best, 40)",17,40,0.6938,0.1603
+K562,"base (current best, 40)",18,40,0.6907,0.1591
+K562,"base (current best, 40)",19,40,0.6911,0.158
+K562,+ dev_level,0,44,0.6941,0.1678
+K562,+ dev_level,1,44,0.6946,0.1659
+K562,+ dev_level,2,44,0.6945,0.1651
+K562,+ dev_level,3,44,0.6948,0.1669
+K562,+ dev_level,4,44,0.6943,0.1677
+K562,+ dev_level,5,44,0.6984,0.1696
+K562,+ dev_level,6,44,0.7015,0.1688
+K562,+ dev_level,7,44,0.6978,0.1691
+K562,+ dev_level,8,44,0.6964,0.169
+K562,+ dev_level,9,44,0.7006,0.1708
+K562,+ dev_level,10,44,0.6976,0.1676
+K562,+ dev_level,11,44,0.6971,0.1699
+K562,+ dev_level,12,44,0.6954,0.1656
+K562,+ dev_level,13,44,0.698,0.1678
+K562,+ dev_level,14,44,0.6922,0.1675
+K562,+ dev_level,15,44,0.69,0.1615
+K562,+ dev_level,16,44,0.6969,0.1661
+K562,+ dev_level,17,44,0.6933,0.1661
+K562,+ dev_level,18,44,0.6909,0.1641
+K562,+ dev_level,19,44,0.6952,0.1652
+K562,+ dev_breadth,0,42,0.6919,0.1603
+K562,+ dev_breadth,1,42,0.6904,0.1642
+K562,+ dev_breadth,2,42,0.692,0.1608
+K562,+ dev_breadth,3,42,0.6967,0.1645
+K562,+ dev_breadth,4,42,0.6991,0.1635
+K562,+ dev_breadth,5,42,0.6896,0.1602
+K562,+ dev_breadth,6,42,0.6951,0.1632
+K562,+ dev_breadth,7,42,0.6931,0.1635
+K562,+ dev_breadth,8,42,0.6936,0.1628
+K562,+ dev_breadth,9,42,0.6966,0.1644
+K562,+ dev_breadth,10,42,0.6941,0.1605
+K562,+ dev_breadth,11,42,0.6953,0.1637
+K562,+ dev_breadth,12,42,0.6924,0.1608
+K562,+ dev_breadth,13,42,0.696,0.1653
+K562,+ dev_breadth,14,42,0.6926,0.1612
+K562,+ dev_breadth,15,42,0.69,0.1589
+K562,+ dev_breadth,16,42,0.6942,0.1629
+K562,+ dev_breadth,17,42,0.6904,0.1569
+K562,+ dev_breadth,18,42,0.6917,0.1613
+K562,+ dev_breadth,19,42,0.6927,0.1604
+K562,+ dev_timing,0,44,0.6921,0.1628
+K562,+ dev_timing,1,44,0.6906,0.1645
+K562,+ dev_timing,2,44,0.6862,0.1591
+K562,+ dev_timing,3,44,0.6927,0.1616
+K562,+ dev_timing,4,44,0.688,0.165
+K562,+ dev_timing,5,44,0.6897,0.1657
+K562,+ dev_timing,6,44,0.6917,0.1623
+K562,+ dev_timing,7,44,0.6897,0.1632
+K562,+ dev_timing,8,44,0.6945,0.1622
+K562,+ dev_timing,9,44,0.6899,0.1647
+K562,+ dev_timing,10,44,0.6891,0.1612
+K562,+ dev_timing,11,44,0.6931,0.164
+K562,+ dev_timing,12,44,0.6921,0.1631
+K562,+ dev_timing,13,44,0.6976,0.1663
+K562,+ dev_timing,14,44,0.6894,0.1625
+K562,+ dev_timing,15,44,0.6855,0.1614
+K562,+ dev_timing,16,44,0.6928,0.1653
+K562,+ dev_timing,17,44,0.6904,0.164
+K562,+ dev_timing,18,44,0.6868,0.161
+K562,+ dev_timing,19,44,0.6899,0.1617
+K562,+ dev_organ,0,47,0.6888,0.1639
+K562,+ dev_organ,1,47,0.6908,0.1636
+K562,+ dev_organ,2,47,0.6962,0.1675
+K562,+ dev_organ,3,47,0.6945,0.1642
+K562,+ dev_organ,4,47,0.695,0.1639
+K562,+ dev_organ,5,47,0.6975,0.1677
+K562,+ dev_organ,6,47,0.6952,0.1682
+K562,+ dev_organ,7,47,0.6925,0.1662
+K562,+ dev_organ,8,47,0.6931,0.1647
+K562,+ dev_organ,9,47,0.6934,0.1626
+K562,+ dev_organ,10,47,0.6995,0.1684
+K562,+ dev_organ,11,47,0.6906,0.1639
+K562,+ dev_organ,12,47,0.6953,0.167
+K562,+ dev_organ,13,47,0.6954,0.1672
+K562,+ dev_organ,14,47,0.6933,0.1668
+K562,+ dev_organ,15,47,0.6885,0.1633
+K562,+ dev_organ,16,47,0.692,0.1668
+K562,+ dev_organ,17,47,0.6924,0.1644
+K562,+ dev_organ,18,47,0.6927,0.1614
+K562,+ dev_organ,19,47,0.6925,0.1635
+K562,+ all developmental,0,57,0.6866,0.1627
+K562,+ all developmental,1,57,0.6937,0.1651
+K562,+ all developmental,2,57,0.6891,0.1624
+K562,+ all developmental,3,57,0.6944,0.1684
+K562,+ all developmental,4,57,0.6869,0.1651
+K562,+ all developmental,5,57,0.6944,0.1654
+K562,+ all developmental,6,57,0.6905,0.1669
+K562,+ all developmental,7,57,0.6901,0.1648
+K562,+ all developmental,8,57,0.6933,0.1647
+K562,+ all developmental,9,57,0.693,0.1632
+K562,+ all developmental,10,57,0.6947,0.1683
+K562,+ all developmental,11,57,0.6941,0.1624
+K562,+ all developmental,12,57,0.6909,0.1663
+K562,+ all developmental,13,57,0.697,0.1672
+K562,+ all developmental,14,57,0.6938,0.1663
+K562,+ all developmental,15,57,0.686,0.1656
+K562,+ all developmental,16,57,0.6873,0.1633
+K562,+ all developmental,17,57,0.6953,0.1668
+K562,+ all developmental,18,57,0.6911,0.1657
+K562,+ all developmental,19,57,0.6913,0.1664
+MDA-MB-231,"base (current best, 40)",0,40,0.7424,0.1776
+MDA-MB-231,"base (current best, 40)",1,40,0.7366,0.1717
+MDA-MB-231,"base (current best, 40)",2,40,0.7392,0.172
+MDA-MB-231,"base (current best, 40)",3,40,0.7335,0.1715
+MDA-MB-231,"base (current best, 40)",4,40,0.7442,0.1826
+MDA-MB-231,"base (current best, 40)",5,40,0.7312,0.1706
+MDA-MB-231,"base (current best, 40)",6,40,0.7344,0.177
+MDA-MB-231,"base (current best, 40)",7,40,0.74,0.1794
+MDA-MB-231,"base (current best, 40)",8,40,0.7391,0.173
+MDA-MB-231,"base (current best, 40)",9,40,0.7378,0.1778
+MDA-MB-231,"base (current best, 40)",10,40,0.7355,0.1725
+MDA-MB-231,"base (current best, 40)",11,40,0.74,0.1778
+MDA-MB-231,"base (current best, 40)",12,40,0.7359,0.1769
+MDA-MB-231,"base (current best, 40)",13,40,0.739,0.1782
+MDA-MB-231,"base (current best, 40)",14,40,0.7391,0.1781
+MDA-MB-231,"base (current best, 40)",15,40,0.7386,0.1733
+MDA-MB-231,"base (current best, 40)",16,40,0.7357,0.1738
+MDA-MB-231,"base (current best, 40)",17,40,0.7376,0.1792
+MDA-MB-231,"base (current best, 40)",18,40,0.7371,0.178
+MDA-MB-231,"base (current best, 40)",19,40,0.7391,0.1726
+MDA-MB-231,+ dev_level,0,44,0.7509,0.1984
+MDA-MB-231,+ dev_level,1,44,0.7447,0.1876
+MDA-MB-231,+ dev_level,2,44,0.7414,0.1864
+MDA-MB-231,+ dev_level,3,44,0.7454,0.1884
+MDA-MB-231,+ dev_level,4,44,0.7492,0.1959
+MDA-MB-231,+ dev_level,5,44,0.7423,0.1884
+MDA-MB-231,+ dev_level,6,44,0.7433,0.1874
+MDA-MB-231,+ dev_level,7,44,0.7398,0.1964
+MDA-MB-231,+ dev_level,8,44,0.7488,0.1902
+MDA-MB-231,+ dev_level,9,44,0.7474,0.1868
+MDA-MB-231,+ dev_level,10,44,0.7413,0.193
+MDA-MB-231,+ dev_level,11,44,0.754,0.1944
+MDA-MB-231,+ dev_level,12,44,0.7452,0.1909
+MDA-MB-231,+ dev_level,13,44,0.7452,0.1857
+MDA-MB-231,+ dev_level,14,44,0.7431,0.1884
+MDA-MB-231,+ dev_level,15,44,0.7416,0.1833
+MDA-MB-231,+ dev_level,16,44,0.7442,0.1837
+MDA-MB-231,+ dev_level,17,44,0.7432,0.1908
+MDA-MB-231,+ dev_level,18,44,0.7411,0.1819
+MDA-MB-231,+ dev_level,19,44,0.7417,0.1868
+MDA-MB-231,+ dev_breadth,0,42,0.7386,0.1859
+MDA-MB-231,+ dev_breadth,1,42,0.7368,0.1818
+MDA-MB-231,+ dev_breadth,2,42,0.7341,0.186
+MDA-MB-231,+ dev_breadth,3,42,0.7326,0.1799
+MDA-MB-231,+ dev_breadth,4,42,0.743,0.1823
+MDA-MB-231,+ dev_breadth,5,42,0.7311,0.1847
+MDA-MB-231,+ dev_breadth,6,42,0.7346,0.1831
+MDA-MB-231,+ dev_breadth,7,42,0.732,0.1867
+MDA-MB-231,+ dev_breadth,8,42,0.7379,0.1832
+MDA-MB-231,+ dev_breadth,9,42,0.7328,0.1844
+MDA-MB-231,+ dev_breadth,10,42,0.7253,0.1852
+MDA-MB-231,+ dev_breadth,11,42,0.7356,0.1833
+MDA-MB-231,+ dev_breadth,12,42,0.7248,0.1826
+MDA-MB-231,+ dev_breadth,13,42,0.7308,0.1792
+MDA-MB-231,+ dev_breadth,14,42,0.733,0.1843
+MDA-MB-231,+ dev_breadth,15,42,0.7367,0.1802
+MDA-MB-231,+ dev_breadth,16,42,0.7348,0.184
+MDA-MB-231,+ dev_breadth,17,42,0.7336,0.1871
+MDA-MB-231,+ dev_breadth,18,42,0.7345,0.1856
+MDA-MB-231,+ dev_breadth,19,42,0.7339,0.1869
+MDA-MB-231,+ dev_timing,0,44,0.7472,0.1943
+MDA-MB-231,+ dev_timing,1,44,0.7396,0.1882
+MDA-MB-231,+ dev_timing,2,44,0.7386,0.1879
+MDA-MB-231,+ dev_timing,3,44,0.7406,0.1927
+MDA-MB-231,+ dev_timing,4,44,0.7428,0.1973
+MDA-MB-231,+ dev_timing,5,44,0.7385,0.195
+MDA-MB-231,+ dev_timing,6,44,0.7399,0.192
+MDA-MB-231,+ dev_timing,7,44,0.7392,0.1922
+MDA-MB-231,+ dev_timing,8,44,0.7388,0.193
+MDA-MB-231,+ dev_timing,9,44,0.7405,0.1881
+MDA-MB-231,+ dev_timing,10,44,0.7354,0.1901
+MDA-MB-231,+ dev_timing,11,44,0.7476,0.1925
+MDA-MB-231,+ dev_timing,12,44,0.745,0.1945
+MDA-MB-231,+ dev_timing,13,44,0.7368,0.1917
+MDA-MB-231,+ dev_timing,14,44,0.74,0.1922
+MDA-MB-231,+ dev_timing,15,44,0.7444,0.1901
+MDA-MB-231,+ dev_timing,16,44,0.7436,0.1906
+MDA-MB-231,+ dev_timing,17,44,0.7428,0.1944
+MDA-MB-231,+ dev_timing,18,44,0.7366,0.1853
+MDA-MB-231,+ dev_timing,19,44,0.7362,0.189
+MDA-MB-231,+ dev_organ,0,47,0.7325,0.182
+MDA-MB-231,+ dev_organ,1,47,0.732,0.1968
+MDA-MB-231,+ dev_organ,2,47,0.7396,0.1954
+MDA-MB-231,+ dev_organ,3,47,0.729,0.1872
+MDA-MB-231,+ dev_organ,4,47,0.741,0.1927
+MDA-MB-231,+ dev_organ,5,47,0.7393,0.1998
+MDA-MB-231,+ dev_organ,6,47,0.7398,0.1959
+MDA-MB-231,+ dev_organ,7,47,0.7429,0.1975
+MDA-MB-231,+ dev_organ,8,47,0.7348,0.2036
+MDA-MB-231,+ dev_organ,9,47,0.7307,0.1854
+MDA-MB-231,+ dev_organ,10,47,0.7377,0.1926
+MDA-MB-231,+ dev_organ,11,47,0.7346,0.195
+MDA-MB-231,+ dev_organ,12,47,0.7336,0.1931
+MDA-MB-231,+ dev_organ,13,47,0.7404,0.1873
+MDA-MB-231,+ dev_organ,14,47,0.731,0.196
+MDA-MB-231,+ dev_organ,15,47,0.737,0.1944
+MDA-MB-231,+ dev_organ,16,47,0.7302,0.1929
+MDA-MB-231,+ dev_organ,17,47,0.7402,0.2029
+MDA-MB-231,+ dev_organ,18,47,0.7335,0.1897
+MDA-MB-231,+ dev_organ,19,47,0.7299,0.1929
+MDA-MB-231,+ all developmental,0,57,0.7372,0.1875
+MDA-MB-231,+ all developmental,1,57,0.7357,0.1928
+MDA-MB-231,+ all developmental,2,57,0.7353,0.1919
+MDA-MB-231,+ all developmental,3,57,0.7477,0.1943
+MDA-MB-231,+ all developmental,4,57,0.7455,0.1935
+MDA-MB-231,+ all developmental,5,57,0.7406,0.1904
+MDA-MB-231,+ all developmental,6,57,0.7408,0.192
+MDA-MB-231,+ all developmental,7,57,0.7408,0.1948
+MDA-MB-231,+ all developmental,8,57,0.7458,0.1941
+MDA-MB-231,+ all developmental,9,57,0.744,0.1905
+MDA-MB-231,+ all developmental,10,57,0.7403,0.1872
+MDA-MB-231,+ all developmental,11,57,0.7519,0.1963
+MDA-MB-231,+ all developmental,12,57,0.7354,0.1943
+MDA-MB-231,+ all developmental,13,57,0.7471,0.1982
+MDA-MB-231,+ all developmental,14,57,0.7424,0.19
+MDA-MB-231,+ all developmental,15,57,0.7497,0.2007
+MDA-MB-231,+ all developmental,16,57,0.7402,0.2007
+MDA-MB-231,+ all developmental,17,57,0.746,0.2021
+MDA-MB-231,+ all developmental,18,57,0.7321,0.1943
+MDA-MB-231,+ all developmental,19,57,0.7336,0.194

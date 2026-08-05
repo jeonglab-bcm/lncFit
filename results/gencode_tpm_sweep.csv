@@ -1,0 +1,73 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,base (atlas TPM),0,298,0.7248,0.1702
+HAP1,base (atlas TPM),1,298,0.7217,0.163
+HAP1,base (atlas TPM),2,298,0.7117,0.1577
+HAP1,base (atlas TPM),3,298,0.7191,0.1578
+HAP1,base (atlas TPM),4,298,0.7113,0.1552
+HAP1,base (atlas TPM),5,298,0.7143,0.1605
+HAP1,base (atlas TPM),6,298,0.7204,0.1656
+HAP1,base (atlas TPM),7,298,0.7217,0.1682
+HAP1,base + gencode TPM,0,303,0.7104,0.1537
+HAP1,base + gencode TPM,1,303,0.7121,0.15
+HAP1,base + gencode TPM,2,303,0.7163,0.1576
+HAP1,base + gencode TPM,3,303,0.724,0.1753
+HAP1,base + gencode TPM,4,303,0.722,0.1691
+HAP1,base + gencode TPM,5,303,0.7196,0.1712
+HAP1,base + gencode TPM,6,303,0.7166,0.1654
+HAP1,base + gencode TPM,7,303,0.7176,0.1574
+HAP1,gencode instead of atlas,0,297,0.7099,0.1625
+HAP1,gencode instead of atlas,1,297,0.7105,0.1383
+HAP1,gencode instead of atlas,2,297,0.7171,0.1661
+HAP1,gencode instead of atlas,3,297,0.7157,0.1722
+HAP1,gencode instead of atlas,4,297,0.722,0.1654
+HAP1,gencode instead of atlas,5,297,0.7229,0.1721
+HAP1,gencode instead of atlas,6,297,0.7058,0.1559
+HAP1,gencode instead of atlas,7,297,0.7171,0.155
+K562,base (atlas TPM),0,298,0.6709,0.16
+K562,base (atlas TPM),1,298,0.6625,0.1537
+K562,base (atlas TPM),2,298,0.6586,0.1534
+K562,base (atlas TPM),3,298,0.6772,0.1596
+K562,base (atlas TPM),4,298,0.6775,0.1591
+K562,base (atlas TPM),5,298,0.6561,0.1551
+K562,base (atlas TPM),6,298,0.6701,0.1574
+K562,base (atlas TPM),7,298,0.6677,0.1557
+K562,base + gencode TPM,0,303,0.6592,0.1538
+K562,base + gencode TPM,1,303,0.6592,0.1566
+K562,base + gencode TPM,2,303,0.6602,0.1571
+K562,base + gencode TPM,3,303,0.6722,0.1571
+K562,base + gencode TPM,4,303,0.6648,0.156
+K562,base + gencode TPM,5,303,0.6685,0.1599
+K562,base + gencode TPM,6,303,0.6623,0.1576
+K562,base + gencode TPM,7,303,0.6678,0.1599
+K562,gencode instead of atlas,0,297,0.6524,0.1532
+K562,gencode instead of atlas,1,297,0.6613,0.1589
+K562,gencode instead of atlas,2,297,0.65,0.1517
+K562,gencode instead of atlas,3,297,0.6652,0.1576
+K562,gencode instead of atlas,4,297,0.665,0.1579
+K562,gencode instead of atlas,5,297,0.6657,0.1592
+K562,gencode instead of atlas,6,297,0.6541,0.156
+K562,gencode instead of atlas,7,297,0.6601,0.1546
+MDA-MB-231,base (atlas TPM),0,298,0.7435,0.1584
+MDA-MB-231,base (atlas TPM),1,298,0.7497,0.1548
+MDA-MB-231,base (atlas TPM),2,298,0.7487,0.1512
+MDA-MB-231,base (atlas TPM),3,298,0.7487,0.1515
+MDA-MB-231,base (atlas TPM),4,298,0.7496,0.1584
+MDA-MB-231,base (atlas TPM),5,298,0.747,0.1535
+MDA-MB-231,base (atlas TPM),6,298,0.7539,0.1461
+MDA-MB-231,base (atlas TPM),7,298,0.7526,0.1563
+MDA-MB-231,base + gencode TPM,0,303,0.7522,0.1515
+MDA-MB-231,base + gencode TPM,1,303,0.7418,0.1453
+MDA-MB-231,base + gencode TPM,2,303,0.75,0.1559
+MDA-MB-231,base + gencode TPM,3,303,0.7529,0.1605
+MDA-MB-231,base + gencode TPM,4,303,0.7514,0.156
+MDA-MB-231,base + gencode TPM,5,303,0.75,0.1565
+MDA-MB-231,base + gencode TPM,6,303,0.7515,0.1605
+MDA-MB-231,base + gencode TPM,7,303,0.7415,0.1498
+MDA-MB-231,gencode instead of atlas,0,297,0.7467,0.1421
+MDA-MB-231,gencode instead of atlas,1,297,0.7358,0.1274
+MDA-MB-231,gencode instead of atlas,2,297,0.7412,0.1467
+MDA-MB-231,gencode instead of atlas,3,297,0.7478,0.1521
+MDA-MB-231,gencode instead of atlas,4,297,0.7451,0.1557
+MDA-MB-231,gencode instead of atlas,5,297,0.7481,0.1539
+MDA-MB-231,gencode instead of atlas,6,297,0.7477,0.1514
+MDA-MB-231,gencode instead of atlas,7,297,0.7369,0.1331

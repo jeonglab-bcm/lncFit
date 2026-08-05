@@ -1,0 +1,121 @@
+holdout,config,seed,n_features,auroc,auprc
+HAP1,"base (current best, 40)",0,40,0.7303,0.1792
+HAP1,"base (current best, 40)",1,40,0.7305,0.181
+HAP1,"base (current best, 40)",2,40,0.7222,0.1813
+HAP1,"base (current best, 40)",3,40,0.7285,0.187
+HAP1,"base (current best, 40)",4,40,0.7303,0.1776
+HAP1,"base (current best, 40)",5,40,0.7239,0.1738
+HAP1,"base (current best, 40)",6,40,0.7251,0.1817
+HAP1,"base (current best, 40)",7,40,0.7277,0.1783
+HAP1,"base (current best, 40)",8,40,0.7257,0.1747
+HAP1,"base (current best, 40)",9,40,0.7229,0.1817
+HAP1,"base (current best, 40)",10,40,0.7254,0.1754
+HAP1,"base (current best, 40)",11,40,0.7256,0.1794
+HAP1,"base (current best, 40)",12,40,0.7294,0.1783
+HAP1,"base (current best, 40)",13,40,0.7262,0.1782
+HAP1,"base (current best, 40)",14,40,0.734,0.1842
+HAP1,"base (current best, 40)",15,40,0.7308,0.1786
+HAP1,"base (current best, 40)",16,40,0.7258,0.1829
+HAP1,"base (current best, 40)",17,40,0.7254,0.1812
+HAP1,"base (current best, 40)",18,40,0.7299,0.1798
+HAP1,"base (current best, 40)",19,40,0.7247,0.1755
+HAP1,+ conservation,0,45,0.7199,0.1702
+HAP1,+ conservation,1,45,0.7216,0.1727
+HAP1,+ conservation,2,45,0.7274,0.1753
+HAP1,+ conservation,3,45,0.7257,0.1802
+HAP1,+ conservation,4,45,0.7272,0.1784
+HAP1,+ conservation,5,45,0.7209,0.173
+HAP1,+ conservation,6,45,0.7199,0.1739
+HAP1,+ conservation,7,45,0.724,0.1822
+HAP1,+ conservation,8,45,0.7261,0.1746
+HAP1,+ conservation,9,45,0.7225,0.175
+HAP1,+ conservation,10,45,0.7302,0.1819
+HAP1,+ conservation,11,45,0.7292,0.1816
+HAP1,+ conservation,12,45,0.7342,0.1831
+HAP1,+ conservation,13,45,0.7315,0.1728
+HAP1,+ conservation,14,45,0.7278,0.1785
+HAP1,+ conservation,15,45,0.724,0.1731
+HAP1,+ conservation,16,45,0.7294,0.1754
+HAP1,+ conservation,17,45,0.7281,0.1757
+HAP1,+ conservation,18,45,0.7199,0.169
+HAP1,+ conservation,19,45,0.7281,0.1798
+K562,"base (current best, 40)",0,40,0.6931,0.1601
+K562,"base (current best, 40)",1,40,0.6919,0.1627
+K562,"base (current best, 40)",2,40,0.6945,0.1611
+K562,"base (current best, 40)",3,40,0.6931,0.1626
+K562,"base (current best, 40)",4,40,0.6973,0.1642
+K562,"base (current best, 40)",5,40,0.6959,0.1666
+K562,"base (current best, 40)",6,40,0.6962,0.1634
+K562,"base (current best, 40)",7,40,0.6924,0.1657
+K562,"base (current best, 40)",8,40,0.6917,0.1622
+K562,"base (current best, 40)",9,40,0.6961,0.1649
+K562,"base (current best, 40)",10,40,0.694,0.1598
+K562,"base (current best, 40)",11,40,0.6969,0.1657
+K562,"base (current best, 40)",12,40,0.6971,0.1625
+K562,"base (current best, 40)",13,40,0.6938,0.1635
+K562,"base (current best, 40)",14,40,0.6954,0.1614
+K562,"base (current best, 40)",15,40,0.6963,0.1641
+K562,"base (current best, 40)",16,40,0.6929,0.1621
+K562,"base (current best, 40)",17,40,0.6938,0.1603
+K562,"base (current best, 40)",18,40,0.6907,0.1591
+K562,"base (current best, 40)",19,40,0.6911,0.158
+K562,+ conservation,0,45,0.6875,0.1607
+K562,+ conservation,1,45,0.6918,0.1634
+K562,+ conservation,2,45,0.6844,0.1577
+K562,+ conservation,3,45,0.6903,0.1642
+K562,+ conservation,4,45,0.686,0.1593
+K562,+ conservation,5,45,0.6928,0.1625
+K562,+ conservation,6,45,0.6895,0.1603
+K562,+ conservation,7,45,0.6889,0.1617
+K562,+ conservation,8,45,0.6904,0.1614
+K562,+ conservation,9,45,0.6898,0.1616
+K562,+ conservation,10,45,0.6865,0.1629
+K562,+ conservation,11,45,0.6903,0.165
+K562,+ conservation,12,45,0.6907,0.1663
+K562,+ conservation,13,45,0.6906,0.1612
+K562,+ conservation,14,45,0.6905,0.1639
+K562,+ conservation,15,45,0.6856,0.1578
+K562,+ conservation,16,45,0.69,0.1655
+K562,+ conservation,17,45,0.6871,0.1633
+K562,+ conservation,18,45,0.6935,0.162
+K562,+ conservation,19,45,0.6909,0.1659
+MDA-MB-231,"base (current best, 40)",0,40,0.7424,0.1776
+MDA-MB-231,"base (current best, 40)",1,40,0.7366,0.1717
+MDA-MB-231,"base (current best, 40)",2,40,0.7392,0.172
+MDA-MB-231,"base (current best, 40)",3,40,0.7335,0.1715
+MDA-MB-231,"base (current best, 40)",4,40,0.7442,0.1826
+MDA-MB-231,"base (current best, 40)",5,40,0.7312,0.1706
+MDA-MB-231,"base (current best, 40)",6,40,0.7344,0.177
+MDA-MB-231,"base (current best, 40)",7,40,0.74,0.1794
+MDA-MB-231,"base (current best, 40)",8,40,0.7391,0.173
+MDA-MB-231,"base (current best, 40)",9,40,0.7378,0.1778
+MDA-MB-231,"base (current best, 40)",10,40,0.7355,0.1725
+MDA-MB-231,"base (current best, 40)",11,40,0.74,0.1778
+MDA-MB-231,"base (current best, 40)",12,40,0.7359,0.1769
+MDA-MB-231,"base (current best, 40)",13,40,0.739,0.1782
+MDA-MB-231,"base (current best, 40)",14,40,0.7391,0.1781
+MDA-MB-231,"base (current best, 40)",15,40,0.7386,0.1733
+MDA-MB-231,"base (current best, 40)",16,40,0.7357,0.1738
+MDA-MB-231,"base (current best, 40)",17,40,0.7376,0.1792
+MDA-MB-231,"base (current best, 40)",18,40,0.7371,0.178
+MDA-MB-231,"base (current best, 40)",19,40,0.7391,0.1726
+MDA-MB-231,+ conservation,0,45,0.7301,0.1837
+MDA-MB-231,+ conservation,1,45,0.7314,0.1785
+MDA-MB-231,+ conservation,2,45,0.7428,0.1823
+MDA-MB-231,+ conservation,3,45,0.734,0.1726
+MDA-MB-231,+ conservation,4,45,0.7388,0.1747
+MDA-MB-231,+ conservation,5,45,0.7373,0.177
+MDA-MB-231,+ conservation,6,45,0.7422,0.1801
+MDA-MB-231,+ conservation,7,45,0.741,0.1819
+MDA-MB-231,+ conservation,8,45,0.7313,0.1784
+MDA-MB-231,+ conservation,9,45,0.7319,0.1713
+MDA-MB-231,+ conservation,10,45,0.7418,0.1759
+MDA-MB-231,+ conservation,11,45,0.7376,0.1808
+MDA-MB-231,+ conservation,12,45,0.7404,0.1925
+MDA-MB-231,+ conservation,13,45,0.742,0.1814
+MDA-MB-231,+ conservation,14,45,0.7347,0.1738
+MDA-MB-231,+ conservation,15,45,0.7405,0.181
+MDA-MB-231,+ conservation,16,45,0.7318,0.1785
+MDA-MB-231,+ conservation,17,45,0.7405,0.1714
+MDA-MB-231,+ conservation,18,45,0.7243,0.1662
+MDA-MB-231,+ conservation,19,45,0.7343,0.1712
