@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lncFit findings log</title>
+<style>
+:root { color-scheme: light dark; --muted: #666; --rule: #ddd; --accent: #0969da; --note-bg: #f6f8fa; }
+@media (prefers-color-scheme: dark) {
+  :root { --muted: #aaa; --rule: #444; --accent: #58a6ff; --note-bg: #161b22; }
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  max-width: 860px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55;
+}
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.15rem; margin-top: 2.5rem; border-bottom: 1px solid var(--rule); padding-bottom: 0.3rem; }
+h3 { font-size: 1rem; margin-top: 1.5rem; }
+.subtitle, .date { color: var(--muted); }
+.date { font-size: 0.85rem; font-weight: normal; margin-left: 0.5rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.92rem; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.best { font-weight: 700; }
+.note { background: var(--note-bg); padding: 0.75rem 1rem; border-radius: 6px; }
+code { font-size: 0.88em; }
+a { color: var(--accent); }
+.wrap { overflow-x: auto; }
+footer { color: var(--muted); font-size: 0.85rem; margin-top: 3rem; }
+</style>
+</head>
+<body>
+
+<h1>lncFit findings log</h1>
+<p class="subtitle">What we tried for predicting lncRNA essentiality in a cell line the model
+has never seen, and what we learned. Newest step first. This replaces the leaderboard: no
+rankings, no submissions.</p>
+
+<h2>Ground rules</h2>
+<ul>
+  <li><b>One step at a time.</b> Each step is one small PR, reviewed before the next starts.</li>
+  <li><b>Evaluation holds out the cell line <em>and</em> the genes.</b> Each training line
+    (HAP1, K562, MDA-MB-231) is held out in turn, and the genes being predicted are left out
+    of training too (5 gene folds, <code>lncfit/honest_eval.py</code>). Holding out only the
+    cell line lets a model score by recognising genes it saw labelled in the other lines.</li>
+  <li><b>Results are reported per cell line</b>, not only as a mean. A change that helps one
+    line and hurts another is not a finding.</li>
+  <li><b>Features not used:</b> measured depletion (<code>fold_change</code>,
+    <code>rra_pvalue</code>, anything derived), THP1 labels, and <code>guide_count</code> /
+    S1B guide-design columns, which predict the label through how it is computed (RRA over the
+    top 5 guides; genes with 4 guides were never called essential).</li>
+</ul>
+
+<h2>Step 1: baselines <span class="date">2026-10-03</span></h2>
+<p>The simplest possible scorers, so every later step has something fixed to compare against.
+No tuning. Script: <code>scripts/step01_baselines.py</code>, raw numbers:
+<code>results/step01_baselines.csv</code>.</p>
+
+<div class="wrap">
+<table>
+  <thead><tr><th>Baseline</th><th class="num">HAP1</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">Mean</th></tr></thead>
+  <tbody>
+    <tr><td>Random (= positive rate)</td><td class="num">0.045</td><td class="num">0.073</td>
+      <td class="num">0.031</td><td class="num">0.050</td></tr>
+    <tr><td>Rank by own total-RNA TPM</td><td class="num">0.103</td><td class="num">0.093</td>
+      <td class="num">0.127</td><td class="num">0.108</td></tr>
+    <tr class="best"><td>Rank by own mRNA TPM</td><td class="num">0.112</td><td class="num">0.114</td>
+      <td class="num">0.120</td><td class="num">0.115</td></tr>
+    <tr><td>Logistic regression, both TPMs</td><td class="num">0.084</td><td class="num">0.110</td>
+      <td class="num">0.072</td><td class="num">0.089</td></tr>
+    <tr><td>&hellip; + S1A gene annotations (16 cols)</td><td class="num">0.085</td>
+      <td class="num">0.112</td><td class="num">0.064</td><td class="num">0.087</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">AUPRC, mean of 5 gene-split seeds; seed sd &le; 0.0023 throughout.</p>
+
+<h3>Findings</h3>
+<ul>
+  <li><b>Expression alone is a real signal.</b> Ranking by the gene's own mRNA expression
+    gets 2.3&times; the random baseline, on all three lines, with nothing fitted.</li>
+  <li><b>Fitting a model on the two expression columns made things worse.</b> Total-RNA and
+    mRNA TPM are strongly correlated (&rho; 0.74&ndash;0.80), and logistic regression
+    gives total-RNA TPM a negative weight in 2 of 3 folds. That contrast does not hold in a
+    new cell line: MDA-MB-231 drops from 0.120 to 0.072.</li>
+  <li><b>Adding the S1A gene annotations does nothing</b> (0.089 &rarr; 0.087) in a linear
+    model.</li>
+  <li><b>The previous 39-feature XGBoost (#118 minus <code>guide_count</code>) scores 0.101
+    under this evaluation, below the mRNA sort.</b> Its 39 features and tuning add nothing
+    over one expression column once gene recognition is removed.</li>
+</ul>
+<p class="note"><b>Bar for step 2:</b> 0.115 (mRNA rank), on every cell line. A fitted model
+that cannot beat a sorted column is not learning anything that transfers.</p>
+
+<h2>Step 0: review of the previous approach <span class="date">2026-10-03</span></h2>
+<p>PR #118 ran about 25 experiments, all scored on the same three held-out cell lines, and
+settled on a 40-feature XGBoost model scoring 0.173 AUPRC. Re-checked:</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Model</th><th class="num">Cell line held out</th>
+    <th class="num">Cell line + genes held out</th></tr></thead>
+  <tbody>
+    <tr><td>#118 final, 40 features</td><td class="num">0.173</td><td class="num">0.145</td></tr>
+    <tr><td>Same, without <code>guide_count</code></td><td class="num">0.140</td>
+      <td class="num">0.101</td></tr>
+  </tbody>
+</table>
+</div>
+<ul>
+  <li>About 0.03 of the 0.173 came from recognising genes rather than transferring to a
+    new cell line; its predictions correlated &rho;&nbsp;0.56 with the banned depletion
+    shortcut.</li>
+  <li>Another 0.03&ndash;0.04 came from <code>guide_count</code>, an artifact of how the
+    label is computed. It is now excluded.</li>
+  <li>Choosing among many variants on the same three folds makes the winning number
+    optimistic. Hence the step-by-step approach above.</li>
+</ul>
+
+<footer>Edited by hand alongside each step's PR. Earlier experiment logs remain in the git
+history of PR #118.</footer>
+</body>
+</html>
