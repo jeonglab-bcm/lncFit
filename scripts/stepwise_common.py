@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
+from scipy.stats import rankdata
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -47,6 +48,81 @@ def lr() -> object:
     ensembles collapse it (step 2).
     """
     return make_pipeline(StandardScaler(), LogisticRegression(max_iter=4000))
+
+
+def percentile(v: np.ndarray) -> np.ndarray:
+    """Within-line percentile in [0, 1]; ties share their average rank."""
+    return (rankdata(v, method="average") - 1) / (len(v) - 1)
+
+
+class TopDecileModel:
+    """Rank the most-expressed genes first, and order them with a model fit only on them.
+
+    X column 0 is the within-line mRNA percentile, the rest are the features (log mRNA
+    first). Genes at or above `top` score 1 + LR probability, where the LR was trained on
+    training rows at or above `top` only; everything below keeps its percentile, so its
+    order is the mRNA sort. Step 3 showed why: features relate to the label differently
+    inside the top decile, where AUPRC is decided, than in the bulk, so a model fit on all
+    genes learns the bulk pattern and reorders the top wrongly.
+    """
+
+    def __init__(self, top: float = 0.9):
+        self.top = top
+
+    def fit(self, X, y):
+        m = X[:, 0] >= self.top
+        self.model_ = lr().fit(X[m, 1:], y[m])
+        return self
+
+    def predict_proba(self, X):
+        s = X[:, 0].astype(float).copy()
+        m = s >= self.top
+        if m.any():
+            s[m] = 1.0 + self.model_.predict_proba(X[m, 1:])[:, 1]
+        return np.column_stack([1 - s / 2, s / 2])
+
+
+def _fill_missing(block: np.ndarray) -> np.ndarray:
+    """NaN -> 0 plus one missing flag per affected column. Only prolif_organ needs it: a
+    correlation is undefined in an organ where the gene is never expressed."""
+    nan = np.isnan(block)
+    if not nan.any():
+        return block
+    cols = np.flatnonzero(nan.any(axis=0))
+    return np.hstack([np.nan_to_num(block, nan=0.0), nan[:, cols].astype(np.float32)])
+
+
+def load_groups(genes: list[str], cells: list[str], E: dict[str, np.ndarray]
+                ) -> dict[str, dict[str, np.ndarray]]:
+    """Every allowed feature group from #118 as {group: {cell: (n_genes, k)}}.
+
+    Not included, by rule: guide_count and other S1B guide columns, the neighbour's DepMap
+    score, and any fold_change / rra_pvalue.
+    """
+    from sweep_conservation import load_conservation
+    from sweep_developmental_atlas import load_atlas
+    from sweep_neighbour_features import load_blocks
+    from sweep_proliferation_coexpression import load_prolif
+    from sweep_tpm_features import kmer_matrix
+
+    total, mrna = load_tpm()
+    s1a_gene, nb_dist, nb_class, _nb_depmap, nb_expr, tissues = load_blocks(genes)
+    raw = {
+        "expr_panel": {c: tpm_block(genes, c, total, mrna)[0][:, 2:] for c in cells},
+        "expr_total": {c: E[c][:, :1] for c in cells},
+        "annot": s1a_gene[:, :7],
+        "age": s1a_gene[:, 7:],
+        "tissues": tissues,
+        "nb_dist": nb_dist,
+        "nb_class": nb_class,
+        "nb_expr": nb_expr,
+        "kmer4": kmer_matrix(genes, 4),
+        **load_atlas(genes),
+        "conservation": load_conservation(genes),
+        **{k: _fill_missing(v) for k, v in load_prolif(genes).items()},
+    }
+    return {name: (b if isinstance(b, dict) else {c: b for c in cells})
+            for name, b in raw.items()}
 
 
 Candidate = tuple[str, "dict[str, np.ndarray] | None", "Callable[[], object] | None",
