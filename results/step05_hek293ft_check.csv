@@ -1,8 +1,0 @@
-holdout,candidate,seed,auprc,auroc,pos_rate
-HEK293FT,1. mRNA sort,0,0.0719,0.5137,0.0462
-HEK293FT,2. top-decile LR on mRNA,0,0.0717,0.5137,0.0462
-HEK293FT,3. + dev_breadth,0,0.072,0.514,0.0462
-HEK293FT,2. top-decile LR on mRNA,1,0.0724,0.5137,0.0462
-HEK293FT,3. + dev_breadth,1,0.0722,0.5142,0.0462
-HEK293FT,2. top-decile LR on mRNA,2,0.0714,0.5137,0.0462
-HEK293FT,3. + dev_breadth,2,0.071,0.5139,0.0462
