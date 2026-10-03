@@ -249,3 +249,5 @@ CLAUDE.md
 .DS_Store
 
 eda/projections.json
+data/external/sarropoulos_all_lncrna_rpkm.tsv.gz
+data/processed/ssl_views.npz
