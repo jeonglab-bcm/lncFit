@@ -52,6 +52,14 @@ rankings, no submissions.</p>
     top 5 guides; genes with 4 guides were never called essential).</li>
 </ul>
 
+<h2>Step 5: untouched check on HEK293FT <span class="date">2026-10-03</span></h2>
+<p><b>Plan, committed before running.</b> HEK293FT was used by no earlier step. Train on
+HAP1, K562 and MDA-MB-231; predict HEK293FT with genes held out. Compare: (1) mRNA sort,
+(2) top-decile LR on mRNA, (3) the same + <code>dev_breadth</code>, picked as the one atlas
+group to carry forward because it has the fewest columns (2), not for its score. Pass = (3)
+beats both (1) and (2). Script: <code>scripts/step05_hek293ft_check.py</code>.</p>
+<p class="subtitle">Result: pending.</p>
+
 <h2>Step 4: order only the top-expressed genes <span class="date">2026-10-03</span></h2>
 <p>Step 3 showed the features mean something different among the top 10% most-expressed genes.
 So this model ranks those genes first and orders them with a logistic regression trained only
