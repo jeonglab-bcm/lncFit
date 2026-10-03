@@ -1,8 +1,9 @@
 # eda/
 
-Exploratory analysis — not part of the validated pipeline in `results/`. Each
-notebook here is a standalone question, not a claim; promote anything load-bearing
-into `results/` + a script once it's actually informing a modeling decision.
+Exploratory analysis. Findings are logged in `docs/index.html`.
+
+- `embedding_separation.py` — EDA 1: for each embedding and cell line, are essential
+  lncRNAs each other's nearest neighbours more than chance? Output: `embedding_separation.csv`.
 
 - `kmer_distributions.py` — marimo notebook: k-mer count distributions (k=3-6)
   across the lncRNA transcript corpus (issue #65's corrected sequences). Static
