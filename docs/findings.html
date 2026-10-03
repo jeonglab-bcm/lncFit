@@ -52,6 +52,111 @@ rankings, no submissions.</p>
     top 5 guides; genes with 4 guides were never called essential).</li>
 </ul>
 
+<h2>Step 4: order only the top-expressed genes <span class="date">2026-10-03</span></h2>
+<p>Step 3 showed the features mean something different among the top 10% most-expressed genes.
+So this model ranks those genes first and orders them with a logistic regression trained only
+on top-decile training rows; everything else keeps the mRNA sort. Same groups, each added alone.
+Script: <code>scripts/step04_top_decile.py</code>, raw numbers:
+<code>results/step04_top_decile*.csv</code>.</p>
+
+<div class="wrap">
+<table>
+  <thead><tr><th>Group (change vs top-decile base)</th><th class="num">HAP1</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">Mean</th><th>Every line?</th></tr></thead>
+  <tbody>
+    <tr class="best"><td>dev_timing</td><td class="num">+0.007</td><td class="num">+0.001</td>
+      <td class="num">+0.010</td><td class="num">+0.006</td><td>yes</td></tr>
+    <tr class="best"><td>dev_level</td><td class="num">+0.005</td><td class="num">+0.002</td>
+      <td class="num">+0.010</td><td class="num">+0.005</td><td>yes</td></tr>
+    <tr class="best"><td>dev_breadth</td><td class="num">+0.006</td><td class="num">+0.003</td>
+      <td class="num">+0.007</td><td class="num">+0.005</td><td>yes</td></tr>
+    <tr><td>age</td><td class="num">&minus;0.001</td><td class="num">+0.001</td>
+      <td class="num">+0.007</td><td class="num">+0.002</td><td>no</td></tr>
+    <tr><td>nb_expr</td><td class="num">+0.007</td><td class="num">&minus;0.003</td>
+      <td class="num">&minus;0.001</td><td class="num">+0.001</td><td>no</td></tr>
+    <tr><td>annot</td><td class="num">&minus;0.005</td><td class="num">&minus;0.002</td>
+      <td class="num">&minus;0.010</td><td class="num">&minus;0.005</td><td>no</td></tr>
+    <tr><td>conservation</td><td class="num">&minus;0.002</td><td class="num">&minus;0.002</td>
+      <td class="num">&minus;0.002</td><td class="num">&minus;0.002</td><td>no</td></tr>
+    <tr><td>kmer4</td><td class="num">&minus;0.040</td><td class="num">&minus;0.015</td>
+      <td class="num">&minus;0.036</td><td class="num">&minus;0.030</td><td>no</td></tr>
+    <tr><td><b>All three dev groups together</b></td><td class="num">&minus;0.001</td>
+      <td class="num">&minus;0.000</td><td class="num">+0.002</td><td class="num">+0.000</td><td>no</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">Base (top-decile LR on mRNA) scores 0.110 / 0.112 / 0.119, mean 0.114,
+level with the mRNA sort. Remaining groups are within &plusmn;0.004 and fail the every-line
+rule; full table in the CSV.</p>
+
+<h3>Findings</h3>
+<ul>
+  <li><b>Restricting the model to the top decile removes most of the damage.</b> Annotations
+    go from &minus;0.026 to &minus;0.005, conservation from &minus;0.036 to &minus;0.002.</li>
+  <li><b>Developmental-atlas expression is the one signal that helps on every line, under
+    both models</b> (step 3 and here). #118 rejected the atlas because its gain sat on one
+    fold; once gene recognition is removed and the model looks only where AUPRC is decided,
+    it holds on all three.</li>
+  <li><b>The gain is small: about +0.005,</b> roughly one extra hit near the top of a
+    5,496-gene ranking. Real by the every-line rule, not large.</li>
+  <li><b>Combining the three dev groups fails.</b> Ten columns on about 110 top-decile
+    positives per fold is more than the model can support. Picking the best single dev group
+    after seeing this table would be selecting on the test folds, so none is adopted yet.</li>
+  <li>k-mer sequence features hurt under every model tried. Sequence composition does not
+    transfer.</li>
+</ul>
+<p class="note"><b>Caveat:</b> the top-decile design was chosen after looking at step-3
+results on these same three lines. It is motivated by a diagnostic (the stratified AUROCs),
+not by score-hunting, but it needs confirming on data it was not designed on.</p>
+
+<h2>Step 3: every feature group, added to a linear model <span class="date">2026-10-03</span></h2>
+<p>Each feature group from #118 added alone to logistic regression on mRNA. Script:
+<code>scripts/step03_feature_groups.py</code>, raw numbers:
+<code>results/step03_feature_groups.csv</code>.</p>
+
+<div class="wrap">
+<table>
+  <thead><tr><th>Group (change vs LR on mRNA)</th><th class="num">HAP1</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">Mean</th></tr></thead>
+  <tbody>
+    <tr><td>dev_breadth</td><td class="num">+0.010</td><td class="num">&minus;0.001</td>
+      <td class="num">+0.007</td><td class="num">+0.005</td></tr>
+    <tr class="best"><td>dev_timing (only pass)</td><td class="num">+0.004</td><td class="num">+0.001</td>
+      <td class="num">+0.004</td><td class="num">+0.003</td></tr>
+    <tr><td>dev_level</td><td class="num">+0.002</td><td class="num">&minus;0.001</td>
+      <td class="num">+0.005</td><td class="num">+0.002</td></tr>
+    <tr><td>expr_panel</td><td class="num">+0.001</td><td class="num">&minus;0.007</td>
+      <td class="num">&minus;0.002</td><td class="num">&minus;0.003</td></tr>
+    <tr><td>nb_dist</td><td class="num">&minus;0.003</td><td class="num">&minus;0.004</td>
+      <td class="num">&minus;0.014</td><td class="num">&minus;0.007</td></tr>
+    <tr><td>tissues</td><td class="num">&minus;0.023</td><td class="num">&minus;0.007</td>
+      <td class="num">&minus;0.030</td><td class="num">&minus;0.020</td></tr>
+    <tr><td>annot</td><td class="num">&minus;0.017</td><td class="num">&minus;0.008</td>
+      <td class="num">&minus;0.052</td><td class="num">&minus;0.026</td></tr>
+    <tr><td>conservation</td><td class="num">&minus;0.036</td><td class="num">&minus;0.004</td>
+      <td class="num">&minus;0.066</td><td class="num">&minus;0.036</td></tr>
+    <tr><td>kmer4</td><td class="num">&minus;0.061</td><td class="num">&minus;0.014</td>
+      <td class="num">&minus;0.077</td><td class="num">&minus;0.051</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">Base 0.111 / 0.113 / 0.117. Also tested and failing: age, nb_class,
+nb_expr, dev_organ, prolif_all, prolif_organ, expr_total. Full table in the CSV.</p>
+
+<h3>Findings</h3>
+<ul>
+  <li><b>Almost every group makes the model worse,</b> some badly: conservation takes
+    MDA-MB-231 from 0.117 to 0.051.</li>
+  <li><b>Why: features behave differently among the top-expressed genes.</b> Univariate AUROC,
+    bottom 90% vs top 10% of mRNA expression:
+    tissue tau 0.48 &rarr; <b>0.37</b>; developmental level 0.54 &rarr; <b>0.65</b>;
+    developmental breadth 0.51 &rarr; <b>0.64</b>; neighbour distance 0.45 &rarr; 0.55 (sign
+    flips). A model fit on all genes learns the bulk pattern, then reorders the top decile
+    &mdash; where AUPRC is decided &mdash; by the wrong rule.</li>
+  <li>Not a scaling problem: no unexpressed gene enters the top 200, and rank-transforming
+    the features made things worse.</li>
+</ul>
+
 <h2>Step 2: can a fitted model beat the expression sort? <span class="date">2026-10-03</span></h2>
 <p>Same two expression columns as step 1, nothing else; only the way they are combined
 changes. Script: <code>scripts/step02_expression_models.py</code>, raw numbers:
