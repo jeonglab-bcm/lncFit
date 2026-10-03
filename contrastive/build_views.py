@@ -108,11 +108,12 @@ def main() -> None:
         **{f"label_{c}": lab[c] for c in _LINES})
 
     both = has_seq & has_cl
+    all3 = both & has_atlas
     print(f"{len(genes):,} lncRNAs")
     for name, h in [("seq", has_seq), ("cellline", has_cl), ("atlas", has_atlas),
-                    ("seq + cellline", both)]:
+                    ("seq + cellline", both), ("all three views", all3)]:
         print(f"  {name:<16} {h.sum():>6,}   of screened {h[screened].sum():>5,}/{screened.sum():,}")
-    print(f"  seq + cellline, not screened (extra pretraining data): {(both & ~screened).sum():,}")
+    print(f"  all three views, not screened (extra pretraining data): {(all3 & ~screened).sum():,}")
     print(f"-> {_OUT} ({Path(_OUT).stat().st_size / 1e6:.0f} MB)")
 
 

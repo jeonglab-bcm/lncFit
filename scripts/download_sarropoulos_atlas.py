@@ -14,10 +14,11 @@ the very identifiers we already have. All 5,496 targets match exactly -- no coor
 GENCODE/GTEx intermediary, no dropped genes.
 
 Source: Sarropoulos et al. 2019, Nature 571:510-514, Supplementary data 2 (HumanRPKMs.txt),
-retrieved through the Europe PMC supplementary-files endpoint for PMC6660317, because both the
-PMC per-file URLs and the Kaessmann Shiny app serve downloads behind session redirects.
+downloaded from the article's own supplementary link on nature.com (doi
+10.1038/s41586-019-1341-x, file MOESM5). The PMC copy sits behind a browser check and the
+Europe PMC bundle endpoint is unreliable (503s, no resume), so neither is used by default.
 
-The upstream archive is ~481 MB and HumanRPKMs.txt alone is 206 MB across 85,037 genes. Only
+The upstream zip is ~432 MB and HumanRPKMs.txt alone is 206 MB across 85,037 genes. Only
 the 5,496 target rows are kept, written gzipped (a few MB). Intermediates are removed unless
 --keep-download is passed.
 
@@ -29,9 +30,14 @@ With --all-lncrnas, every lncRNA in data/raw/human.lncRNA.hg19.gtf (31,678, not 
 5,496 screened) is kept, written to sarropoulos_all_lncrna_rpkm.tsv.gz instead. That file is
 ~tens of MB, regenerable, and git-ignored; it feeds self-supervised pretraining.
 
+To reuse a copy of Supplementary Data 2 you already have (from nature.com or PMC), pass it
+with --from-zip.
+
 Usage:
   python scripts/download_sarropoulos_atlas.py
   python scripts/download_sarropoulos_atlas.py --all-lncrnas
+  python scripts/download_sarropoulos_atlas.py --all-lncrnas \
+      --from-zip ~/Downloads/EMS83300-supplement-Supplementary_data_2.zip
 """
 import argparse
 import gzip
@@ -44,8 +50,8 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
-_SUPP_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6660317/supplementaryFiles"
-_OUTER = "EMS83300-supplement-Supplementary_data_2.zip"
+_SUPP_URL = ("https://media.springernature.com/original/springer-static/esm/"
+             "art%3A10.1038%2Fs41586-019-1341-x/MediaObjects/41586_2019_1341_MOESM5_ESM.zip")
 _INNER = "HumanRPKMs.txt"
 _MMC2 = REPO / "data/raw/mmc2.xlsx"
 _OUT = REPO / "data/external/sarropoulos_human_lncrna_rpkm.tsv.gz"
@@ -78,35 +84,35 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--keep-download", action="store_true",
-                    help="keep the 481 MB archive and the 206 MB extracted matrix")
+                    help="keep the 432 MB archive and the 206 MB extracted matrix")
     ap.add_argument("--work", default=None, help="scratch directory for downloads")
     ap.add_argument("--all-lncrnas", action="store_true",
                     help="keep every lncRNA in the GTF, not just the screened targets")
+    ap.add_argument("--from-zip", default=None,
+                    help="an existing copy of Supplementary Data 2 (zip)")
     args = ap.parse_args()
     out_path = _OUT_ALL if args.all_lncrnas else _OUT
 
     work = Path(args.work) if args.work else _OUT.parent / "_sarropoulos_tmp"
     work.mkdir(parents=True, exist_ok=True)
-    supp, rpkm = work / "epmc_supp.zip", work / _INNER
+    supp, rpkm = work / "supplementary_data_2.zip", work / _INNER
 
     if not rpkm.exists():
-        if not supp.exists():
-            print(f"downloading {_SUPP_URL} (~481 MB) ...", flush=True)
+        zpath = Path(args.from_zip).expanduser() if args.from_zip else supp
+        if not zpath.exists():
+            print(f"downloading {_SUPP_URL} (~432 MB) ...", flush=True)
             # Download to .part and rename on success, so an interrupted run is never
-            # mistaken for a complete archive. The endpoint does not support resuming (curl
-            # exit 33), so a failed transfer restarts. HTTP/1.1 because its HTTP/2 streams
-            # reset mid-transfer (curl exit 92).
+            # mistaken for a complete archive.
             part = supp.with_suffix(".zip.part")
-            part.unlink(missing_ok=True)
-            subprocess.run(["curl", "-sS", "-L", "--http1.1", "--retry", "10",
-                            "--retry-all-errors", "-o", str(part), _SUPP_URL], check=True)
+            subprocess.run(["curl", "-sS", "-L", "--retry", "5", "-o", str(part), _SUPP_URL],
+                           check=True)
             part.rename(supp)
-        print(f"extracting {_OUTER} -> {_INNER} ...", flush=True)
-        with zipfile.ZipFile(supp) as z:
-            z.extract(_OUTER, path=work)
-        with zipfile.ZipFile(work / _OUTER) as z:
-            z.extract(_INNER, path=work)
-        (work / _OUTER).unlink(missing_ok=True)
+            zpath = supp
+        print(f"extracting {_INNER} from {zpath.name} ...", flush=True)
+        with zipfile.ZipFile(zpath) as z:
+            member = next(n for n in z.namelist() if n.endswith(_INNER))
+            with z.open(member) as src, open(rpkm, "wb") as dst:
+                shutil.copyfileobj(src, dst)
 
     targets = _all_lncrnas() if args.all_lncrnas else _targets()
     want = set(targets)
