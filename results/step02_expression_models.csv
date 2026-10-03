@@ -1,0 +1,73 @@
+holdout,candidate,seed,auprc,auroc,pos_rate
+HAP1,mRNA sort (step-1 bar),0,0.1116,0.5904,0.0428
+HAP1,mean rank of total + mRNA,0,0.1146,0.5806,0.0428
+HAP1,"max of total, mRNA",0,0.1149,0.5856,0.0428
+HAP1,"LR, mRNA only",0,0.1113,0.5931,0.0428
+HAP1,"LR, both",0,0.0821,0.594,0.0428
+HAP1,"spline LR, both",0,0.1014,0.5834,0.0428
+HAP1,"XGBoost d3, both",0,0.1078,0.5886,0.0428
+HAP1,"random forest, both",0,0.1019,0.5749,0.0428
+HAP1,"XGBoost d3, mRNA only",0,0.098,0.585,0.0428
+HAP1,"XGBoost d3 monotone, mRNA only",0,0.091,0.5867,0.0428
+HAP1,"LR, mRNA only",1,0.1106,0.59,0.0428
+HAP1,"LR, both",1,0.0853,0.5923,0.0428
+HAP1,"spline LR, both",1,0.1042,0.5851,0.0428
+HAP1,"XGBoost d3, both",1,0.1122,0.5772,0.0428
+HAP1,"random forest, both",1,0.1126,0.5788,0.0428
+HAP1,"XGBoost d3, mRNA only",1,0.1101,0.585,0.0428
+HAP1,"XGBoost d3 monotone, mRNA only",1,0.1047,0.5897,0.0428
+HAP1,"LR, mRNA only",2,0.1119,0.5917,0.0428
+HAP1,"LR, both",2,0.0848,0.5941,0.0428
+HAP1,"spline LR, both",2,0.1057,0.5854,0.0428
+HAP1,"XGBoost d3, both",2,0.1067,0.5798,0.0428
+HAP1,"random forest, both",2,0.1082,0.571,0.0428
+HAP1,"XGBoost d3, mRNA only",2,0.1047,0.5888,0.0428
+HAP1,"XGBoost d3 monotone, mRNA only",2,0.1024,0.5817,0.0428
+K562,mRNA sort (step-1 bar),0,0.1135,0.5728,0.073
+K562,mean rank of total + mRNA,0,0.1034,0.5552,0.073
+K562,"max of total, mRNA",0,0.1113,0.5649,0.073
+K562,"LR, mRNA only",0,0.1142,0.5744,0.073
+K562,"LR, both",0,0.1103,0.5674,0.073
+K562,"spline LR, both",0,0.1076,0.5593,0.073
+K562,"XGBoost d3, both",0,0.102,0.5471,0.073
+K562,"random forest, both",0,0.0992,0.5394,0.073
+K562,"XGBoost d3, mRNA only",0,0.0959,0.5368,0.073
+K562,"XGBoost d3 monotone, mRNA only",0,0.0995,0.5706,0.073
+K562,"LR, mRNA only",1,0.1121,0.5729,0.073
+K562,"LR, both",1,0.1098,0.5662,0.073
+K562,"spline LR, both",1,0.1098,0.5574,0.073
+K562,"XGBoost d3, both",1,0.106,0.5425,0.073
+K562,"random forest, both",1,0.1019,0.5463,0.073
+K562,"XGBoost d3, mRNA only",1,0.104,0.5456,0.073
+K562,"XGBoost d3 monotone, mRNA only",1,0.1061,0.5812,0.073
+K562,"LR, mRNA only",2,0.1132,0.5725,0.073
+K562,"LR, both",2,0.11,0.5673,0.073
+K562,"spline LR, both",2,0.1108,0.5583,0.073
+K562,"XGBoost d3, both",2,0.1018,0.54,0.073
+K562,"random forest, both",2,0.1065,0.551,0.073
+K562,"XGBoost d3, mRNA only",2,0.1029,0.5455,0.073
+K562,"XGBoost d3 monotone, mRNA only",2,0.1029,0.574,0.073
+MDA-MB-231,mRNA sort (step-1 bar),0,0.1198,0.652,0.0286
+MDA-MB-231,mean rank of total + mRNA,0,0.1233,0.6475,0.0286
+MDA-MB-231,"max of total, mRNA",0,0.1432,0.6517,0.0286
+MDA-MB-231,"LR, mRNA only",0,0.1176,0.6496,0.0286
+MDA-MB-231,"LR, both",0,0.0715,0.6438,0.0286
+MDA-MB-231,"spline LR, both",0,0.1152,0.5965,0.0286
+MDA-MB-231,"XGBoost d3, both",0,0.085,0.5771,0.0286
+MDA-MB-231,"random forest, both",0,0.0954,0.588,0.0286
+MDA-MB-231,"XGBoost d3, mRNA only",0,0.0858,0.6485,0.0286
+MDA-MB-231,"XGBoost d3 monotone, mRNA only",0,0.0895,0.6517,0.0286
+MDA-MB-231,"LR, mRNA only",1,0.1159,0.6489,0.0286
+MDA-MB-231,"LR, both",1,0.0736,0.637,0.0286
+MDA-MB-231,"spline LR, both",1,0.1144,0.6032,0.0286
+MDA-MB-231,"XGBoost d3, both",1,0.1027,0.5948,0.0286
+MDA-MB-231,"random forest, both",1,0.1066,0.5954,0.0286
+MDA-MB-231,"XGBoost d3, mRNA only",1,0.0964,0.6569,0.0286
+MDA-MB-231,"XGBoost d3 monotone, mRNA only",1,0.0947,0.6601,0.0286
+MDA-MB-231,"LR, mRNA only",2,0.1186,0.6572,0.0286
+MDA-MB-231,"LR, both",2,0.0714,0.6483,0.0286
+MDA-MB-231,"spline LR, both",2,0.1139,0.5889,0.0286
+MDA-MB-231,"XGBoost d3, both",2,0.0865,0.6019,0.0286
+MDA-MB-231,"random forest, both",2,0.1087,0.5953,0.0286
+MDA-MB-231,"XGBoost d3, mRNA only",2,0.086,0.6368,0.0286
+MDA-MB-231,"XGBoost d3 monotone, mRNA only",2,0.0952,0.6543,0.0286

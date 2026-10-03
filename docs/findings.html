@@ -52,6 +52,53 @@ rankings, no submissions.</p>
     top 5 guides; genes with 4 guides were never called essential).</li>
 </ul>
 
+<h2>Step 2: can a fitted model beat the expression sort? <span class="date">2026-10-03</span></h2>
+<p>Same two expression columns as step 1, nothing else; only the way they are combined
+changes. Script: <code>scripts/step02_expression_models.py</code>, raw numbers:
+<code>results/step02_expression_models.csv</code>.</p>
+
+<div class="wrap">
+<table>
+  <thead><tr><th>Candidate</th><th class="num">HAP1</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">Mean</th></tr></thead>
+  <tbody>
+    <tr class="best"><td>mRNA sort (step-1 bar)</td><td class="num">0.112</td><td class="num">0.114</td>
+      <td class="num">0.120</td><td class="num">0.115</td></tr>
+    <tr><td>Max of total, mRNA (no fit)</td><td class="num">0.115</td><td class="num">0.111</td>
+      <td class="num">0.143</td><td class="num">0.123</td></tr>
+    <tr><td>Logistic regression, mRNA only</td><td class="num">0.111</td><td class="num">0.113</td>
+      <td class="num">0.117</td><td class="num">0.114</td></tr>
+    <tr><td>Spline logistic regression, both</td><td class="num">0.104</td><td class="num">0.109</td>
+      <td class="num">0.115</td><td class="num">0.109</td></tr>
+    <tr><td>Random forest, both</td><td class="num">0.108</td><td class="num">0.103</td>
+      <td class="num">0.104</td><td class="num">0.105</td></tr>
+    <tr><td>XGBoost depth 3, both</td><td class="num">0.109</td><td class="num">0.103</td>
+      <td class="num">0.091</td><td class="num">0.101</td></tr>
+    <tr><td>XGBoost depth 3 monotone, mRNA only</td><td class="num">0.099</td><td class="num">0.103</td>
+      <td class="num">0.093</td><td class="num">0.098</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">AUPRC, fitted candidates averaged over 3 gene-split seeds.</p>
+
+<h3>Findings</h3>
+<ul>
+  <li><b>Nothing fitted beats the sort.</b> The best fitted model, logistic regression on
+    mRNA alone, ties it (0.114).</li>
+  <li><b>The signal is all in the top decile.</b> Among expressed genes, the hit rate is
+    flat for the first nine mRNA deciles and jumps only in the top one (0.105&ndash;0.124,
+    3&ndash;4&times; the base rate). AUPRC is decided by ordering within that decile.</li>
+  <li><b>Tree models throw that ordering away.</b> A monotone XGBoost on mRNA alone should
+    rank exactly like the sort, yet it scores 0.098: it gives the 550 most-expressed genes
+    only 35&ndash;38 distinct scores. Ties at the top cost about 0.017.</li>
+  <li><b>&ldquo;Max of total, mRNA&rdquo; is not adopted.</b> Its mean gain (+0.008) is
+    almost all MDA-MB-231, and it is slightly worse on K562, so it fails the
+    every-line rule.</li>
+</ul>
+<p class="note"><b>Decision:</b> later steps add features through plain logistic regression
+on mRNA expression, which keeps fine ordering and matches the sort. A feature group is
+kept only if it beats that base on every cell line.</p>
+
 <h2>Step 1: baselines <span class="date">2026-10-03</span></h2>
 <p>The simplest possible scorers, so every later step has something fixed to compare against.
 No tuning. Script: <code>scripts/step01_baselines.py</code>, raw numbers:
