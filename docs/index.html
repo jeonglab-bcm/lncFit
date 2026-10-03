@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lncFit EDA log</title>
+<style>
+:root { color-scheme: light dark; --muted: #666; --rule: #ddd; --note-bg: #f6f8fa; }
+@media (prefers-color-scheme: dark) { :root { --muted: #aaa; --rule: #444; --note-bg: #161b22; } }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  max-width: 860px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; }
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.15rem; margin-top: 2.5rem; border-bottom: 1px solid var(--rule); padding-bottom: 0.3rem; }
+.subtitle, .date { color: var(--muted); }
+.date { font-size: 0.85rem; font-weight: normal; margin-left: 0.5rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.92rem; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.hi { font-weight: 700; }
+.note { background: var(--note-bg); padding: 0.75rem 1rem; border-radius: 6px; }
+.wrap { overflow-x: auto; }
+code { font-size: 0.88em; }
+</style>
+</head>
+<body>
+<h1>lncFit EDA log</h1>
+<p class="subtitle">Which representation of a lncRNA separates essential from non-essential
+lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
+
+<h2>EDA 1: do essential lncRNAs sit together in any embedding? <span class="date">2026-10-03</span></h2>
+<p>For each embedding and cell line: each lncRNA's 20 nearest neighbours (cosine, standardised,
+PCA &le; 50 dims), scored by the fraction essential in that line. <b>z</b> compares that score's
+AUPRC with 200 label shuffles on the same neighbour graph; above ~3 is real structure.
+Script: <code>eda/embedding_separation.py</code>, numbers: <code>eda/embedding_separation.csv</code>.</p>
+
+<div class="wrap">
+<table>
+  <thead><tr><th>Embedding (z)</th><th class="num">HAP1</th><th class="num">HEK293FT</th>
+    <th class="num">K562</th><th class="num">MDA-MB-231</th><th class="num">THP1</th></tr></thead>
+  <tbody>
+    <tr><td>k-mer (4)</td><td class="num">8.9</td><td class="num">&minus;1.3</td><td class="num">24.4</td><td class="num">9.1</td><td class="num">6.7</td></tr>
+    <tr><td>DNABERT-2, mean</td><td class="num">3.9</td><td class="num">&minus;0.3</td><td class="num hi">41.1</td><td class="num">11.3</td><td class="num">3.9</td></tr>
+    <tr><td>DNABERT-2, last</td><td class="num">3.4</td><td class="num">1.2</td><td class="num">27.0</td><td class="num">7.9</td><td class="num">1.3</td></tr>
+    <tr><td>Nucleotide Transformer</td><td class="num">0.6</td><td class="num">0.9</td><td class="num">26.8</td><td class="num">3.2</td><td class="num">2.5</td></tr>
+    <tr><td>Developmental atlas</td><td class="num hi">9.9</td><td class="num">&minus;0.2</td><td class="num">4.6</td><td class="num hi">22.1</td><td class="num hi">18.9</td></tr>
+    <tr><td>Cell-line expression</td><td class="num">4.7</td><td class="num">1.0</td><td class="num">3.4</td><td class="num">6.6</td><td class="num">16.9</td></tr>
+    <tr><td>GC + length only (control)</td><td class="num">0.0</td><td class="num">&minus;0.6</td><td class="num">12.7</td><td class="num">0.2</td><td class="num">&minus;0.3</td></tr>
+    <tr><td>Random (null)</td><td class="num">0.9</td><td class="num">0.0</td><td class="num">&minus;0.7</td><td class="num">&minus;0.7</td><td class="num">&minus;0.4</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Findings</h3>
+<ul>
+  <li><b>The best embedding depends on the cell line.</b> The developmental atlas is best for
+    HAP1, MDA-MB-231 and THP1; sequence embeddings are best for K562.</li>
+  <li><b>K562's sequence signal is mostly a GC bias, likely technical.</b> GC content alone
+    gives AUROC 0.75 for K562 essentiality and 0.47&ndash;0.53 in every other line. K562 hits
+    pile up on GC-rich chromosomes (chr19: 14% of lncRNAs essential in K562 vs 1&ndash;3% in
+    other lines). Not genomic proximity: excluding neighbours within 1 Mb changes nothing.</li>
+  <li><b>HEK293FT shows no structure in any embedding</b> (all z &le; 1.2). Its labels may be
+    mostly noise.</li>
+  <li><b>Open lead:</b> k-mers keep a modest signal in HAP1, MDA-MB-231 and THP1 (z 7&ndash;9) that
+    GC + length do not explain (z &asymp; 0).</li>
+  <li>Effect sizes are modest: the best per-line AUPRC is 1.5&ndash;2.6&times; the positive rate.</li>
+</ul>
+<p class="note"><b>Next:</b> remove GC from the sequence embeddings and re-test K562 and the
+other lines; then look at the developmental atlas per organ and stage.</p>
+
+<p class="subtitle">Earlier modelling work, including the THP1 leaderboard, is in git history up to #121.</p>
+</body>
+</html>
