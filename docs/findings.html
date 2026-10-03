@@ -58,7 +58,26 @@ HAP1, K562 and MDA-MB-231; predict HEK293FT with genes held out. Compare: (1) mR
 (2) top-decile LR on mRNA, (3) the same + <code>dev_breadth</code>, picked as the one atlas
 group to carry forward because it has the fewest columns (2), not for its score. Pass = (3)
 beats both (1) and (2). Script: <code>scripts/step05_hek293ft_check.py</code>.</p>
-<p class="subtitle">Result: pending.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Candidate</th><th class="num">HEK293FT AUPRC</th></tr></thead>
+  <tbody>
+    <tr><td>Random (positive rate)</td><td class="num">0.046</td></tr>
+    <tr><td>(1) mRNA sort</td><td class="num">0.072</td></tr>
+    <tr><td>(2) top-decile LR on mRNA</td><td class="num">0.072</td></tr>
+    <tr><td>(3) + dev_breadth</td><td class="num">0.072</td></tr>
+  </tbody>
+</table>
+</div>
+<h3>Findings</h3>
+<ul>
+  <li><b>The check fails.</b> The developmental-atlas gain from step 4 does not replicate on an
+    untouched line: all three candidates tie at 0.072.</li>
+  <li>Expression still carries signal (1.6&times; random) but weaker than on the training lines
+    (2.3&times;).</li>
+  <li>Conclusion so far: <b>own-line expression is the only signal that transfers.</b> The
+    step-4 atlas gain was most likely fitted to the three lines it was found on.</li>
+</ul>
 
 <h2>Step 4: order only the top-expressed genes <span class="date">2026-10-03</span></h2>
 <p>Step 3 showed the features mean something different among the top 10% most-expressed genes.
