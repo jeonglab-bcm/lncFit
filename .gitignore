@@ -252,3 +252,4 @@ eda/projections.json
 data/external/sarropoulos_all_lncrna_rpkm.tsv.gz
 data/processed/ssl_views.npz
 data/processed/ssl_clip_*.npz
+data/processed/ssl_tissue_*.npz

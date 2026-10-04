@@ -27,6 +27,40 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>SSL 3: contrastive learning against tissue specificity, with seeds and controls <span class="date">2026-10-03</span></h2>
+<p>Two pairings, 3 seeds each, 30 epochs, each next to the same encoders left untrained.
+<b>A</b>: sequence vs expression (step 2's setup). <b>B</b>: sequence vs a tissue-specificity
+profile (7 organ levels + tau), with soft positives weighted by tissue-profile similarity, since
+EDA 2 found no real clusters. Script: <code>contrastive/train_tissue.py</code>, numbers:
+<code>contrastive/tissue_eval.json</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Embedding (z, mean of 3 seeds)</th><th class="num">HAP1</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">THP1</th></tr></thead>
+  <tbody>
+    <tr><td>A trained: sequence</td><td class="num hi">10.0</td><td class="num">30.1</td><td class="num hi">12.3</td><td class="num hi">14.5</td></tr>
+    <tr><td>A untrained: sequence</td><td class="num">&minus;0.5</td><td class="num">24.2</td><td class="num">2.7</td><td class="num">3.0</td></tr>
+    <tr><td>A trained: expression</td><td class="num">11.8</td><td class="num">19.4</td><td class="num">23.3</td><td class="num">27.1</td></tr>
+    <tr><td>A untrained: expression</td><td class="num">11.4</td><td class="num">6.7</td><td class="num">20.8</td><td class="num">22.3</td></tr>
+    <tr><td>B trained: sequence</td><td class="num">2.2</td><td class="num">14.7</td><td class="num">4.6</td><td class="num">3.2</td></tr>
+    <tr><td>B trained: tissue view</td><td class="num">11.8</td><td class="num">1.9</td><td class="num">11.9</td><td class="num">11.0</td></tr>
+    <tr><td>Raw tissue profile</td><td class="num">9.0</td><td class="num">3.1</td><td class="num">12.8</td><td class="num">12.3</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">HEK293FT is within &plusmn;1.4 for every row. Seed sd is up to 5 for the trained sequence embedding; full table in the JSON.</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Sequence vs expression is real for the sequence side.</b> Trained beats untrained in HAP1,
+    MDA-MB-231 and THP1 by 7&ndash;11 z, though seeds vary a lot.</li>
+  <li><b>Correction to step 2:</b> the expression embedding's gain was mostly the network itself.
+    Untrained, it already scores nearly as high (THP1 22.3 vs 27.1).</li>
+  <li><b>Contrastive learning against tissue specificity does not help.</b> Its sequence embedding
+    barely beats untrained, and its tissue side only matches the raw 8-number profile. Sequence
+    says little about which organs a lncRNA is expressed in.</li>
+  <li>K562 is high even for untrained sequence encoders: the GC bias again.</li>
+</ul>
+
 <h2>EDA 2: clustering lncRNAs by tissue specificity <span class="date">2026-10-03</span></h2>
 <p>All 31,678 lncRNAs' developmental-atlas profiles, averaged per organ (7 organs). lncRNAs
 above 0.1 RPKM in some organ (21,586) are clustered with k-means on their pattern across organs,
