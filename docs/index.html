@@ -27,6 +27,43 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>SSL 2: first contrastive run, sequence vs expression <span class="date">2026-10-03</span></h2>
+<p>Two MLP encoders trained so each lncRNA's sequence embedding (3/4/5-mers) matches its own
+expression embedding (developmental atlas + cell-line TPM). Symmetric InfoNCE, 60 epochs, on
+31,661 lncRNAs (26,165 never screened). <b>No essentiality labels used in training.</b> Then the
+EDA-1 neighbour test on the 5,496 screened lncRNAs. One seed. Script:
+<code>contrastive/train_clip.py</code>, numbers: <code>contrastive/clip_v1_eval.json</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Embedding (z)</th><th class="num">HAP1</th><th class="num">HEK293FT</th>
+    <th class="num">K562</th><th class="num">MDA-MB-231</th><th class="num">THP1</th><th class="num">GC R&sup2;</th></tr></thead>
+  <tbody>
+    <tr><td>Learned: sequence</td><td class="num">12.3</td><td class="num">2.8</td><td class="num">24.9</td><td class="num">16.0</td><td class="num">12.2</td><td class="num">0.86</td></tr>
+    <tr><td>Learned: expression</td><td class="num">15.4</td><td class="num">&minus;0.9</td><td class="num">16.8</td><td class="num hi">26.5</td><td class="num">25.6</td><td class="num">0.49</td></tr>
+    <tr><td>Learned: both</td><td class="num hi">18.4</td><td class="num">&minus;0.7</td><td class="num">20.7</td><td class="num">19.6</td><td class="num hi">27.8</td><td class="num">0.86</td></tr>
+    <tr><td>Raw: k-mer 3&ndash;5</td><td class="num">2.9</td><td class="num">&minus;0.7</td><td class="num">28.6</td><td class="num">8.9</td><td class="num">8.2</td><td class="num">1.00</td></tr>
+    <tr><td>Raw: atlas + cell-line expression</td><td class="num">9.5</td><td class="num">0.3</td><td class="num">6.1</td><td class="num">16.8</td><td class="num">20.3</td><td class="num">0.31</td></tr>
+    <tr><td>Control: GC + length</td><td class="num">0.0</td><td class="num">&minus;0.5</td><td class="num">15.2</td><td class="num">0.0</td><td class="num">&minus;0.4</td><td class="num">1.00</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">GC R&sup2;: how much of a lncRNA's GC content a linear model reads back from the embedding (5-fold CV).</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Contrastive training helps both views in HAP1, MDA-MB-231 and THP1,</b> without seeing a
+    label. The sequence embedding gains most: HAP1 z 2.9 &rarr; 12.3, MDA-MB-231 8.9 &rarr; 16.0.
+    Pairing with expression teaches the sequence encoder which features matter.</li>
+  <li><b>The two views are only weakly linked.</b> Held-out retrieval reaches top-1% accuracy 0.09
+    (chance 0.01) and stops improving after about epoch 30 while training loss keeps falling.</li>
+  <li><b>GC leaks into the expression embedding</b> (R&sup2; 0.31 raw &rarr; 0.49 learned). Its K562
+    jump (6.1 &rarr; 16.8) may be the GC bias carried over from the sequence side, so K562 gains
+    don't count yet.</li>
+  <li>HEK293FT stays flat.</li>
+</ul>
+<p class="note"><b>Before trusting this:</b> (1) repeat over seeds; (2) compare with the same
+encoders untrained or trained without the cross-view pairing, to show the contrastive pairing is
+what helps; (3) remove GC from the sequence view.</p>
+
 <h2>EDA 1: do essential lncRNAs sit together in any embedding? <span class="date">2026-10-03</span></h2>
 <p>For each embedding and cell line: each lncRNA's 20 nearest neighbours (cosine, standardised,
 PCA &le; 50 dims), scored by the fraction essential in that line. <b>z</b> compares that score's

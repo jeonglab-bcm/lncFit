@@ -29,6 +29,11 @@ from embedding_separation import _LINES, _SEQUENCES, load_embeddings_all, load_l
 
 _OUT = "eda/projections.json"
 _SEPARATION = "eda/embedding_separation.csv"
+# Contrastive embeddings (contrastive/train_clip.py), added when present.
+_LEARNED = "data/processed/ssl_clip_v1.npz"
+_LEARNED_EVAL = "contrastive/clip_v1_eval.json"
+_LEARNED_NAMES = {"learned_seq": "learned: sequence", "learned_expr": "learned: expression",
+                  "learned_both": "learned: both"}
 
 
 def _prepare(X: np.ndarray) -> np.ndarray:
@@ -48,6 +53,17 @@ def main() -> None:
         seqs = {g: s.upper() for g, (s, _) in json.load(fh).items()}
     gc = [round((seqs[g].count("G") + seqs[g].count("C")) / max(len(seqs[g]), 1), 3)
           for g in genes]
+
+    learned_z = {}
+    if Path(_LEARNED).exists():
+        L = np.load(_LEARNED)
+        row = {g: i for i, g in enumerate(L["genes"])}
+        idx = [row[g] for g in genes]
+        zs, ze = L["seq_emb"][idx], L["expr_emb"][idx]
+        emb = {"learned_seq": zs, "learned_expr": ze, "learned_both": np.hstack([zs, ze]),
+               **emb}
+        ev = json.loads(Path(_LEARNED_EVAL).read_text())["z"]
+        learned_z = {k: ev[v] for k, v in _LEARNED_NAMES.items()}
 
     maps = {}
     for name, X in emb.items():
@@ -70,6 +86,7 @@ def main() -> None:
     }
     for r in sep.itertuples():
         out["z"][r.embedding][r.cell_line] = r.z
+    out["z"].update(learned_z)
     Path(_OUT).write_text(json.dumps(out, separators=(",", ":")))
     print(f"-> {_OUT} ({Path(_OUT).stat().st_size / 1e6:.1f} MB)")
 

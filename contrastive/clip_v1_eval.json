@@ -1,0 +1,64 @@
+{
+ "args": {
+  "epochs": 60,
+  "batch": 1024,
+  "lr": 0.001,
+  "drop": 0.1,
+  "noise": 0.1,
+  "seed": 0,
+  "out": "data/processed/ssl_clip_v1.npz",
+  "report": "contrastive/clip_v1_eval.json"
+ },
+ "z": {
+  "learned: sequence": {
+   "HAP1": 12.3,
+   "HEK293FT": 2.8,
+   "K562": 24.9,
+   "MDA-MB-231": 16.0,
+   "THP1": 12.2
+  },
+  "learned: expression": {
+   "HAP1": 15.4,
+   "HEK293FT": -0.9,
+   "K562": 16.8,
+   "MDA-MB-231": 26.5,
+   "THP1": 25.6
+  },
+  "learned: both": {
+   "HAP1": 18.4,
+   "HEK293FT": -0.7,
+   "K562": 20.7,
+   "MDA-MB-231": 19.6,
+   "THP1": 27.8
+  },
+  "raw: k-mer 3-5": {
+   "HAP1": 2.9,
+   "HEK293FT": -0.7,
+   "K562": 28.6,
+   "MDA-MB-231": 8.9,
+   "THP1": 8.2
+  },
+  "raw: atlas + cell-line expr": {
+   "HAP1": 9.5,
+   "HEK293FT": 0.3,
+   "K562": 6.1,
+   "MDA-MB-231": 16.8,
+   "THP1": 20.3
+  },
+  "control: GC + length": {
+   "HAP1": 0.0,
+   "HEK293FT": -0.5,
+   "K562": 15.2,
+   "MDA-MB-231": 0.0,
+   "THP1": -0.4
+  }
+ },
+ "gc_r2": {
+  "learned: sequence": 0.857,
+  "learned: expression": 0.495,
+  "learned: both": 0.857,
+  "raw: k-mer 3-5": 1.0,
+  "raw: atlas + cell-line expr": 0.306,
+  "control: GC + length": 1.0
+ }
+}
