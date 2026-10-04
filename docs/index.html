@@ -27,6 +27,42 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>SSL 4: tissue-aware embedding, on held-out lncRNAs <span class="date">2026-10-03</span></h2>
+<p>Sequence vs expression as before, plus a linear head on each embedding that must reconstruct
+the lncRNA's tissue profile (7 organ levels + tau), weight &lambda;. <b>Encoders trained only on
+the 26,165 unscreened lncRNAs; everything is measured on the 5,496 screened ones, which training
+never saw.</b> 3 seeds. Script: <code>contrastive/train_tissue_aware.py</code>, numbers:
+<code>contrastive/tissue_aware_eval.json</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Embedding (mean of 3 seeds)</th><th class="num">Tissue R&sup2;</th><th class="num">tau R&sup2;</th>
+    <th class="num">HAP1 z</th><th class="num">K562 z</th><th class="num">MDA-MB-231 z</th><th class="num">THP1 z</th></tr></thead>
+  <tbody>
+    <tr><td>Raw k-mers</td><td class="num">0.03</td><td class="num">0.07</td><td class="num">3.0</td><td class="num">24.3</td><td class="num">8.3</td><td class="num">8.0</td></tr>
+    <tr><td>&lambda;=0: sequence</td><td class="num">0.15</td><td class="num">0.16</td><td class="num">2.9</td><td class="num">31.4</td><td class="num">5.0</td><td class="num">2.9</td></tr>
+    <tr><td>&lambda;=1: sequence</td><td class="num">0.15</td><td class="num">0.16</td><td class="num">1.9</td><td class="num">32.2</td><td class="num">3.5</td><td class="num">2.8</td></tr>
+    <tr><td>&lambda;=0: expression</td><td class="num">0.87</td><td class="num">0.85</td><td class="num">10.4</td><td class="num">15.8</td><td class="num">17.0</td><td class="num">24.0</td></tr>
+    <tr class="hi"><td>&lambda;=1: expression (tissue-aware)</td><td class="num">0.89</td><td class="num">0.88</td><td class="num">11.8</td><td class="num">15.8</td><td class="num">18.6</td><td class="num">25.0</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">Tissue R&sup2;: held-out R&sup2; of a linear probe from the embedding to the 8-number
+tissue profile. HEK293FT z within &plusmn;1.8 throughout.</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Correction to SSL 2 and 3: their sequence-side gains were memorization.</b> Trained and
+    scored on the same lncRNAs, the sequence encoder learned each gene's own expression (tissue
+    R&sup2; 0.48 in-sample vs 0.15 held out). On held-out lncRNAs its essential signal drops to the
+    raw k-mer level (THP1 z 14.9 &rarr; 2.9).</li>
+  <li><b>Sequence predicts tissue specificity only weakly</b> (R&sup2; 0.15), and the tissue head does
+    not change that.</li>
+  <li><b>The tissue-aware embedding comes from expression.</b> With the head, the expression
+    embedding encodes the tissue profile at R&sup2; 0.89 (tau 0.88) and keeps or slightly improves
+    essential separation in every line, on lncRNAs it never saw.</li>
+</ul>
+<p class="note">Maps now show only the held-out tissue-aware embeddings; the in-sample models from
+SSL 2 and 3 were removed from them.</p>
+
 <h2>SSL 3: contrastive learning against tissue specificity, with seeds and controls <span class="date">2026-10-03</span></h2>
 <p>Two pairings, 3 seeds each, 30 epochs, each next to the same encoders left untrained.
 <b>A</b>: sequence vs expression (step 2's setup). <b>B</b>: sequence vs a tissue-specificity
