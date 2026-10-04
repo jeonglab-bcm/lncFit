@@ -34,6 +34,12 @@ _LEARNED = "data/processed/ssl_clip_v1.npz"
 _LEARNED_EVAL = "contrastive/clip_v1_eval.json"
 _LEARNED_NAMES = {"learned_seq": "learned: sequence", "learned_expr": "learned: expression",
                   "learned_both": "learned: both"}
+# Tissue-specificity contrastive model (contrastive/train_tissue.py), seed 0; z is the mean
+# over that script's seeds.
+_TISSUE = "data/processed/ssl_tissue_seed0.npz"
+_TISSUE_EVAL = "contrastive/tissue_eval.json"
+_TISSUE_NAMES = {"tissue_seq": "B: sequence", "tissue_emb": "B: other view",
+                 "tissue_both": "B: both", "tissue_raw": "raw: tissue profile"}
 
 
 def _prepare(X: np.ndarray) -> np.ndarray:
@@ -65,6 +71,19 @@ def main() -> None:
         ev = json.loads(Path(_LEARNED_EVAL).read_text())["z"]
         learned_z = {k: ev[v] for k, v in _LEARNED_NAMES.items()}
 
+    if Path(_TISSUE).exists():
+        sys.path.insert(0, str(Path(__file__).parent.parent / "contrastive"))
+        from train_tissue import tissue_view
+        T = np.load(_TISSUE)
+        row = {g: i for i, g in enumerate(T["genes"])}
+        idx = [row[g] for g in genes]
+        ts, tt = T["seq_emb"][idx], T["tissue_emb"][idx]
+        emb = {"tissue_seq": ts, "tissue_emb": tt, "tissue_both": np.hstack([ts, tt]),
+               "tissue_raw": tissue_view(np.array(genes)), **emb}
+        ev = json.loads(Path(_TISSUE_EVAL).read_text())["z"]
+        learned_z.update({k: {c: round(float(np.mean(v)), 1) for c, v in ev[n].items()}
+                          for k, n in _TISSUE_NAMES.items()})
+
     maps = {}
     for name, X in emb.items():
         Z = _prepare(X)
@@ -81,6 +100,8 @@ def main() -> None:
         "lines": _LINES,
         "labels": {c: "".join(map(str, y[c])) for c in _LINES},
         "gc": gc,
+        "tau": ([round(float(v), 3) for v in tissue_view(np.array(genes))[:, -1]]
+                if Path(_TISSUE).exists() else None),
         "maps": maps,
         "z": {r.embedding: {} for r in sep.itertuples()},
     }
