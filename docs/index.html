@@ -27,6 +27,56 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>EDA 6: what are the lncRNAs essential in three or more lines? <span class="date">2026-10-04</span></h2>
+<p>EDA 5 showed that the 40 screened lncRNAs essential in three or more of the five cell lines (the
+<em>core</em> set) are the most separable group, including by sequence embeddings that GC and length
+do not explain. We therefore described them against the 4,484 lncRNAs never essential, using only
+pre-screen annotation (mmc2 S1A, expression), and tested explanations for the sequence signal: that it
+reflects multi-copy families, or neighbouring housekeeping genes. Fisher exact tests for categories,
+Mann-Whitney U for numbers. Script: <code>eda/core_shared.py</code>, annotations:
+<code>eda/core_shared_annotations.csv</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Property</th><th class="num">Core (40)</th><th class="num">Never essential (4,484)</th><th class="num">p</th></tr></thead>
+  <tbody>
+    <tr><td>Mean log1p mRNA TPM over the five lines (median)</td><td class="num">5.05</td><td class="num">1.05</td><td class="num">4 &times; 10<sup>&minus;13</sup></td></tr>
+    <tr><td>Tissue specificity, tau (median)</td><td class="num">0.34</td><td class="num">1.00</td><td class="num">2 &times; 10<sup>&minus;12</sup></td></tr>
+    <tr><td>Lines in which expressed, TPM &ge; 1 (median)</td><td class="num">5</td><td class="num">2</td><td class="num">6 &times; 10<sup>&minus;8</sup></td></tr>
+    <tr><td>Multimember family</td><td class="num">22%</td><td class="num">5.6%</td><td class="num">4 &times; 10<sup>&minus;4</sup></td></tr>
+    <tr><td>Human-specific</td><td class="num">28%</td><td class="num">47%</td><td class="num">0.02</td></tr>
+    <tr><td>Antisense / divergent / downstream sense</td><td class="num">32% / 18% / 18%</td><td class="num">49% / 7% / 8%</td><td class="num">0.04 / 0.01 / 0.04</td></tr>
+    <tr><td>Closest protein-coding gene, DepMap Cas9 score (median)</td><td class="num">&minus;0.09</td><td class="num">&minus;0.01</td><td class="num">0.02</td></tr>
+    <tr><td>Length, exons, GC, distance to neighbour</td><td colspan="2" class="num">no difference</td><td class="num">&gt; 0.18</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">Not corrected for the number of comparisons (about 30).</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>The core lncRNAs are broadly and highly expressed.</b> Their median tau is 0.34 against 1.00, and
+    they are expressed in all five cell lines. This is the property that the expression embeddings
+    pick up (developmental atlas z 54).</li>
+  <li><b>The sequence signal is concentrated in a few lncRNAs.</b> The ten most connected core lncRNAs
+    hold 78% of all core-to-core links among k-mer neighbours, and 18 of the 40 have at least one core
+    neighbour (4.6% of neighbours are core, against 0.9% by chance). Removing the nine
+    multimember-family members cuts the k-mer z from 39.6 to 7.9, and removing three whose
+    neighbour is DepMap-essential cuts it to 22.2, whereas the atlas z stays above 35 in both cases.
+    The large z for k-mers therefore rests on a small group, and should not be read as a general
+    sequence effect.</li>
+  <li><b>Neighbouring housekeeping genes do not explain the set.</b> The closest protein-coding genes are
+    only slightly more essential in DepMap (median &minus;0.09 vs &minus;0.01), and the distance to
+    them does not differ, although individual cases (TAF12, &minus;0.78) are consistent with a shared
+    mechanism.</li>
+  <li><b>Multi-copy families are over-represented</b> (9 of 40, 22% vs 5.6%). A guide against one
+    family member could knock down several copies, but a search of the whole library against all
+    31,678 annotated transcripts (PR #130) found almost no shared targets, so any such copies
+    would have to be missing from the annotation.</li>
+</ul>
+<p>We acknowledge that 40 lncRNAs is small, that the comparisons above were not corrected for
+multiple testing, and that the family explanation is a hypothesis: we have not located the
+unannotated copies. Further work should check the nine family members for unannotated genomic
+copies of their guide targets.</p>
+
 <h2>EDA 5: cell-line-specific versus shared essential lncRNAs <span class="date">2026-10-04</span></h2>
 <p>We next asked whether the signal seen so far comes from lncRNAs that are essential in one cell
 line or from those essential in several. We therefore split the 5,496 screened lncRNAs into
