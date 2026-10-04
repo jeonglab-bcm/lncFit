@@ -1,0 +1,65 @@
+question,group,n,positives,embedding,z
+A: group vs never,shared (>= 2 lines),4658,174,kmer4,7.7
+A: group vs never,shared (>= 2 lines),4658,174,dnabert2_mean,7.4
+A: group vs never,shared (>= 2 lines),4658,174,dnabert2_last,4.9
+A: group vs never,shared (>= 2 lines),4658,174,nt_mean,8.7
+A: group vs never,shared (>= 2 lines),4658,174,dev_atlas,22.9
+A: group vs never,shared (>= 2 lines),4658,174,cellline_expr,17.8
+A: group vs never,shared (>= 2 lines),4658,174,gc_length,0.7
+A: group vs never,shared (>= 2 lines),4658,174,random,-1.9
+A: group vs never,shared (>= 3 lines),4524,40,kmer4,35.9
+A: group vs never,shared (>= 3 lines),4524,40,dnabert2_mean,10.7
+A: group vs never,shared (>= 3 lines),4524,40,dnabert2_last,30.9
+A: group vs never,shared (>= 3 lines),4524,40,nt_mean,3.7
+A: group vs never,shared (>= 3 lines),4524,40,dev_atlas,50.2
+A: group vs never,shared (>= 3 lines),4524,40,cellline_expr,18.4
+A: group vs never,shared (>= 3 lines),4524,40,gc_length,0.3
+A: group vs never,shared (>= 3 lines),4524,40,random,-0.2
+A: group vs never,only HAP1,4630,146,kmer4,0.6
+A: group vs never,only HAP1,4630,146,dnabert2_mean,2.4
+A: group vs never,only HAP1,4630,146,dnabert2_last,1.9
+A: group vs never,only HAP1,4630,146,nt_mean,-0.0
+A: group vs never,only HAP1,4630,146,dev_atlas,0.6
+A: group vs never,only HAP1,4630,146,cellline_expr,-0.2
+A: group vs never,only HAP1,4630,146,gc_length,-0.3
+A: group vs never,only HAP1,4630,146,random,3.0
+A: group vs never,only HEK293FT,4675,191,kmer4,-0.2
+A: group vs never,only HEK293FT,4675,191,dnabert2_mean,-0.5
+A: group vs never,only HEK293FT,4675,191,dnabert2_last,0.8
+A: group vs never,only HEK293FT,4675,191,nt_mean,1.2
+A: group vs never,only HEK293FT,4675,191,dev_atlas,0.7
+A: group vs never,only HEK293FT,4675,191,cellline_expr,2.3
+A: group vs never,only HEK293FT,4675,191,gc_length,-0.9
+A: group vs never,only HEK293FT,4675,191,random,0.5
+A: group vs never,only K562,4788,304,kmer4,20.7
+A: group vs never,only K562,4788,304,dnabert2_mean,34.5
+A: group vs never,only K562,4788,304,dnabert2_last,23.2
+A: group vs never,only K562,4788,304,nt_mean,29.4
+A: group vs never,only K562,4788,304,dev_atlas,4.5
+A: group vs never,only K562,4788,304,cellline_expr,0.9
+A: group vs never,only K562,4788,304,gc_length,12.6
+A: group vs never,only K562,4788,304,random,-0.3
+A: group vs never,only MDA-MB-231,4564,80,kmer4,-0.6
+A: group vs never,only MDA-MB-231,4564,80,dnabert2_mean,0.9
+A: group vs never,only MDA-MB-231,4564,80,dnabert2_last,1.8
+A: group vs never,only MDA-MB-231,4564,80,nt_mean,1.5
+A: group vs never,only MDA-MB-231,4564,80,dev_atlas,-0.4
+A: group vs never,only MDA-MB-231,4564,80,cellline_expr,-0.6
+A: group vs never,only MDA-MB-231,4564,80,gc_length,-0.3
+A: group vs never,only MDA-MB-231,4564,80,random,-0.6
+A: group vs never,only THP1,4601,117,kmer4,-0.6
+A: group vs never,only THP1,4601,117,dnabert2_mean,-0.3
+A: group vs never,only THP1,4601,117,dnabert2_last,-0.0
+A: group vs never,only THP1,4601,117,nt_mean,0.7
+A: group vs never,only THP1,4601,117,dev_atlas,4.9
+A: group vs never,only THP1,4601,117,cellline_expr,2.7
+A: group vs never,only THP1,4601,117,gc_length,1.7
+A: group vs never,only THP1,4601,117,random,-1.3
+B: specific vs shared,exactly one line vs shared,1012,838,kmer4,2.6
+B: specific vs shared,exactly one line vs shared,1012,838,dnabert2_mean,2.8
+B: specific vs shared,exactly one line vs shared,1012,838,dnabert2_last,0.9
+B: specific vs shared,exactly one line vs shared,1012,838,nt_mean,1.8
+B: specific vs shared,exactly one line vs shared,1012,838,dev_atlas,3.0
+B: specific vs shared,exactly one line vs shared,1012,838,cellline_expr,5.0
+B: specific vs shared,exactly one line vs shared,1012,838,gc_length,-0.5
+B: specific vs shared,exactly one line vs shared,1012,838,random,-0.0
