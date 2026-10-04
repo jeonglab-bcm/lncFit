@@ -27,6 +27,39 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>EDA 2: clustering lncRNAs by tissue specificity <span class="date">2026-10-03</span></h2>
+<p>All 31,678 lncRNAs' developmental-atlas profiles, averaged per organ (7 organs). lncRNAs
+above 0.1 RPKM in some organ (21,586) are clustered with k-means on their pattern across organs,
+overall level removed; k = 4 chosen by silhouette. Then the essential rate per cluster for the
+screened lncRNAs. Script: <code>eda/tissue_clusters.py</code>, numbers:
+<code>eda/tissue_clusters.csv</code>, <code>eda/tissue_cluster_enrichment.csv</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Cluster (median tau)</th><th class="num">lncRNAs</th><th class="num">Screened</th>
+    <th class="num">HAP1</th><th class="num">HEK293FT</th><th class="num">K562</th><th class="num">MDA-MB-231</th><th class="num">THP1</th></tr></thead>
+  <tbody>
+    <tr><td>Testis + ovary (0.75)</td><td class="num">6,345</td><td class="num">1,464</td><td class="num">1.36</td><td class="num">0.96</td><td class="num">1.05</td><td class="num">1.20</td><td class="num hi">1.47*</td></tr>
+    <tr><td>Cerebellum + brain (0.73)</td><td class="num">4,171</td><td class="num">1,208</td><td class="num">1.08</td><td class="num">1.00</td><td class="num">1.02</td><td class="num">1.30</td><td class="num">1.06</td></tr>
+    <tr><td>Liver (0.86)</td><td class="num">1,576</td><td class="num">584</td><td class="num">0.96</td><td class="num">1.04</td><td class="num">1.36</td><td class="num">1.50</td><td class="num">0.89</td></tr>
+    <tr><td>Testis only (0.98)</td><td class="num">9,494</td><td class="num">1,958</td><td class="num">0.79</td><td class="num">1.03</td><td class="num">0.82</td><td class="num hi">0.61*</td><td class="num hi">0.69*</td></tr>
+    <tr><td>Not expressed (&lt; 0.1 RPKM)</td><td class="num">10,092</td><td class="num">282</td><td class="num">0.33</td><td class="num">0.92</td><td class="num">1.17</td><td class="num">0.37</td><td class="num">0.68</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">Essential rate in the cluster divided by the line's overall rate. * Fisher exact p &lt; 0.001.</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Tissue patterns are a continuum, not clusters.</b> Silhouette is about 0.3 for every k
+    from 4 to 12.</li>
+  <li><b>Testis-only lncRNAs are depleted of essential ones</b> in MDA-MB-231 and THP1 (0.61&times;,
+    0.69&times;), and lower in HAP1 and K562. They are the largest group (9,494).</li>
+  <li><b>Broader lncRNAs are enriched:</b> the testis + ovary group (tau 0.75) reaches 1.47&times;
+    in THP1. With a stricter 1 RPKM cut-off, the broad, well-expressed cluster was 2.2&times;
+    enriched in MDA-MB-231 and THP1 (p &lt; 0.001).</li>
+  <li>Same direction as before: essential lncRNAs are broadly and more highly expressed. HEK293FT
+    again shows nothing.</li>
+</ul>
+
 <h2>SSL 2: first contrastive run, sequence vs expression <span class="date">2026-10-03</span></h2>
 <p>Two MLP encoders trained so each lncRNA's sequence embedding (3/4/5-mers) matches its own
 expression embedding (developmental atlas + cell-line TPM). Symmetric InfoNCE, 60 epochs, on
