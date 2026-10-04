@@ -254,3 +254,4 @@ data/processed/ssl_views.npz
 data/processed/ssl_clip_*.npz
 data/processed/ssl_tissue_*.npz
 data/processed/ssl_tissue_aware_*.npz
+data/processed/ssl_finetuned_*.npz
