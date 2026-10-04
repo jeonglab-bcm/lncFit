@@ -29,17 +29,14 @@ from embedding_separation import _LINES, _SEQUENCES, load_embeddings_all, load_l
 
 _OUT = "eda/projections.json"
 _SEPARATION = "eda/embedding_separation.csv"
-# Contrastive embeddings (contrastive/train_clip.py), added when present.
-_LEARNED = "data/processed/ssl_clip_v1.npz"
-_LEARNED_EVAL = "contrastive/clip_v1_eval.json"
-_LEARNED_NAMES = {"learned_seq": "learned: sequence", "learned_expr": "learned: expression",
-                  "learned_both": "learned: both"}
-# Tissue-specificity contrastive model (contrastive/train_tissue.py), seed 0; z is the mean
-# over that script's seeds.
-_TISSUE = "data/processed/ssl_tissue_seed0.npz"
-_TISSUE_EVAL = "contrastive/tissue_eval.json"
-_TISSUE_NAMES = {"tissue_seq": "B: sequence", "tissue_emb": "B: other view",
-                 "tissue_both": "B: both", "tissue_raw": "raw: tissue profile"}
+# Tissue-aware contrastive embeddings (contrastive/train_tissue_aware.py, lambda=1, seed 0),
+# trained only on unscreened lncRNAs, so every screened lncRNA mapped here is held out. The
+# earlier in-sample models (train_clip.py, train_tissue.py) are not shown: their sequence
+# embeddings had memorised each gene's own expression.
+_AWARE = "data/processed/ssl_tissue_aware_seed0.npz"
+_AWARE_EVAL = "contrastive/tissue_aware_eval.json"
+_AWARE_NAMES = {"aware_seq": "lambda=1: sequence", "aware_expr": "lambda=1: expression",
+                "aware_both": "lambda=1: both"}
 
 
 def _prepare(X: np.ndarray) -> np.ndarray:
@@ -61,28 +58,19 @@ def main() -> None:
           for g in genes]
 
     learned_z = {}
-    if Path(_LEARNED).exists():
-        L = np.load(_LEARNED)
+    sys.path.insert(0, str(Path(__file__).parent.parent / "contrastive"))
+    from train_tissue import tissue_view
+    if Path(_AWARE).exists():
+        L = np.load(_AWARE)
         row = {g: i for i, g in enumerate(L["genes"])}
         idx = [row[g] for g in genes]
         zs, ze = L["seq_emb"][idx], L["expr_emb"][idx]
-        emb = {"learned_seq": zs, "learned_expr": ze, "learned_both": np.hstack([zs, ze]),
-               **emb}
-        ev = json.loads(Path(_LEARNED_EVAL).read_text())["z"]
-        learned_z = {k: ev[v] for k, v in _LEARNED_NAMES.items()}
-
-    if Path(_TISSUE).exists():
-        sys.path.insert(0, str(Path(__file__).parent.parent / "contrastive"))
-        from train_tissue import tissue_view
-        T = np.load(_TISSUE)
-        row = {g: i for i, g in enumerate(T["genes"])}
-        idx = [row[g] for g in genes]
-        ts, tt = T["seq_emb"][idx], T["tissue_emb"][idx]
-        emb = {"tissue_seq": ts, "tissue_emb": tt, "tissue_both": np.hstack([ts, tt]),
+        emb = {"aware_seq": zs, "aware_expr": ze, "aware_both": np.hstack([zs, ze]),
                "tissue_raw": tissue_view(np.array(genes)), **emb}
-        ev = json.loads(Path(_TISSUE_EVAL).read_text())["z"]
-        learned_z.update({k: {c: round(float(np.mean(v)), 1) for c, v in ev[n].items()}
-                          for k, n in _TISSUE_NAMES.items()})
+        ev = json.loads(Path(_AWARE_EVAL).read_text())["results"]
+        learned_z = {k: {c: round(float(np.mean(ev[n][c])), 1) for c in _LINES}
+                     for k, n in _AWARE_NAMES.items()}
+        learned_z["tissue_raw"] = None  # filled below from its own score
 
     maps = {}
     for name, X in emb.items():
@@ -100,13 +88,14 @@ def main() -> None:
         "lines": _LINES,
         "labels": {c: "".join(map(str, y[c])) for c in _LINES},
         "gc": gc,
-        "tau": ([round(float(v), 3) for v in tissue_view(np.array(genes))[:, -1]]
-                if Path(_TISSUE).exists() else None),
+        "tau": [round(float(v), 3) for v in tissue_view(np.array(genes))[:, -1]],
         "maps": maps,
         "z": {r.embedding: {} for r in sep.itertuples()},
     }
     for r in sep.itertuples():
         out["z"][r.embedding][r.cell_line] = r.z
+    tz = json.loads(Path("contrastive/tissue_eval.json").read_text())["z"]["raw: tissue profile"]
+    learned_z["tissue_raw"] = {c: round(float(np.mean(v)), 1) for c, v in tz.items()}
     out["z"].update(learned_z)
     Path(_OUT).write_text(json.dumps(out, separators=(",", ":")))
     print(f"-> {_OUT} ({Path(_OUT).stat().st_size / 1e6:.1f} MB)")
