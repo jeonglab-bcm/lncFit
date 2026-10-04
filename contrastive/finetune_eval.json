@@ -1,0 +1,45 @@
+{
+ "args": {
+  "folds": 5,
+  "epochs": 40,
+  "report": "contrastive/finetune_eval.json",
+  "save": "data/processed/ssl_finetuned_fold0.npz"
+ },
+ "results": {
+  "AUPRC: positive rate": {
+   "HAP1": 0.0428,
+   "HEK293FT": 0.0462,
+   "K562": 0.073,
+   "MDA-MB-231": 0.0286,
+   "THP1": 0.0368
+  },
+  "AUPRC: LR on frozen embedding": {
+   "HAP1": 0.076,
+   "HEK293FT": 0.046,
+   "K562": 0.1482,
+   "MDA-MB-231": 0.0763,
+   "THP1": 0.1051
+  },
+  "AUPRC: fine-tuned head": {
+   "HAP1": 0.0842,
+   "HEK293FT": 0.0499,
+   "K562": 0.1197,
+   "MDA-MB-231": 0.0752,
+   "THP1": 0.1195
+  },
+  "z: frozen embedding": {
+   "HAP1": 1.3427,
+   "HEK293FT": -0.429,
+   "K562": 4.924,
+   "MDA-MB-231": 6.2212,
+   "THP1": 4.106
+  },
+  "z: fine-tuned embedding": {
+   "HAP1": 3.214,
+   "HEK293FT": -0.2896,
+   "K562": 5.2092,
+   "MDA-MB-231": 5.6042,
+   "THP1": 4.861
+  }
+ }
+}

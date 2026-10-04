@@ -35,6 +35,10 @@ _SEPARATION = "eda/embedding_separation.csv"
 # embeddings had memorised each gene's own expression.
 _AWARE = "data/processed/ssl_tissue_aware_seed0.npz"
 _AWARE_EVAL = "contrastive/tissue_aware_eval.json"
+# Fine-tuned head (contrastive/finetune.py): its fold-0 held-out genes only, one map per cell
+# line since the head is line-conditioned; the frozen embedding on the same genes alongside.
+_FT = "data/processed/ssl_finetuned_fold0.npz"
+_FT_EVAL = "contrastive/finetune_eval.json"
 _AWARE_NAMES = {"aware_seq": "lambda=1: sequence", "aware_expr": "lambda=1: expression",
                 "aware_both": "lambda=1: both"}
 
@@ -73,6 +77,33 @@ def main() -> None:
         learned_z["tissue_raw"] = None  # filled below from its own score
 
     maps = {}
+    if Path(_FT).exists() and Path(_AWARE).exists():
+        ft = np.load(_FT)
+        where = {g: i for i, g in enumerate(genes)}
+        sub = [where[g] for g in ft["genes"]]
+
+        def place(P):  # held-out genes get coordinates, everyone else null
+            full: list = [None] * len(genes)
+            for j, xy in zip(sub, _scale(P)):
+                full[j] = xy
+            return full
+
+        def both(X):
+            Z = _prepare(X)
+            return (TSNE(perplexity=30, init="pca", random_state=0).fit_transform(Z),
+                    umap.UMAP(n_neighbors=15, metric="cosine", random_state=0).fit_transform(Z))
+
+        t, u = both(emb["aware_expr"][sub])
+        maps["fold0_frozen"] = {"tsne": place(t), "umap": place(u)}
+        maps["fold0_finetuned"] = {"tsne": {}, "umap": {}}
+        for c in _LINES:
+            t, u = both(ft[f"emb_{c}"])
+            maps["fold0_finetuned"]["tsne"][c], maps["fold0_finetuned"]["umap"][c] = place(t), place(u)
+        r = json.loads(Path(_FT_EVAL).read_text())["results"]
+        learned_z["fold0_frozen"] = {c: round(v, 1) for c, v in r["z: frozen embedding"].items()}
+        learned_z["fold0_finetuned"] = {c: round(v, 1) for c, v in r["z: fine-tuned embedding"].items()}
+        print("  fine-tuned maps done", flush=True)
+
     for name, X in emb.items():
         Z = _prepare(X)
         maps[name] = {

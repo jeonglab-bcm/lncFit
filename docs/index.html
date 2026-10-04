@@ -27,6 +27,31 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>SSL 5: fine-tuning on essentiality, held-out genes <span class="date">2026-10-03</span></h2>
+<p>A small cell-line-conditioned head on the frozen tissue-aware embedding (SSL 4), trained with a
+supervised contrastive loss (same line + same label = positive) plus BCE. 5 folds over the
+screened lncRNAs; each head is scored only on the 20% of genes it never saw, in any line. One run.
+Script: <code>contrastive/finetune.py</code>, numbers: <code>contrastive/finetune_eval.json</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Held-out AUPRC</th><th class="num">HAP1</th><th class="num">HEK293FT</th><th class="num">K562</th>
+    <th class="num">MDA-MB-231</th><th class="num">THP1</th></tr></thead>
+  <tbody>
+    <tr><td>Positive rate</td><td class="num">0.043</td><td class="num">0.046</td><td class="num">0.073</td><td class="num">0.029</td><td class="num">0.037</td></tr>
+    <tr><td>Logistic regression on frozen embedding</td><td class="num">0.076</td><td class="num">0.046</td><td class="num hi">0.148</td><td class="num">0.076</td><td class="num">0.105</td></tr>
+    <tr><td>Fine-tuned head</td><td class="num hi">0.084</td><td class="num hi">0.050</td><td class="num">0.120</td><td class="num">0.075</td><td class="num hi">0.120</td></tr>
+  </tbody>
+</table>
+</div>
+<h3>Findings</h3>
+<ul>
+  <li><b>Fine-tuning adds little on unseen genes.</b> Small gains in HAP1 and THP1, a tie in
+    MDA-MB-231, a loss in K562. Neighbour z on held-out genes moves by about 1&ndash;2.</li>
+  <li>Both stay at 2&ndash;3&times; the positive rate. The label signal available from expression is
+    weak, and a supervised head cannot invent separation that does not transfer to new genes.</li>
+  <li>The map shows fold 0's 1,100 held-out genes, frozen vs fine-tuned, one fine-tuned map per line.</li>
+</ul>
+
 <h2>SSL 4: tissue-aware embedding, on held-out lncRNAs <span class="date">2026-10-03</span></h2>
 <p>Sequence vs expression as before, plus a linear head on each embedding that must reconstruct
 the lncRNA's tissue profile (7 organ levels + tau), weight &lambda;. <b>Encoders trained only on
