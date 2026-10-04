@@ -27,6 +27,55 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>EDA 5: cell-line-specific versus shared essential lncRNAs <span class="date">2026-10-04</span></h2>
+<p>We next asked whether the signal seen so far comes from lncRNAs that are essential in one cell
+line or from those essential in several. We therefore split the 5,496 screened lncRNAs into
+<em>never essential</em> (4,484), <em>essential in one line only</em> (HAP1 146, HEK293FT 191,
+K562 304, MDA-MB-231 80, THP1 117) and <em>shared</em> (essential in two or more lines, 174; three
+or more, 40). For each group we tested whether an embedding places its members close together
+among {group} and {never essential} (same 20-neighbour test as EDA 1, z against 100 shuffles).
+Script: <code>eda/line_specific_separation.py</code>, numbers:
+<code>eda/line_specific_separation.csv</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Group (members)</th><th class="num">Dev. atlas</th><th class="num">Cell-line expr.</th>
+    <th class="num">k-mer</th><th class="num">DNABERT-2</th><th class="num">GC + length</th></tr></thead>
+  <tbody>
+    <tr><td>Shared, 3+ lines (40)</td><td class="num hi">50.2</td><td class="num">18.4</td><td class="num">35.9</td><td class="num">10.7</td><td class="num">0.3</td></tr>
+    <tr><td>Shared, 2+ lines (174)</td><td class="num hi">22.9</td><td class="num">17.8</td><td class="num">7.7</td><td class="num">7.4</td><td class="num">0.7</td></tr>
+    <tr><td>Only K562 (304)</td><td class="num">4.5</td><td class="num">0.9</td><td class="num hi">20.7</td><td class="num hi">34.5</td><td class="num">12.6</td></tr>
+    <tr><td>Only THP1 (117)</td><td class="num">4.9</td><td class="num">2.7</td><td class="num">&minus;0.6</td><td class="num">&minus;0.3</td><td class="num">1.7</td></tr>
+    <tr><td>Only HAP1 (146)</td><td class="num">0.6</td><td class="num">&minus;0.2</td><td class="num">0.6</td><td class="num">2.4</td><td class="num">&minus;0.3</td></tr>
+    <tr><td>Only MDA-MB-231 (80)</td><td class="num">&minus;0.4</td><td class="num">&minus;0.6</td><td class="num">&minus;0.6</td><td class="num">0.9</td><td class="num">&minus;0.3</td></tr>
+    <tr><td>Only HEK293FT (191)</td><td class="num">0.7</td><td class="num">2.3</td><td class="num">&minus;0.2</td><td class="num">&minus;0.5</td><td class="num">&minus;0.9</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">z against shuffled labels. The random control reached 3.0 at most. DNABERT-2 is the
+mean-pooled embedding. z above about 20 varies by up to 30% between shuffle draws, so only the
+ordering of those values should be read.</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Most of the signal found so far belongs to lncRNAs essential in several cell lines.</b>
+    The 40 lncRNAs essential in three or more lines are by far the most separable group
+    (developmental atlas z 50.2, k-mer 35.9), and GC + length does not explain it (0.3).</li>
+  <li><b>Cell-line-specific essential lncRNAs mostly do not cluster in any embedding.</b> HAP1,
+    HEK293FT and MDA-MB-231 show nothing (z at most 2.4), and THP1 shows only a weak expression
+    signal (4.9).</li>
+  <li><b>K562 is the exception, mainly through sequence</b> (z 20.7&ndash;34.5), but GC + length already
+    reaches 12.6, which fits the partial GC explanation from EDA 4.</li>
+  <li><b>Overlap between lines is only modestly above chance.</b> If the five lines were independent
+    we would expect 97 / 4 / 0 / 0 lncRNAs essential in exactly 2 / 3 / 4 / 5 lines; we observed
+    134 / 24 / 9 / 7. About three quarters of the two-line overlaps may therefore be chance, whereas
+    the three-or-more-line group is a real shared set.</li>
+  <li>Among lncRNAs essential somewhere, single-line and shared ones are only weakly separable
+    (cell-line expression z 5.0, atlas 3.0, sequence 0.9&ndash;2.8).</li>
+</ul>
+<p>We acknowledge that single-line labels combine genuine line-specific biology with chance hits
+at the p &lt; 0.05 threshold, which cannot be separated with these data. The sizes of the
+line-specific groups (80&ndash;304) also limit what can be detected. Further work should look at which
+lncRNAs form the three-or-more-line group, and why they separate by sequence.</p>
+
 <h2>EDA 4: separation inside tissue-specificity clusters <span class="date">2026-10-04</span></h2>
 <p>We hypothesized that essential lncRNAs group together only among lncRNAs that share a tissue
 pattern, so that pooling every tissue group (EDA 1) would hide the signal. We therefore found each
