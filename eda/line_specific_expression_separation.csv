@@ -1,0 +1,41 @@
+group,members,embedding,z
+T  essential in own line only,70,kmer4,0.1
+T  essential in own line only,70,dnabert2_mean,-0.1
+T  essential in own line only,70,dnabert2_last,-0.6
+T  essential in own line only,70,nt_mean,1.1
+T  essential in own line only,70,dev_atlas,-0.1
+T  essential in own line only,70,cellline_expr,2.9
+T  essential in own line only,70,gc_length,-1.4
+T  essential in own line only,70,random,1.9
+P  essential in 2+ lines,174,kmer4,6.1
+P  essential in 2+ lines,174,dnabert2_mean,13.4
+P  essential in 2+ lines,174,dnabert2_last,8.4
+P  essential in 2+ lines,174,nt_mean,5.6
+P  essential in 2+ lines,174,dev_atlas,25.8
+P  essential in 2+ lines,174,cellline_expr,68.2
+P  essential in 2+ lines,174,gc_length,1.5
+P  essential in 2+ lines,174,random,-1.9
+E  essential only elsewhere,216,kmer4,5.1
+E  essential only elsewhere,216,dnabert2_mean,7.9
+E  essential only elsewhere,216,dnabert2_last,4.5
+E  essential only elsewhere,216,nt_mean,4.1
+E  essential only elsewhere,216,dev_atlas,0.6
+E  essential only elsewhere,216,cellline_expr,-0.1
+E  essential only elsewhere,216,gc_length,2.3
+E  essential only elsewhere,216,random,-1.4
+T versus P,70,kmer4,1.1
+T versus P,70,dnabert2_mean,-0.3
+T versus P,70,dnabert2_last,-0.5
+T versus P,70,nt_mean,-0.3
+T versus P,70,dev_atlas,1.6
+T versus P,70,cellline_expr,4.4
+T versus P,70,gc_length,-0.7
+T versus P,70,random,-0.4
+P versus B,174,kmer4,4.5
+P versus B,174,dnabert2_mean,4.7
+P versus B,174,dnabert2_last,3.2
+P versus B,174,nt_mean,2.9
+P versus B,174,dev_atlas,12.5
+P versus B,174,cellline_expr,22.9
+P versus B,174,gc_length,-1.2
+P versus B,174,random,-1.6

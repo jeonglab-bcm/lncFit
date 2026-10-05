@@ -27,6 +27,48 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>EDA 7: line-specific lncRNAs plus essential ones from anywhere <span class="date">2026-10-04</span></h2>
+<p>We hypothesized that if sequence distinguishes lncRNAs that are specific to one cell line, three groups
+should appear: lncRNAs never essential, lncRNAs essential in the line they are specific to, and lncRNAs
+essential regardless of line (a control). We therefore collected the lncRNAs expressed specifically in
+one of the five cell lines (mRNA-seq TPM &ge; 1 in at least one line and tau &ge; 0.8 across the five
+lines; 1,697 of 5,496), added the lncRNAs that are essential in at least two lines, and tested each
+group against the never-essential ones with the same 20-neighbour test as EDA 1 (z against 100 label
+shuffles; the five lines are pooled because each line alone has only 10&ndash;20 members of the second
+group). Because the control group is broadly expressed while the never-essential group is line-specific
+by construction, we also compared it with never-essential lncRNAs that are broadly expressed.
+Script: <code>eda/line_specific_expression.py</code>, numbers:
+<code>eda/line_specific_expression_separation.csv</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Comparison (members)</th><th class="num">k-mer</th><th class="num">DNABERT-2</th><th class="num">Nucleotide Transformer</th>
+    <th class="num">Dev. atlas</th><th class="num">Cell-line expr.</th><th class="num">GC + length</th></tr></thead>
+  <tbody>
+    <tr><td>Essential in own line only (70) vs never essential (1,374)</td><td class="num">0.1</td><td class="num">&minus;0.1</td><td class="num">1.1</td><td class="num">&minus;0.1</td><td class="num">2.9</td><td class="num">&minus;1.4</td></tr>
+    <tr><td>Essential in 2+ lines (174) vs never essential, line-specific</td><td class="num">6.1</td><td class="num hi">13.4</td><td class="num">5.6</td><td class="num">25.8</td><td class="num">68.2</td><td class="num">1.5</td></tr>
+    <tr><td>Essential in 2+ lines (174) vs never essential, broadly expressed (control)</td><td class="num">4.5</td><td class="num">4.7</td><td class="num">2.9</td><td class="num hi">12.5</td><td class="num hi">22.9</td><td class="num">&minus;1.2</td></tr>
+    <tr><td>Essential in own line only vs essential in 2+ lines</td><td class="num">1.1</td><td class="num">&minus;0.3</td><td class="num">&minus;0.3</td><td class="num">1.6</td><td class="num">4.4</td><td class="num">&minus;0.7</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">z against shuffled labels; the random control reached &minus;1.9 to 1.9. The 1,374 never-essential
+line-specific lncRNAs and 216 lncRNAs essential only in a line other than their own were also tested (see CSV).</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>The three groups do not appear.</b> lncRNAs essential in the line they are specific to (70) cannot be
+    told apart from never-essential line-specific lncRNAs by any sequence embedding (z between &minus;0.6 and
+    1.1), and only weakly by cell-line expression (2.9).</li>
+  <li><b>Essential in two or more lines is the one group that separates.</b> Compared with broadly
+    expressed never-essential lncRNAs, expression separates it strongly (cell-line expression z 22.9,
+    atlas 12.5), and sequence only modestly (z 2.9&ndash;4.7, not explained by GC and length).</li>
+  <li><b>The two kinds of essential lncRNA are not separable from each other</b> by sequence (z at most 1.1),
+    so the line-specific essential lncRNAs show no sequence signature of their own.</li>
+</ul>
+<p>We acknowledge that the line-specific essential group is small (70 lncRNAs, 10&ndash;20 per line), that
+"essential in one line" includes chance hits at the p &lt; 0.05 threshold, and that the specificity
+threshold (tau 0.8) was fixed in advance and not tuned. Further work should relate the sequence signal
+of the two-or-more-line group to the expression difference that accompanies it.</p>
+
 <h2>EDA 4: separation inside tissue-specificity clusters <span class="date">2026-10-04</span></h2>
 <p>We hypothesized that essential lncRNAs group together only among lncRNAs that share a tissue
 pattern, so that pooling every tissue group (EDA 1) would hide the signal. We therefore found each
