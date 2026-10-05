@@ -27,6 +27,39 @@ code { font-size: 0.88em; }
 <p class="subtitle">Which representation of a lncRNA separates essential from non-essential
 lncRNAs, given the cell line? Exploration first, models later. Newest step first.</p>
 
+<h2>EDA 8: one embedding per cell line <span class="date">2026-10-04</span></h2>
+<p>We next built the embedding separately for each cell line, using only the lncRNAs that belong to it: those
+expressed specifically in that line (EDA 7 definition), split into never essential and essential in that
+line only, together with the lncRNAs essential in two or more lines (the control). Each map is computed
+inside its own population (standardisation, PCA, then UMAP and t-SNE), for four sequence embeddings and two
+expression embeddings, and is accompanied by the 20-neighbour test inside the population. Script:
+<code>eda/line_maps.py</code>, data: <code>eda/line_maps.json</code>.</p>
+<div class="wrap">
+<table>
+  <thead><tr><th>Cell line (never essential / own line only / 2+ lines)</th><th class="num">DNABERT-2, own line only</th>
+    <th class="num">k-mer, own line only</th><th class="num">DNABERT-2, 2+ lines</th><th class="num">Cell-line expr., 2+ lines</th></tr></thead>
+  <tbody>
+    <tr><td>HAP1 (253 / 11 / 174)</td><td class="num">0.1</td><td class="num">2.7</td><td class="num">5.4</td><td class="num">20.4</td></tr>
+    <tr><td>HEK293FT (294 / 12 / 174)</td><td class="num">&minus;0.7</td><td class="num">&minus;0.5</td><td class="num">5.9</td><td class="num">27.2</td></tr>
+    <tr><td>K562 (310 / 20 / 174)</td><td class="num hi">7.7</td><td class="num hi">6.6</td><td class="num hi">11.3</td><td class="num">29.5</td></tr>
+    <tr><td>MDA-MB-231 (276 / 10 / 174)</td><td class="num">&minus;0.7</td><td class="num">&minus;0.2</td><td class="num">9.6</td><td class="num">25.0</td></tr>
+    <tr><td>THP1 (241 / 17 / 174)</td><td class="num">0.2</td><td class="num">4.6</td><td class="num">6.1</td><td class="num">25.5</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="subtitle">z against shuffled labels, inside each line's population (full table in the JSON).</p>
+<h3>Findings</h3>
+<ul>
+  <li><b>Only K562 shows lncRNAs essential in their own line grouping by sequence</b> (z 6.6&ndash;7.7). HAP1,
+    HEK293FT, MDA-MB-231 and THP1 do not (z between &minus;0.7 and 0.2 for DNABERT-2). We attribute K562 in part to the
+    GC effect described in EDA 4, which we did not test again here.</li>
+  <li>lncRNAs essential in two or more lines group more than chance in every line (z 5.4&ndash;11.3 with DNABERT-2), which
+    reflects that they are broadly expressed while the comparison lncRNAs are line-specific by construction (EDA 7); the cell-line expression embedding separates them most strongly (z 20.4&ndash;29.5).</li>
+</ul>
+<p>We acknowledge that the own-line group has only 10&ndash;20 members per line, so its z fluctuates, and that map
+shapes are for viewing and are not evidence of separation. The interactive maps are published as an
+artifact.</p>
+
 <h2>EDA 7: line-specific lncRNAs plus essential ones from anywhere <span class="date">2026-10-04</span></h2>
 <p>We hypothesized that if sequence distinguishes lncRNAs that are specific to one cell line, three groups
 should appear: lncRNAs never essential, lncRNAs essential in the line they are specific to, and lncRNAs
